@@ -30,11 +30,6 @@ final class BookFileStore: @unchecked Sendable {
         self.fileManager = fileManager
     }
 
-    init(booksRoot: URL, fileManager: FileManager = .default) {
-        self.booksRoot = booksRoot
-        self.fileManager = fileManager
-    }
-
     func importOriginal(from sourceURL: URL, bookID: UUID) throws -> URL {
         let extensionName = try normalizedExtension(from: sourceURL)
         let didAccessSecurityScope = sourceURL.startAccessingSecurityScopedResource()
@@ -64,6 +59,7 @@ final class BookFileStore: @unchecked Sendable {
             } else {
                 try fileManager.moveItem(at: temporary, to: destination)
             }
+            try removeOtherOriginals(in: directory, keeping: destination)
             return destination
         } catch {
             try? fileManager.removeItem(at: temporary)
@@ -92,11 +88,34 @@ final class BookFileStore: @unchecked Sendable {
     private func normalizedExtension(from url: URL) throws -> String {
         let value = url.pathExtension.lowercased()
         guard !value.isEmpty else { throw BookFileError.missingExtension }
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_")).inverted
-        guard value.rangeOfCharacter(from: allowed) == nil else {
+        guard isSafeExtension(value) else {
             throw BookFileError.invalidExtension
         }
         return value
+    }
+
+    private func removeOtherOriginals(in directory: URL, keeping destination: URL) throws {
+        let contents = try fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        )
+        for candidate in contents where candidate != destination && isOriginalFile(candidate) {
+            try fileManager.removeItem(at: candidate)
+        }
+    }
+
+    private func isOriginalFile(_ url: URL) -> Bool {
+        let extensionName = url.pathExtension
+        return !extensionName.isEmpty
+            && url.deletingPathExtension().lastPathComponent == "original"
+            && isSafeExtension(extensionName)
+    }
+
+    private func isSafeExtension(_ value: String) -> Bool {
+        let disallowed = CharacterSet.alphanumerics
+            .union(CharacterSet(charactersIn: "-_"))
+            .inverted
+        return value.rangeOfCharacter(from: disallowed) == nil
     }
 
     private func fileSize(at url: URL) throws -> Int64 {

@@ -50,6 +50,39 @@ final class BookFileStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination), Data("second".utf8))
     }
 
+    func testImportWithNewExtensionRemovesOnlyThePreviousOriginalAfterCopySucceeds() throws {
+        let store = BookFileStore(applicationSupportRoot: temporaryRoot)
+        let bookID = UUID()
+        let textSource = temporaryRoot.appendingPathComponent("source.txt")
+        let epubSource = temporaryRoot.appendingPathComponent("source.epub")
+        try Data("text".utf8).write(to: textSource)
+        try Data("epub".utf8).write(to: epubSource)
+        let textDestination = try store.importOriginal(from: textSource, bookID: bookID)
+        let directory = textDestination.deletingLastPathComponent()
+        let canonical = directory.appendingPathComponent("publication.epub")
+        let cover = directory.appendingPathComponent("cover")
+        let temporary = directory.appendingPathComponent(".import-existing")
+        try Data("canonical".utf8).write(to: canonical)
+        try Data("cover".utf8).write(to: cover)
+        try Data("temporary".utf8).write(to: temporary)
+
+        let epubDestination = try store.importOriginal(from: epubSource, bookID: bookID)
+
+        let originalFiles = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.lastPathComponent.hasPrefix("original.") }
+        XCTAssertEqual(epubDestination.lastPathComponent, "original.epub")
+        XCTAssertEqual(try Data(contentsOf: epubDestination), Data("epub".utf8))
+        XCTAssertEqual(originalFiles.map(\.lastPathComponent), ["original.epub"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: textDestination.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: textSource.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: epubSource.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: canonical.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cover.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: temporary.path))
+    }
+
     func testMissingAndUnsafeExtensionsAreRejected() throws {
         let store = BookFileStore(applicationSupportRoot: temporaryRoot)
         let missing = temporaryRoot.appendingPathComponent("book")

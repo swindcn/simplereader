@@ -140,6 +140,40 @@ final class CoreDataBookRepositoryTests: XCTestCase {
         }
     }
 
+    func testMissingRequiredFieldThrowsClearMappingErrorThroughRepositoryAPI() async throws {
+        let productionModel = PersistenceController.makeModel()
+        let model = try XCTUnwrap(productionModel.copy() as? NSManagedObjectModel)
+        let titleAttribute = try XCTUnwrap(
+            model.entitiesByName["BookEntity"]?.attributesByName["title"]
+        )
+        titleAttribute.isOptional = true
+        XCTAssertFalse(
+            try XCTUnwrap(
+                productionModel.entitiesByName["BookEntity"]?.attributesByName["title"]
+            ).isOptional
+        )
+        let container = try await makeInMemoryContainer(model: model)
+        let repository = CoreDataBookRepository(container: container)
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "BookEntity", into: context)
+            object.setValue(UUID(), forKey: "id")
+            object.setValue("Author", forKey: "author")
+            object.setValue("epub", forKey: "format")
+            object.setValue(URL(fileURLWithPath: "/tmp/original.epub"), forKey: "originalFileURL")
+            object.setValue(URL(fileURLWithPath: "/tmp/publication.epub"), forKey: "canonicalFileURL")
+            object.setValue(Date(), forKey: "createdAt")
+            try context.save()
+        }
+
+        do {
+            _ = try await repository.allBooks()
+            XCTFail("Expected a missing-required-field mapping error")
+        } catch let error as CoreDataBookRepositoryError {
+            XCTAssertEqual(error, .missingRequiredField("title"))
+        }
+    }
+
     private func makeRepository() async throws -> CoreDataBookRepository {
         let persistence = try await makePersistence()
         return CoreDataBookRepository(container: persistence.container)
@@ -150,5 +184,25 @@ final class CoreDataBookRepositoryTests: XCTestCase {
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
         return try await PersistenceController(storeDescription: description)
+    }
+
+    private func makeInMemoryContainer(
+        model: NSManagedObjectModel
+    ) async throws -> NSPersistentContainer {
+        let container = NSPersistentContainer(name: "PureVoiceTests", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            container.loadPersistentStores { _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+        return container
     }
 }
