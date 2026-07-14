@@ -36,6 +36,29 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.continueReadingBook?.id, book.id)
     }
 
+    func testOpenCompletesAfterNewerLoadAndReconcilesShelf() async {
+        let book = Self.books[3]
+        let repository = DelayedSuccessfulMutationRepository(books: [book])
+        var openedBook: Book?
+        let openedAt = Date(timeIntervalSince1970: 9_999)
+        let viewModel = LibraryViewModel(
+            repository: repository,
+            now: { openedAt },
+            onOpenBook: { openedBook = $0 }
+        )
+
+        let open = Task { await viewModel.open(book) }
+        await repository.waitUntilSaveStarts()
+        await viewModel.load()
+        await repository.finishSave()
+        await open.value
+
+        let persistedBook = await repository.book(id: book.id)
+        XCTAssertEqual(openedBook?.id, book.id)
+        XCTAssertEqual(persistedBook?.lastOpenedAt, openedAt)
+        XCTAssertEqual(viewModel.continueReadingBook?.lastOpenedAt, openedAt)
+    }
+
     func testRenamePersistsAndRefreshesBook() async throws {
         let book = Self.books[0]
         let repository = InMemoryBookRepository(books: [book])
@@ -43,6 +66,22 @@ final class LibraryViewModelTests: XCTestCase {
         await viewModel.load()
 
         await viewModel.rename(book, to: "新的书名")
+
+        let persistedBook = await repository.book(id: book.id)
+        XCTAssertEqual(persistedBook?.title, "新的书名")
+        XCTAssertEqual(viewModel.continueReadingBook?.title, "新的书名")
+    }
+
+    func testRenameCompletesAfterNewerLoadAndReconcilesShelf() async {
+        let book = Self.books[0]
+        let repository = DelayedSuccessfulMutationRepository(books: [book])
+        let viewModel = LibraryViewModel(repository: repository)
+
+        let rename = Task { await viewModel.rename(book, to: "新的书名") }
+        await repository.waitUntilSaveStarts()
+        await viewModel.load()
+        await repository.finishSave()
+        await rename.value
 
         let persistedBook = await repository.book(id: book.id)
         XCTAssertEqual(persistedBook?.title, "新的书名")
@@ -61,6 +100,23 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertNil(deletedBook)
         XCTAssertEqual(viewModel.continueReadingBook?.id, books[1].id)
         XCTAssertEqual(viewModel.recentBooks.map(\.id), [books[2].id, books[3].id])
+    }
+
+    func testDeleteCompletesAfterNewerLoadAndReconcilesShelf() async {
+        let books = Self.books
+        let repository = DelayedSuccessfulMutationRepository(books: books)
+        let viewModel = LibraryViewModel(repository: repository)
+
+        let delete = Task { await viewModel.delete(books[0]) }
+        await repository.waitUntilDeleteStarts()
+        await viewModel.load()
+        await repository.finishDelete()
+        await delete.value
+
+        let persistedBook = await repository.book(id: books[0].id)
+        XCTAssertNil(persistedBook)
+        XCTAssertNotEqual(viewModel.continueReadingBook?.id, books[0].id)
+        XCTAssertFalse(viewModel.recentBooks.contains { $0.id == books[0].id })
     }
 
     func testAccessibilityProgressUsesChineseSpellOut() {
@@ -132,6 +188,80 @@ final class LibraryViewModelTests: XCTestCase {
             createdAt: Date(timeIntervalSince1970: 10)
         )
     ]
+}
+
+private actor DelayedSuccessfulMutationRepository: BookRepository {
+    private var books: [Book]
+    private var pendingSave: Book?
+    private var saveContinuation: CheckedContinuation<Void, Never>?
+    private var saveStartedContinuations: [CheckedContinuation<Void, Never>] = []
+    private var pendingDeleteID: UUID?
+    private var deleteContinuation: CheckedContinuation<Void, Never>?
+    private var deleteStartedContinuations: [CheckedContinuation<Void, Never>] = []
+
+    init(books: [Book]) {
+        self.books = books
+    }
+
+    func allBooks() -> [Book] { books }
+
+    func recentBooks(limit: Int) -> [Book] {
+        Array(books.prefix(limit))
+    }
+
+    func book(id: UUID) -> Book? {
+        books.first { $0.id == id }
+    }
+
+    func save(_ book: Book) async {
+        pendingSave = book
+        saveStartedContinuations.forEach { $0.resume() }
+        saveStartedContinuations.removeAll()
+        await withCheckedContinuation { continuation in
+            saveContinuation = continuation
+        }
+        if let index = books.firstIndex(where: { $0.id == book.id }) {
+            books[index] = book
+        } else {
+            books.append(book)
+        }
+        pendingSave = nil
+    }
+
+    func delete(id: UUID) async {
+        pendingDeleteID = id
+        deleteStartedContinuations.forEach { $0.resume() }
+        deleteStartedContinuations.removeAll()
+        await withCheckedContinuation { continuation in
+            deleteContinuation = continuation
+        }
+        books.removeAll { $0.id == id }
+        pendingDeleteID = nil
+    }
+
+    func waitUntilSaveStarts() async {
+        guard pendingSave == nil else { return }
+        await withCheckedContinuation { continuation in
+            saveStartedContinuations.append(continuation)
+        }
+    }
+
+    func finishSave() {
+        saveContinuation?.resume()
+        saveContinuation = nil
+    }
+
+    func waitUntilDeleteStarts() async {
+        guard pendingDeleteID == nil else { return }
+        await withCheckedContinuation { continuation in
+            deleteStartedContinuations.append(continuation)
+        }
+    }
+
+    func finishDelete() {
+        deleteContinuation?.resume()
+        deleteContinuation = nil
+    }
 }
 
 private actor DelayedFailingSaveRepository: BookRepository {

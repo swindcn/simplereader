@@ -10,7 +10,8 @@ final class LibraryViewModel: ObservableObject {
     private let repository: any BookRepository
     private let now: () -> Date
     private let onOpenBook: (Book) -> Void
-    private var requestGeneration = 0
+    private var loadGeneration = 0
+    private var mutationGeneration = 0
 
     init(
         repository: any BookRepository,
@@ -23,37 +24,41 @@ final class LibraryViewModel: ObservableObject {
     }
 
     func load() async {
-        requestGeneration += 1
-        let generation = requestGeneration
+        loadGeneration += 1
+        let generation = loadGeneration
         isLoading = true
         errorMessage = nil
 
         do {
             let orderedBooks = try await repository.recentBooks(limit: .max)
-            guard generation == requestGeneration else { return }
+            guard generation == loadGeneration else { return }
             apply(orderedBooks)
         } catch {
-            guard generation == requestGeneration else { return }
+            guard generation == loadGeneration else { return }
             errorMessage = "无法加载书架：\(error.localizedDescription)"
         }
 
-        guard generation == requestGeneration else { return }
+        guard generation == loadGeneration else { return }
         isLoading = false
     }
 
     func open(_ book: Book) async {
-        requestGeneration += 1
-        let generation = requestGeneration
+        mutationGeneration += 1
+        let generation = mutationGeneration
+        loadGeneration += 1
+        let initialLoadGeneration = loadGeneration
         var updatedBook = book
         updatedBook.lastOpenedAt = now()
 
         do {
             try await repository.save(updatedBook)
-            guard generation == requestGeneration else { return }
+            guard generation == mutationGeneration else { return }
+            loadGeneration += 1
             onOpenBook(updatedBook)
             await load()
         } catch {
-            guard generation == requestGeneration else { return }
+            guard generation == mutationGeneration,
+                  initialLoadGeneration == loadGeneration else { return }
             errorMessage = "无法打开《\(book.title)》：\(error.localizedDescription)"
             isLoading = false
         }
@@ -66,30 +71,38 @@ final class LibraryViewModel: ObservableObject {
             return
         }
 
-        requestGeneration += 1
-        let generation = requestGeneration
+        mutationGeneration += 1
+        let generation = mutationGeneration
+        loadGeneration += 1
+        let initialLoadGeneration = loadGeneration
         var updatedBook = book
         updatedBook.title = trimmedTitle
         do {
             try await repository.save(updatedBook)
-            guard generation == requestGeneration else { return }
+            guard generation == mutationGeneration else { return }
+            loadGeneration += 1
             await load()
         } catch {
-            guard generation == requestGeneration else { return }
+            guard generation == mutationGeneration,
+                  initialLoadGeneration == loadGeneration else { return }
             errorMessage = "无法重命名《\(book.title)》：\(error.localizedDescription)"
             isLoading = false
         }
     }
 
     func delete(_ book: Book) async {
-        requestGeneration += 1
-        let generation = requestGeneration
+        mutationGeneration += 1
+        let generation = mutationGeneration
+        loadGeneration += 1
+        let initialLoadGeneration = loadGeneration
         do {
             try await repository.delete(id: book.id)
-            guard generation == requestGeneration else { return }
+            guard generation == mutationGeneration else { return }
+            loadGeneration += 1
             await load()
         } catch {
-            guard generation == requestGeneration else { return }
+            guard generation == mutationGeneration,
+                  initialLoadGeneration == loadGeneration else { return }
             errorMessage = "无法删除《\(book.title)》：\(error.localizedDescription)"
             isLoading = false
         }
