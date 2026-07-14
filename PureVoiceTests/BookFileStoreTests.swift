@@ -83,6 +83,97 @@ final class BookFileStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: temporary.path))
     }
 
+    func testFailedDirectoryCommitRestoresEntirePreviousBookDirectory() throws {
+        let bookID = UUID()
+        let textSource = temporaryRoot.appendingPathComponent("source.txt")
+        let epubSource = temporaryRoot.appendingPathComponent("source.epub")
+        try Data("old original".utf8).write(to: textSource)
+        try Data("new original".utf8).write(to: epubSource)
+        let setupStore = BookFileStore(applicationSupportRoot: temporaryRoot)
+        let oldOriginal = try setupStore.importOriginal(from: textSource, bookID: bookID)
+        let directory = oldOriginal.deletingLastPathComponent()
+        let canonical = directory.appendingPathComponent("publication.epub")
+        let cover = directory.appendingPathComponent("cover")
+        try Data("canonical".utf8).write(to: canonical)
+        try Data("cover".utf8).write(to: cover)
+        let failingStore = BookFileStore(
+            applicationSupportRoot: temporaryRoot,
+            transactionHook: { operation in
+                if operation == .installStagedDirectory {
+                    throw InjectedFileOperationError.commit
+                }
+            }
+        )
+
+        XCTAssertThrowsError(try failingStore.importOriginal(from: epubSource, bookID: bookID)) { error in
+            XCTAssertEqual(error as? InjectedFileOperationError, .commit)
+        }
+
+        let rootEntries = try FileManager.default.contentsOfDirectory(
+            at: setupStore.booksRoot,
+            includingPropertiesForKeys: nil
+        )
+        let bookEntries = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(rootEntries.map(\.lastPathComponent), [bookID.uuidString])
+        XCTAssertEqual(
+            bookEntries.map(\.lastPathComponent).sorted(),
+            ["cover", "original.txt", "publication.epub"]
+        )
+        XCTAssertEqual(try Data(contentsOf: oldOriginal), Data("old original".utf8))
+        XCTAssertEqual(try Data(contentsOf: canonical), Data("canonical".utf8))
+        XCTAssertEqual(try Data(contentsOf: cover), Data("cover".utf8))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: directory.appendingPathComponent("original.epub").path
+            )
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: textSource.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: epubSource.path))
+    }
+
+    func testNextImportReclaimsBackupLeftByFailedPostCommitCleanup() throws {
+        let bookID = UUID()
+        let textSource = temporaryRoot.appendingPathComponent("source.txt")
+        let epubSource = temporaryRoot.appendingPathComponent("source.epub")
+        try Data("old".utf8).write(to: textSource)
+        try Data("new".utf8).write(to: epubSource)
+        let setupStore = BookFileStore(applicationSupportRoot: temporaryRoot)
+        _ = try setupStore.importOriginal(from: textSource, bookID: bookID)
+        let cleanupFailingStore = BookFileStore(
+            applicationSupportRoot: temporaryRoot,
+            transactionHook: { operation in
+                if operation == .removeCommittedBackup {
+                    throw InjectedFileOperationError.cleanup
+                }
+            }
+        )
+
+        let destination = try cleanupFailingStore.importOriginal(from: epubSource, bookID: bookID)
+
+        XCTAssertEqual(try Data(contentsOf: destination), Data("new".utf8))
+        let entriesAfterCleanupFailure = try FileManager.default.contentsOfDirectory(
+            atPath: setupStore.booksRoot.path
+        )
+        XCTAssertTrue(entriesAfterCleanupFailure.contains(bookID.uuidString))
+        XCTAssertEqual(
+            entriesAfterCleanupFailure.filter {
+                $0.hasPrefix(".\(bookID.uuidString).backup-")
+            }.count,
+            1
+        )
+        XCTAssertFalse(entriesAfterCleanupFailure.contains { $0.contains(".staging-") })
+
+        _ = try setupStore.importOriginal(from: epubSource, bookID: bookID)
+
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: setupStore.booksRoot.path),
+            [bookID.uuidString]
+        )
+    }
+
     func testMissingAndUnsafeExtensionsAreRejected() throws {
         let store = BookFileStore(applicationSupportRoot: temporaryRoot)
         let missing = temporaryRoot.appendingPathComponent("book")
@@ -153,4 +244,9 @@ final class BookFileStoreTests: XCTestCase {
         try handle.truncate(atOffset: UInt64(size))
         try handle.close()
     }
+}
+
+private enum InjectedFileOperationError: Error, Equatable {
+    case commit
+    case cleanup
 }

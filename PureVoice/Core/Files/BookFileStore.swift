@@ -7,11 +7,17 @@ enum BookFileError: Error, Equatable, Sendable {
     case outOfSpace
 }
 
+enum BookFileTransactionOperation: Equatable, Sendable {
+    case installStagedDirectory
+    case removeCommittedBackup
+}
+
 final class BookFileStore: @unchecked Sendable {
     static let maximumImportSize: Int64 = 250 * 1_024 * 1_024
 
     let booksRoot: URL
     private let fileManager: FileManager
+    private let transactionHook: (BookFileTransactionOperation) throws -> Void
 
     convenience init(fileManager: FileManager = .default) throws {
         let applicationSupport = try fileManager.url(
@@ -23,11 +29,16 @@ final class BookFileStore: @unchecked Sendable {
         self.init(applicationSupportRoot: applicationSupport, fileManager: fileManager)
     }
 
-    init(applicationSupportRoot: URL, fileManager: FileManager = .default) {
+    init(
+        applicationSupportRoot: URL,
+        fileManager: FileManager = .default,
+        transactionHook: @escaping (BookFileTransactionOperation) throws -> Void = { _ in }
+    ) {
         booksRoot = applicationSupportRoot
             .appendingPathComponent("PureVoice", isDirectory: true)
             .appendingPathComponent("Books", isDirectory: true)
         self.fileManager = fileManager
+        self.transactionHook = transactionHook
     }
 
     func importOriginal(from sourceURL: URL, bookID: UUID) throws -> URL {
@@ -48,21 +59,30 @@ final class BookFileStore: @unchecked Sendable {
         }
 
         let directory = bookDirectory(for: bookID)
+        let transactionID = UUID().uuidString
+        let staging = transactionDirectory(for: bookID, kind: "staging", id: transactionID)
+        let backup = transactionDirectory(for: bookID, kind: "backup", id: transactionID)
+        let stagedDestination = staging.appendingPathComponent("original.\(extensionName)")
         let destination = directory.appendingPathComponent("original.\(extensionName)")
-        let temporary = directory.appendingPathComponent(".import-\(UUID().uuidString)")
 
         do {
-            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-            try fileManager.copyItem(at: sourceURL, to: temporary)
-            if fileManager.fileExists(atPath: destination.path) {
-                _ = try fileManager.replaceItemAt(destination, withItemAt: temporary)
+            try fileManager.createDirectory(at: booksRoot, withIntermediateDirectories: true)
+            try recoverInterruptedTransaction(for: bookID)
+            if fileManager.fileExists(atPath: directory.path) {
+                try fileManager.copyItem(at: directory, to: staging)
             } else {
-                try fileManager.moveItem(at: temporary, to: destination)
+                try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
             }
-            try removeOtherOriginals(in: directory, keeping: destination)
+            try removeOriginals(in: staging)
+            try fileManager.copyItem(at: sourceURL, to: stagedDestination)
+            try commit(
+                staging: staging,
+                backup: backup,
+                directory: directory
+            )
             return destination
         } catch {
-            try? fileManager.removeItem(at: temporary)
+            removeIfPresent(staging)
             throw Self.translateFileError(error)
         }
     }
@@ -94,14 +114,84 @@ final class BookFileStore: @unchecked Sendable {
         return value
     }
 
-    private func removeOtherOriginals(in directory: URL, keeping destination: URL) throws {
+    private func removeOriginals(in directory: URL) throws {
         let contents = try fileManager.contentsOfDirectory(
             at: directory,
             includingPropertiesForKeys: nil
         )
-        for candidate in contents where candidate != destination && isOriginalFile(candidate) {
+        for candidate in contents where isOriginalFile(candidate) {
             try fileManager.removeItem(at: candidate)
         }
+    }
+
+    private func commit(staging: URL, backup: URL, directory: URL) throws {
+        guard fileManager.fileExists(atPath: directory.path) else {
+            do {
+                try transactionHook(.installStagedDirectory)
+                try fileManager.moveItem(at: staging, to: directory)
+            } catch {
+                removeIfPresent(directory)
+                throw error
+            }
+            return
+        }
+
+        try fileManager.moveItem(at: directory, to: backup)
+        do {
+            try transactionHook(.installStagedDirectory)
+            try fileManager.moveItem(at: staging, to: directory)
+        } catch {
+            let commitError = error
+            removeIfPresent(directory)
+            try fileManager.moveItem(at: backup, to: directory)
+            removeIfPresent(staging)
+            throw commitError
+        }
+
+        do {
+            try transactionHook(.removeCommittedBackup)
+            try fileManager.removeItem(at: backup)
+        } catch {
+            // The official directory is committed. The next import reclaims this backup.
+        }
+    }
+
+    private func recoverInterruptedTransaction(for bookID: UUID) throws {
+        let contents = try fileManager.contentsOfDirectory(
+            at: booksRoot,
+            includingPropertiesForKeys: nil
+        )
+        let prefix = ".\(bookID.uuidString)."
+        let stagingDirectories = contents.filter {
+            $0.lastPathComponent.hasPrefix("\(prefix)staging-")
+        }
+        let backupDirectories = contents.filter {
+            $0.lastPathComponent.hasPrefix("\(prefix)backup-")
+        }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let directory = bookDirectory(for: bookID)
+
+        if !fileManager.fileExists(atPath: directory.path), let backup = backupDirectories.first {
+            try fileManager.moveItem(at: backup, to: directory)
+        }
+        for transactionDirectory in stagingDirectories + backupDirectories {
+            removeIfPresent(transactionDirectory)
+        }
+    }
+
+    private func transactionDirectory(
+        for bookID: UUID,
+        kind: String,
+        id: String
+    ) -> URL {
+        booksRoot.appendingPathComponent(
+            ".\(bookID.uuidString).\(kind)-\(id)",
+            isDirectory: true
+        )
+    }
+
+    private func removeIfPresent(_ url: URL) {
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try? fileManager.removeItem(at: url)
     }
 
     private func isOriginalFile(_ url: URL) -> Bool {
