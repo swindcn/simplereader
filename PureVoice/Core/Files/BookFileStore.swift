@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 enum BookFileError: Error, Equatable, Sendable {
@@ -8,6 +9,8 @@ enum BookFileError: Error, Equatable, Sendable {
 }
 
 enum BookFileTransactionOperation: Equatable, Sendable {
+    case beginImport
+    case beginDelete
     case installStagedDirectory
     case removeCommittedBackup
     case removeBookArtifact(String)
@@ -15,10 +18,12 @@ enum BookFileTransactionOperation: Equatable, Sendable {
 
 final class BookFileStore: @unchecked Sendable {
     static let maximumImportSize: Int64 = 250 * 1_024 * 1_024
+    private static let lockRegistry = BookOperationLockRegistry()
 
     let booksRoot: URL
     private let fileManager: FileManager
     private let transactionHook: (BookFileTransactionOperation) throws -> Void
+    private let lockRootKey: String
 
     convenience init(fileManager: FileManager = .default) throws {
         let applicationSupport = try fileManager.url(
@@ -27,22 +32,31 @@ final class BookFileStore: @unchecked Sendable {
             appropriateFor: nil,
             create: true
         )
-        self.init(applicationSupportRoot: applicationSupport, fileManager: fileManager)
+        try self.init(applicationSupportRoot: applicationSupport, fileManager: fileManager)
     }
 
     init(
         applicationSupportRoot: URL,
         fileManager: FileManager = .default,
         transactionHook: @escaping (BookFileTransactionOperation) throws -> Void = { _ in }
-    ) {
+    ) throws {
         booksRoot = applicationSupportRoot
             .appendingPathComponent("PureVoice", isDirectory: true)
             .appendingPathComponent("Books", isDirectory: true)
         self.fileManager = fileManager
         self.transactionHook = transactionHook
+        lockRootKey = booksRoot.standardizedFileURL.resolvingSymlinksInPath().path
+        try recoverTransactionsAtStartup()
     }
 
     func importOriginal(from sourceURL: URL, bookID: UUID) throws -> URL {
+        try withBookLock(bookID: bookID) {
+            try transactionHook(.beginImport)
+            return try importOriginalLocked(from: sourceURL, bookID: bookID)
+        }
+    }
+
+    private func importOriginalLocked(from sourceURL: URL, bookID: UUID) throws -> URL {
         let extensionName = try normalizedExtension(from: sourceURL)
         let didAccessSecurityScope = sourceURL.startAccessingSecurityScopedResource()
         defer {
@@ -97,6 +111,13 @@ final class BookFileStore: @unchecked Sendable {
     }
 
     func deleteBookFiles(bookID: UUID) throws {
+        try withBookLock(bookID: bookID) {
+            try transactionHook(.beginDelete)
+            try deleteBookFilesLocked(bookID: bookID)
+        }
+    }
+
+    private func deleteBookFilesLocked(bookID: UUID) throws {
         let directory = bookDirectory(for: bookID)
         guard fileManager.fileExists(atPath: booksRoot.path) else { return }
         let contents = try fileManager.contentsOfDirectory(
@@ -196,8 +217,35 @@ final class BookFileStore: @unchecked Sendable {
             try fileManager.moveItem(at: backup, to: directory)
         }
         for transactionDirectory in stagingDirectories + backupDirectories {
-            removeIfPresent(transactionDirectory)
+            if fileManager.fileExists(atPath: transactionDirectory.path) {
+                try fileManager.removeItem(at: transactionDirectory)
+            }
         }
+    }
+
+    private func recoverTransactionsAtStartup() throws {
+        guard fileManager.fileExists(atPath: booksRoot.path) else { return }
+        let contents = try fileManager.contentsOfDirectory(
+            at: booksRoot,
+            includingPropertiesForKeys: nil
+        )
+        let bookIDs = Set(contents.compactMap { transactionArtifact(for: $0)?.bookID })
+        for bookID in bookIDs.sorted(by: { $0.uuidString < $1.uuidString }) {
+            try withBookLock(bookID: bookID) {
+                try recoverInterruptedTransaction(for: bookID)
+            }
+        }
+    }
+
+    private func withBookLock<Result>(
+        bookID: UUID,
+        _ body: () throws -> Result
+    ) rethrows -> Result {
+        let key = "\(lockRootKey)|\(bookID.uuidString)"
+        let lock = Self.lockRegistry.lock(for: key)
+        lock.lock()
+        defer { lock.unlock() }
+        return try body()
     }
 
     private func transactionDirectory(
@@ -216,16 +264,38 @@ final class BookFileStore: @unchecked Sendable {
         for bookID: UUID,
         kind requestedKind: String? = nil
     ) -> Bool {
-        let name = url.lastPathComponent
-        let kinds = requestedKind.map { [$0] } ?? ["staging", "backup"]
-        for kind in kinds {
-            let prefix = ".\(bookID.uuidString).\(kind)-"
-            guard name.hasPrefix(prefix) else { continue }
-            let transactionID = String(name.dropFirst(prefix.count))
-            guard let uuid = UUID(uuidString: transactionID) else { return false }
-            return uuid.uuidString == transactionID
+        guard let artifact = transactionArtifact(for: url), artifact.bookID == bookID else {
+            return false
         }
-        return false
+        return requestedKind == nil || artifact.kind == requestedKind
+    }
+
+    private struct TransactionArtifact {
+        let bookID: UUID
+        let kind: String
+    }
+
+    private func transactionArtifact(for url: URL) -> TransactionArtifact? {
+        let name = url.lastPathComponent
+        guard name.hasPrefix("."), name.count > 38 else { return nil }
+        let remainder = name.dropFirst()
+        let bookIDString = String(remainder.prefix(36))
+        guard let bookID = UUID(uuidString: bookIDString),
+              bookID.uuidString == bookIDString else {
+            return nil
+        }
+        let transactionPortion = remainder.dropFirst(36)
+        for kind in ["staging", "backup"] {
+            let prefix = ".\(kind)-"
+            guard transactionPortion.hasPrefix(prefix) else { continue }
+            let transactionIDString = String(transactionPortion.dropFirst(prefix.count))
+            guard let transactionID = UUID(uuidString: transactionIDString),
+                  transactionID.uuidString == transactionIDString else {
+                return nil
+            }
+            return TransactionArtifact(bookID: bookID, kind: kind)
+        }
+        return nil
     }
 
     private func removeIfPresent(_ url: URL) {
@@ -257,11 +327,57 @@ final class BookFileStore: @unchecked Sendable {
     }
 
     static func translateFileError(_ error: Error) -> Error {
-        let cocoaError = error as NSError
-        if cocoaError.domain == NSCocoaErrorDomain,
-           cocoaError.code == CocoaError.fileWriteOutOfSpace.rawValue {
+        var visited: Set<ObjectIdentifier> = []
+        if containsOutOfSpace(error as NSError, depth: 0, visited: &visited) {
             return BookFileError.outOfSpace
         }
         return error
+    }
+
+    private static func containsOutOfSpace(
+        _ error: NSError,
+        depth: Int,
+        visited: inout Set<ObjectIdentifier>
+    ) -> Bool {
+        guard depth < 12 else { return false }
+        let identifier = ObjectIdentifier(error)
+        guard visited.insert(identifier).inserted else { return false }
+        if error.domain == NSCocoaErrorDomain,
+           error.code == CocoaError.fileWriteOutOfSpace.rawValue {
+            return true
+        }
+        if error.domain == NSPOSIXErrorDomain, error.code == Int(ENOSPC) {
+            return true
+        }
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError,
+           containsOutOfSpace(underlying, depth: depth + 1, visited: &visited) {
+            return true
+        }
+        if let detailed = error.userInfo["NSDetailedErrors"] as? [NSError] {
+            for nested in detailed where containsOutOfSpace(
+                nested,
+                depth: depth + 1,
+                visited: &visited
+            ) {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+private final class BookOperationLockRegistry: @unchecked Sendable {
+    private let registryLock = NSLock()
+    private var locksByKey: [String: NSLock] = [:]
+
+    func lock(for key: String) -> NSLock {
+        registryLock.lock()
+        defer { registryLock.unlock() }
+        if let lock = locksByKey[key] {
+            return lock
+        }
+        let lock = NSLock()
+        locksByKey[key] = lock
+        return lock
     }
 }

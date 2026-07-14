@@ -1,7 +1,7 @@
 import CoreData
 import Foundation
 
-final class PersistenceController: @unchecked Sendable {
+final class PersistenceController {
     let container: NSPersistentContainer
 
     init(
@@ -29,10 +29,13 @@ final class PersistenceController: @unchecked Sendable {
             }
         }
 
-        container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergePolicy(
-            merge: .mergeByPropertyObjectTrumpMergePolicyType
-        )
+        let viewContext = container.viewContext
+        await viewContext.perform {
+            viewContext.automaticallyMergesChangesFromParent = true
+            viewContext.mergePolicy = NSMergePolicy(
+                merge: .mergeByPropertyObjectTrumpMergePolicyType
+            )
+        }
     }
 
     static func makeModel() -> NSManagedObjectModel {
