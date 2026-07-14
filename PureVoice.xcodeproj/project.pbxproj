@@ -9,7 +9,11 @@
 /* Begin PBXBuildFile section */
 		127FD13EA9FAA94EBED4DF45 /* ReadiumShared in Frameworks */ = {isa = PBXBuildFile; productRef = 36F09C703D66AC7B4F8BDC8B /* ReadiumShared */; };
 		2AAEE1EE5882194C610F114D /* ProjectSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */; };
+		31F38B2B0B53479AA81629AE /* DesignTokensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BCECCB9673C48C0982D0E7B /* DesignTokensTests.swift */; };
 		3A5C293EAE9AE10A6719C8E2 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B525D4A979008B7CF9F2400 /* RootTabView.swift */; };
+		4F5828CFDAA244A398D5E360 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DB60A06A684659B02DC422 /* DesignTokens.swift */; };
+		51273D5EED0340AA8B722A78 /* AccessibleIconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77DA50981404B4684A33EEF /* AccessibleIconButton.swift */; };
+		6C12644E4CCB4E46B30CD475 /* AppTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81303A91D870462A825FCB37 /* AppTab.swift */; };
 		6DEC0C33E2552DF52396EF57 /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */; };
 		806ECDADF5E4CF9B1D9D780D /* PureVoiceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */; };
 		B436499082AEB5C11A2CC7E7 /* ReadiumNavigator in Frameworks */ = {isa = PBXBuildFile; productRef = 2F4B84C5552249F413E0DB2F /* ReadiumNavigator */; };
@@ -36,14 +40,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		01DB60A06A684659B02DC422 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
+		1BCECCB9673C48C0982D0E7B /* DesignTokensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokensTests.swift; sourceTree = "<group>"; };
 		2935B1DC349E1F472A8E9EE3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4B525D4A979008B7CF9F2400 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		4D51D650090A3FA7F449E54B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchUITests.swift; sourceTree = "<group>"; };
 		7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PureVoiceApp.swift; sourceTree = "<group>"; };
+		81303A91D870462A825FCB37 /* AppTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTab.swift; sourceTree = "<group>"; };
 		AFCF4D1BB3E96447B49D9CEB /* PureVoice.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PureVoice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D390A7236037D6A7F3074E3C /* PureVoiceTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PureVoiceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSmokeTests.swift; sourceTree = "<group>"; };
+		D77DA50981404B4684A33EEF /* AccessibleIconButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibleIconButton.swift; sourceTree = "<group>"; };
 		F34B394663F4C909425287C5 /* PureVoiceUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PureVoiceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -65,6 +73,7 @@
 		07042A29A3A55B57AE64469B /* PureVoiceTests */ = {
 			isa = PBXGroup;
 			children = (
+				1BCECCB9673C48C0982D0E7B /* DesignTokensTests.swift */,
 				D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */,
 			);
 			path = PureVoiceTests;
@@ -79,9 +88,19 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		6CD965CC958B49CA96EA2C75 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				D77DA50981404B4684A33EEF /* AccessibleIconButton.swift */,
+				01DB60A06A684659B02DC422 /* DesignTokens.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
 		9A72CA0ACB78C8FEE1E93143 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				81303A91D870462A825FCB37 /* AppTab.swift */,
 				7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */,
 				4B525D4A979008B7CF9F2400 /* RootTabView.swift */,
 			);
@@ -120,6 +139,7 @@
 			isa = PBXGroup;
 			children = (
 				9A72CA0ACB78C8FEE1E93143 /* App */,
+				6CD965CC958B49CA96EA2C75 /* DesignSystem */,
 				6006D8BB908E6051D02C293E /* Resources */,
 			);
 			path = PureVoice;
@@ -242,6 +262,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				31F38B2B0B53479AA81629AE /* DesignTokensTests.swift in Sources */,
 				2AAEE1EE5882194C610F114D /* ProjectSmokeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -250,6 +271,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C12644E4CCB4E46B30CD475 /* AppTab.swift in Sources */,
+				51273D5EED0340AA8B722A78 /* AccessibleIconButton.swift in Sources */,
+				4F5828CFDAA244A398D5E360 /* DesignTokens.swift in Sources */,
 				806ECDADF5E4CF9B1D9D780D /* PureVoiceApp.swift in Sources */,
 				3A5C293EAE9AE10A6719C8E2 /* RootTabView.swift in Sources */,
 			);
