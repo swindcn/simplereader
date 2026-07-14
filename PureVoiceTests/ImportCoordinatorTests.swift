@@ -207,7 +207,7 @@ final class ImportCoordinatorTests: XCTestCase {
         await importTask.value
 
         XCTAssertEqual(coordinator.state, .failed(.cancelled))
-        let rolledBackBook = await repository.book(id: savedBook.id)
+        let rolledBackBook = try await repository.book(id: savedBook.id)
         XCTAssertNil(rolledBackBook)
         XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.originalFileURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
@@ -242,14 +242,177 @@ final class ImportCoordinatorTests: XCTestCase {
             return XCTFail("Unexpected state: \(coordinator.state)")
         }
         XCTAssertTrue(message.contains("回滚失败"))
-        let remainingBook = await repository.book(id: savedBook.id)
+        let remainingBook = try await repository.book(id: savedBook.id)
         XCTAssertEqual(remainingBook, savedBook)
         XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.originalFileURL.path))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
         XCTAssertFalse(states.contains { state in
             if case .completed = state { return true }
             return false
         })
+    }
+
+    func testCopyRunsOffMainThread() async throws {
+        let source = try write(Data("text".utf8), named: "thread-probe.txt")
+        let store = ThreadProbeFileStore(root: temporaryDirectory)
+        let coordinator = ImportCoordinator(
+            fileStore: store,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository()
+        )
+
+        try await coordinator.importBook(from: source)
+
+        XCTAssertEqual(store.copyRanOnMainThread, false)
+    }
+
+    func testSaveThatCommitsThenThrowsIsRolledBackBeforeCanonicalCleanup() async throws {
+        let source = try write(Data("text".utf8), named: "commit-then-throw.txt")
+        let repository = CommitThenThrowRepository()
+        let coordinator = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: repository
+        )
+
+        try await coordinator.importBook(from: source)
+
+        guard case .failed(.saveFailed) = coordinator.state else {
+            return XCTFail("Unexpected state: \(coordinator.state)")
+        }
+        let recordedValue = await repository.recordedBook()
+        let recordedBook = try XCTUnwrap(recordedValue)
+        let storedBook = await repository.storedBook(id: recordedBook.id)
+        XCTAssertNil(storedBook)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recordedBook.originalFileURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: recordedBook.canonicalFileURL.path))
+    }
+
+    func testRollbackQueryFailurePreservesRecordAndCanonical() async throws {
+        let source = try write(Data("text".utf8), named: "query-failure.txt")
+        let repository = SaveBarrierRepository(bookQueryError: TestError.rollback)
+        let coordinator = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: repository
+        )
+
+        let importTask = Task { try? await coordinator.importBook(from: source) }
+        await repository.waitUntilSaveEntered()
+        let recordedValue = await repository.recordedBook()
+        let recordedBook = try XCTUnwrap(recordedValue)
+        importTask.cancel()
+        await repository.releaseSave()
+        await importTask.value
+
+        guard case let .failed(.saveFailed(message)) = coordinator.state else {
+            return XCTFail("Unexpected state: \(coordinator.state)")
+        }
+        XCTAssertTrue(message.contains("回滚失败"))
+        let recordRemains = await repository.containsStoredBook(id: recordedBook.id)
+        XCTAssertTrue(recordRemains)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recordedBook.originalFileURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recordedBook.canonicalFileURL.path))
+    }
+
+    func testCanonicalCleanupFailureOverridesOriginalFailure() async throws {
+        let source = try write(Data("text".utf8), named: "cleanup-failure.txt")
+        let cleanupFailingStore = CleanupFailingFileStore(base: fileStore)
+        let converter = RecordingConverter { _, _, destination in
+            try Data("partial".utf8).write(to: destination)
+            throw TestError.conversion
+        }
+        let repository = RecordingRepository()
+        let coordinator = ImportCoordinator(
+            fileStore: cleanupFailingStore,
+            detector: BookFormatDetector(),
+            converter: converter,
+            publicationOpener: RecordingPublicationOpener(),
+            repository: repository
+        )
+
+        try await coordinator.importBook(from: source)
+
+        guard case let .failed(.cleanupFailed(message)) = coordinator.state else {
+            return XCTFail("Unexpected state: \(coordinator.state)")
+        }
+        XCTAssertTrue(message.contains("清理"))
+        let originalURL = try XCTUnwrap(cleanupFailingStore.importedOriginalURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: originalURL.path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: originalURL.deletingLastPathComponent()
+                    .appendingPathComponent("publication.epub").path
+            )
+        )
+        let books = await repository.allBooks()
+        XCTAssertTrue(books.isEmpty)
+    }
+
+    func testConcreteConversionErrorWinsWhenTaskIsAlreadyCancelled() async throws {
+        let source = try write(Data("text".utf8), named: "cancelled-conversion-error.txt")
+        let barrier = ConversionBarrier()
+        let converter = RecordingConverter { _, _, destination in
+            try Data("partial".utf8).write(to: destination)
+            await barrier.waitUntilReleased()
+            throw TestError.conversion
+        }
+        let coordinator = makeCoordinator(
+            repository: RecordingRepository(),
+            converter: converter
+        )
+
+        let importTask = Task { try? await coordinator.importBook(from: source) }
+        await barrier.waitUntilEntered()
+        importTask.cancel()
+        await barrier.release()
+        await importTask.value
+
+        guard case .failed(.convertFailed) = coordinator.state else {
+            return XCTFail("Unexpected state: \(coordinator.state)")
+        }
+    }
+
+    func testCleanupFailureWinsOverConcreteErrorWhenTaskIsCancelled() async throws {
+        let source = try write(Data("text".utf8), named: "cancelled-cleanup-error.txt")
+        let barrier = ConversionBarrier()
+        let cleanupFailingStore = CleanupFailingFileStore(base: fileStore)
+        let converter = RecordingConverter { _, _, destination in
+            try Data("partial".utf8).write(to: destination)
+            await barrier.waitUntilReleased()
+            throw TestError.conversion
+        }
+        let coordinator = ImportCoordinator(
+            fileStore: cleanupFailingStore,
+            detector: BookFormatDetector(),
+            converter: converter,
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository()
+        )
+
+        let importTask = Task { try? await coordinator.importBook(from: source) }
+        await barrier.waitUntilEntered()
+        importTask.cancel()
+        await barrier.release()
+        await importTask.value
+
+        guard case .failed(.cleanupFailed) = coordinator.state else {
+            return XCTFail("Unexpected state: \(coordinator.state)")
+        }
+        let originalURL = try XCTUnwrap(cleanupFailingStore.importedOriginalURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: originalURL.path))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: originalURL.deletingLastPathComponent()
+                    .appendingPathComponent("publication.epub").path
+            )
+        )
     }
 
     private func makeCoordinator(
@@ -280,6 +443,7 @@ private enum TestError: Error {
     case open
     case save
     case rollback
+    case cleanup
 }
 
 private actor RecordingConverter: CanonicalPublicationConverting {
@@ -353,18 +517,23 @@ private actor SaveBarrierRepository: BookRepository {
     private var books: [UUID: Book] = [:]
     private var lastSavedBook: Book?
     private let deleteError: Error?
+    private let bookQueryError: Error?
     private var saveEntered = false
     private var saveReleased = false
     private var enteredContinuations: [CheckedContinuation<Void, Never>] = []
     private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
 
-    init(deleteError: Error? = nil) {
+    init(deleteError: Error? = nil, bookQueryError: Error? = nil) {
         self.deleteError = deleteError
+        self.bookQueryError = bookQueryError
     }
 
     func allBooks() -> [Book] { Array(books.values) }
     func recentBooks(limit: Int) -> [Book] { Array(books.values.prefix(limit)) }
-    func book(id: UUID) -> Book? { books[id] }
+    func book(id: UUID) throws -> Book? {
+        if let bookQueryError { throw bookQueryError }
+        return books[id]
+    }
 
     func save(_ book: Book) async {
         books[book.id] = book
@@ -393,6 +562,88 @@ private actor SaveBarrierRepository: BookRepository {
     }
 
     func recordedBook() -> Book? { lastSavedBook }
+    func containsStoredBook(id: UUID) -> Bool { books[id] != nil }
+}
+
+private actor CommitThenThrowRepository: BookRepository {
+    private var books: [UUID: Book] = [:]
+    private var lastSavedBook: Book?
+
+    func allBooks() -> [Book] { Array(books.values) }
+    func recentBooks(limit: Int) -> [Book] { Array(books.values.prefix(limit)) }
+    func book(id: UUID) -> Book? { books[id] }
+    func save(_ book: Book) throws {
+        books[book.id] = book
+        lastSavedBook = book
+        throw TestError.save
+    }
+    func delete(id: UUID) { books[id] = nil }
+    func recordedBook() -> Book? { lastSavedBook }
+    func storedBook(id: UUID) -> Book? { books[id] }
+}
+
+private final class ThreadProbeFileStore: ImportFileStoring, @unchecked Sendable {
+    private let root: URL
+    private let lock = NSLock()
+    private var copyMainThreadValue: Bool?
+
+    init(root: URL) {
+        self.root = root.appendingPathComponent("ThreadProbe-\(UUID().uuidString)")
+    }
+
+    var copyRanOnMainThread: Bool? {
+        lock.withLock { copyMainThreadValue }
+    }
+
+    func importOriginal(from sourceURL: URL, bookID: UUID) throws -> URL {
+        lock.withLock { copyMainThreadValue = Thread.isMainThread }
+        let destination = root
+            .appendingPathComponent(bookID.uuidString, isDirectory: true)
+            .appendingPathComponent("original.\(sourceURL.pathExtension.lowercased())")
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.copyItem(at: sourceURL, to: destination)
+        return destination
+    }
+
+    func canonicalURL(for bookID: UUID) -> URL {
+        root.appendingPathComponent(bookID.uuidString).appendingPathComponent("publication.epub")
+    }
+
+    func removeCanonicalFile(bookID: UUID) throws {
+        let url = canonicalURL(for: bookID)
+        if FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.removeItem(at: url)
+        }
+    }
+}
+
+private final class CleanupFailingFileStore: ImportFileStoring, @unchecked Sendable {
+    let base: BookFileStore
+    private let lock = NSLock()
+    private var importedOriginal: URL?
+
+    init(base: BookFileStore) {
+        self.base = base
+    }
+
+    var importedOriginalURL: URL? { lock.withLock { importedOriginal } }
+
+    func importOriginal(from sourceURL: URL, bookID: UUID) throws -> URL {
+        let url = try base.importOriginal(from: sourceURL, bookID: bookID)
+        lock.withLock {
+            importedOriginal = url
+        }
+        return url
+    }
+
+    func canonicalURL(for bookID: UUID) -> URL { base.canonicalURL(for: bookID) }
+
+    func removeCanonicalFile(bookID: UUID) throws {
+        throw TestError.cleanup
+    }
 }
 
 private struct FailingImportFileStore: ImportFileStoring {

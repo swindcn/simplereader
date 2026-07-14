@@ -99,6 +99,17 @@ final class BookFormatDetectorTests: XCTestCase {
         }
     }
 
+    func testDetectionErrorsHaveStableChineseDescriptions() {
+        XCTAssertEqual(
+            BookFormatDetectionError.unsupportedExtension("pdf").errorDescription,
+            "不支持的文件格式：pdf"
+        )
+        XCTAssertEqual(
+            BookFormatDetectionError.unreadableFile("/tmp/missing.txt").errorDescription,
+            "无法读取文件：/tmp/missing.txt"
+        )
+    }
+
     private func write(_ data: Data, named name: String) throws -> URL {
         let url = temporaryDirectory.appendingPathComponent(name)
         try data.write(to: url)

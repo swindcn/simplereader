@@ -14,6 +14,7 @@ enum ImportFailure: Equatable, Sendable {
     case convertFailed(String)
     case openFailed(String)
     case saveFailed(String)
+    case cleanupFailed(String)
 
     var userMessage: String {
         switch self {
@@ -35,6 +36,8 @@ enum ImportFailure: Equatable, Sendable {
             return "打开书籍失败：\(message)"
         case let .saveFailed(message):
             return "保存书籍失败：\(message)"
+        case let .cleanupFailed(message):
+            return "清理导入文件失败：\(message)"
         }
     }
 }
@@ -42,4 +45,16 @@ enum ImportFailure: Equatable, Sendable {
 enum BookFormatDetectionError: Error, Equatable, Sendable {
     case unsupportedExtension(String)
     case unreadableFile(String)
+}
+
+extension BookFormatDetectionError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case let .unsupportedExtension(fileExtension):
+            let displayExtension = fileExtension.isEmpty ? "无扩展名" : fileExtension
+            return "不支持的文件格式：\(displayExtension)"
+        case let .unreadableFile(path):
+            return "无法读取文件：\(path)"
+        }
+    }
 }
