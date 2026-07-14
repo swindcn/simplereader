@@ -71,5 +71,8 @@ final class InMemoryBookRepositoryTests: XCTestCase {
         XCTAssertEqual(ReadingPosition(href: "start.xhtml", progression: -0.25).progression, 0)
         XCTAssertEqual(ReadingPosition(href: "end.xhtml", progression: 1.25).progression, 1)
         XCTAssertEqual(ReadingPosition(href: "middle.xhtml", progression: 0.5).progression, 0.5)
+        XCTAssertEqual(ReadingPosition(href: "invalid.xhtml", progression: .nan).progression, 0)
+        XCTAssertEqual(ReadingPosition(href: "past-end.xhtml", progression: .infinity).progression, 1)
+        XCTAssertEqual(ReadingPosition(href: "before-start.xhtml", progression: -.infinity).progression, 0)
     }
 }

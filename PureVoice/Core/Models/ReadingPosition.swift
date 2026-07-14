@@ -6,6 +6,6 @@ struct ReadingPosition: Equatable, Sendable {
     init(href: String, locationsJSON: String? = nil, progression: Double) {
         self.href = href
         self.locationsJSON = locationsJSON
-        self.progression = min(max(progression, 0), 1)
+        self.progression = progression.isNaN ? 0 : min(max(progression, 0), 1)
     }
 }
