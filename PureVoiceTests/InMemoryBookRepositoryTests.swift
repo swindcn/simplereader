@@ -4,19 +4,29 @@ import XCTest
 final class InMemoryBookRepositoryTests: XCTestCase {
     func testSaveUpdateAndDeleteBook() async throws {
         let repository: any BookRepository = InMemoryBookRepository()
-        var book = Book.fixture(title: "活着")
+        let originalFileURL = URL(fileURLWithPath: "/tmp/custom/original.mobi")
+        let canonicalFileURL = URL(fileURLWithPath: "/tmp/custom/publication.epub")
+        let coverFileURL = URL(fileURLWithPath: "/tmp/custom/cover.jpg")
+        var book = Book.fixture(
+            title: "兄弟",
+            author: "测试作者",
+            format: .mobi,
+            originalFileURL: originalFileURL,
+            canonicalFileURL: canonicalFileURL,
+            coverFileURL: coverFileURL,
+            position: ReadingPosition(href: "chapter-1.xhtml", progression: 0.1),
+            lastOpenedAt: Date(timeIntervalSince1970: 200),
+            createdAt: Date(timeIntervalSince1970: 100)
+        )
 
         try await repository.save(book)
         let savedBook = try await repository.book(id: book.id)
-        XCTAssertEqual(savedBook?.title, "活着")
+        XCTAssertEqual(savedBook, book)
 
         book.position = ReadingPosition(href: "chapter-12.xhtml", progression: 0.35)
         try await repository.save(book)
         let updatedBook = try await repository.book(id: book.id)
-        XCTAssertEqual(updatedBook?.position?.progression, 0.35)
-        XCTAssertEqual(updatedBook?.title, "活着")
-        XCTAssertEqual(updatedBook?.author, "余华")
-        XCTAssertEqual(updatedBook?.canonicalFileURL, book.canonicalFileURL)
+        XCTAssertEqual(updatedBook, book)
 
         try await repository.delete(id: book.id)
         let deletedBook = try await repository.book(id: book.id)
@@ -36,6 +46,37 @@ final class InMemoryBookRepositoryTests: XCTestCase {
 
         let books = try await repository.allBooks()
         XCTAssertEqual(books.map(\.id), [newestID, firstID, secondID])
+    }
+
+    func testAllBooksTreatsNonFiniteDatesAsOldestWithStableTieBreaking() async throws {
+        let repository: any BookRepository = InMemoryBookRepository()
+        let nanID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let positiveInfinityID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let negativeInfinityID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
+        let finiteID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+
+        try await repository.save(.fixture(
+            id: nanID,
+            createdAt: Date(timeIntervalSinceReferenceDate: .nan)
+        ))
+        try await repository.save(.fixture(
+            id: positiveInfinityID,
+            createdAt: Date(timeIntervalSinceReferenceDate: .infinity)
+        ))
+        try await repository.save(.fixture(
+            id: negativeInfinityID,
+            createdAt: Date(timeIntervalSinceReferenceDate: -.infinity)
+        ))
+        try await repository.save(.fixture(
+            id: finiteID,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10)
+        ))
+
+        let expectedIDs = [finiteID, nanID, positiveInfinityID, negativeInfinityID]
+        let firstQuery = try await repository.allBooks().map(\.id)
+        let secondQuery = try await repository.allBooks().map(\.id)
+        XCTAssertEqual(firstQuery, expectedIDs)
+        XCTAssertEqual(secondQuery, expectedIDs)
     }
 
     func testRecentBooksUsesLastOpenedDateWithCreatedDateFallbackAndLimit() async throws {
@@ -65,6 +106,29 @@ final class InMemoryBookRepositoryTests: XCTestCase {
         XCTAssertTrue(empty.isEmpty)
         let negative = try await repository.recentBooks(limit: -1)
         XCTAssertTrue(negative.isEmpty)
+    }
+
+    func testRecentBooksUsesStableTieBreakerForEqualEffectiveDates() async throws {
+        let repository: any BookRepository = InMemoryBookRepository()
+        let firstID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let secondID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let sharedDate = Date(timeIntervalSinceReferenceDate: 10)
+
+        try await repository.save(.fixture(
+            id: secondID,
+            lastOpenedAt: sharedDate,
+            createdAt: sharedDate
+        ))
+        try await repository.save(.fixture(
+            id: firstID,
+            lastOpenedAt: sharedDate,
+            createdAt: sharedDate
+        ))
+
+        let firstQuery = try await repository.recentBooks(limit: 2).map(\.id)
+        let secondQuery = try await repository.recentBooks(limit: 2).map(\.id)
+        XCTAssertEqual(firstQuery, [firstID, secondID])
+        XCTAssertEqual(secondQuery, firstQuery)
     }
 
     func testReadingPositionClampsProgression() {

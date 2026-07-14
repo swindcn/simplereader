@@ -7,6 +7,9 @@ extension Book {
         title: String = "活着",
         author: String = "余华",
         format: BookFormat = .epub,
+        originalFileURL: URL? = nil,
+        canonicalFileURL: URL? = nil,
+        coverFileURL: URL? = nil,
         position: ReadingPosition? = nil,
         lastOpenedAt: Date? = nil,
         createdAt: Date = Date(timeIntervalSince1970: 0)
@@ -16,9 +19,11 @@ extension Book {
             title: title,
             author: author,
             format: format,
-            originalFileURL: URL(fileURLWithPath: "/tmp/\(id.uuidString)/original.epub"),
-            canonicalFileURL: URL(fileURLWithPath: "/tmp/\(id.uuidString)/publication.epub"),
-            coverFileURL: nil,
+            originalFileURL: originalFileURL
+                ?? URL(fileURLWithPath: "/tmp/\(id.uuidString)/original.epub"),
+            canonicalFileURL: canonicalFileURL
+                ?? URL(fileURLWithPath: "/tmp/\(id.uuidString)/publication.epub"),
+            coverFileURL: coverFileURL,
             position: position,
             lastOpenedAt: lastOpenedAt,
             createdAt: createdAt

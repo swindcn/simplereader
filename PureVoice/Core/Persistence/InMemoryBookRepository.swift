@@ -25,18 +25,25 @@ actor InMemoryBookRepository: BookRepository {
     }
 
     private static func libraryOrder(_ lhs: Book, _ rhs: Book) -> Bool {
-        if lhs.createdAt != rhs.createdAt {
-            return lhs.createdAt > rhs.createdAt
+        let lhsDate = orderingKey(for: lhs.createdAt)
+        let rhsDate = orderingKey(for: rhs.createdAt)
+        if lhsDate != rhsDate {
+            return lhsDate > rhsDate
         }
         return lhs.id.uuidString < rhs.id.uuidString
     }
 
     private static func recentOrder(_ lhs: Book, _ rhs: Book) -> Bool {
-        let lhsDate = lhs.lastOpenedAt ?? lhs.createdAt
-        let rhsDate = rhs.lastOpenedAt ?? rhs.createdAt
+        let lhsDate = orderingKey(for: lhs.lastOpenedAt ?? lhs.createdAt)
+        let rhsDate = orderingKey(for: rhs.lastOpenedAt ?? rhs.createdAt)
         if lhsDate != rhsDate {
             return lhsDate > rhsDate
         }
         return libraryOrder(lhs, rhs)
+    }
+
+    private static func orderingKey(for date: Date) -> Double {
+        let interval = date.timeIntervalSinceReferenceDate
+        return interval.isFinite ? interval : -Double.greatestFiniteMagnitude
     }
 }
