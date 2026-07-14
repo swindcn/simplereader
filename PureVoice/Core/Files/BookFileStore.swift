@@ -10,6 +10,7 @@ enum BookFileError: Error, Equatable, Sendable {
 enum BookFileTransactionOperation: Equatable, Sendable {
     case installStagedDirectory
     case removeCommittedBackup
+    case removeBookArtifact(String)
 }
 
 final class BookFileStore: @unchecked Sendable {
@@ -97,8 +98,30 @@ final class BookFileStore: @unchecked Sendable {
 
     func deleteBookFiles(bookID: UUID) throws {
         let directory = bookDirectory(for: bookID)
-        guard fileManager.fileExists(atPath: directory.path) else { return }
-        try fileManager.removeItem(at: directory)
+        guard fileManager.fileExists(atPath: booksRoot.path) else { return }
+        let contents = try fileManager.contentsOfDirectory(
+            at: booksRoot,
+            includingPropertiesForKeys: nil
+        )
+        var targets = contents.filter { isTransactionArtifact($0, for: bookID) }
+        if fileManager.fileExists(atPath: directory.path) {
+            targets.insert(directory, at: 0)
+        }
+
+        var firstError: Error?
+        for target in targets {
+            do {
+                try transactionHook(.removeBookArtifact(target.lastPathComponent))
+                try fileManager.removeItem(at: target)
+            } catch {
+                if firstError == nil {
+                    firstError = error
+                }
+            }
+        }
+        if let firstError {
+            throw firstError
+        }
     }
 
     private func bookDirectory(for bookID: UUID) -> URL {
@@ -161,12 +184,11 @@ final class BookFileStore: @unchecked Sendable {
             at: booksRoot,
             includingPropertiesForKeys: nil
         )
-        let prefix = ".\(bookID.uuidString)."
         let stagingDirectories = contents.filter {
-            $0.lastPathComponent.hasPrefix("\(prefix)staging-")
+            isTransactionArtifact($0, for: bookID, kind: "staging")
         }
         let backupDirectories = contents.filter {
-            $0.lastPathComponent.hasPrefix("\(prefix)backup-")
+            isTransactionArtifact($0, for: bookID, kind: "backup")
         }.sorted { $0.lastPathComponent < $1.lastPathComponent }
         let directory = bookDirectory(for: bookID)
 
@@ -187,6 +209,23 @@ final class BookFileStore: @unchecked Sendable {
             ".\(bookID.uuidString).\(kind)-\(id)",
             isDirectory: true
         )
+    }
+
+    private func isTransactionArtifact(
+        _ url: URL,
+        for bookID: UUID,
+        kind requestedKind: String? = nil
+    ) -> Bool {
+        let name = url.lastPathComponent
+        let kinds = requestedKind.map { [$0] } ?? ["staging", "backup"]
+        for kind in kinds {
+            let prefix = ".\(bookID.uuidString).\(kind)-"
+            guard name.hasPrefix(prefix) else { continue }
+            let transactionID = String(name.dropFirst(prefix.count))
+            guard let uuid = UUID(uuidString: transactionID) else { return false }
+            return uuid.uuidString == transactionID
+        }
+        return false
     }
 
     private func removeIfPresent(_ url: URL) {

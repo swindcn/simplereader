@@ -174,6 +174,104 @@ final class BookFileStoreTests: XCTestCase {
         )
     }
 
+    func testDeleteRemovesTransactionArtifactsWithoutResurrectingDeletedContent() throws {
+        let bookID = UUID()
+        let siblingID = UUID()
+        let textSource = temporaryRoot.appendingPathComponent("old.txt")
+        let epubSource = temporaryRoot.appendingPathComponent("replacement.epub")
+        let finalSource = temporaryRoot.appendingPathComponent("final.mobi")
+        let siblingSource = temporaryRoot.appendingPathComponent("sibling.txt")
+        try Data("old original".utf8).write(to: textSource)
+        try Data("replacement".utf8).write(to: epubSource)
+        try Data("final original".utf8).write(to: finalSource)
+        try Data("sibling".utf8).write(to: siblingSource)
+        let store = BookFileStore(applicationSupportRoot: temporaryRoot)
+        let oldOriginal = try store.importOriginal(from: textSource, bookID: bookID)
+        let directory = oldOriginal.deletingLastPathComponent()
+        try Data("old publication".utf8).write(
+            to: directory.appendingPathComponent("publication.epub")
+        )
+        try Data("old cover".utf8).write(to: directory.appendingPathComponent("cover"))
+        let siblingOriginal = try store.importOriginal(from: siblingSource, bookID: siblingID)
+        let cleanupFailingStore = BookFileStore(
+            applicationSupportRoot: temporaryRoot,
+            transactionHook: { operation in
+                if operation == .removeCommittedBackup {
+                    throw InjectedFileOperationError.cleanup
+                }
+            }
+        )
+        _ = try cleanupFailingStore.importOriginal(from: epubSource, bookID: bookID)
+
+        try store.deleteBookFiles(bookID: bookID)
+
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: store.booksRoot.path),
+            [siblingID.uuidString]
+        )
+        XCTAssertEqual(try Data(contentsOf: siblingOriginal), Data("sibling".utf8))
+
+        let finalOriginal = try store.importOriginal(from: finalSource, bookID: bookID)
+
+        XCTAssertEqual(finalOriginal.lastPathComponent, "original.mobi")
+        XCTAssertEqual(try Data(contentsOf: finalOriginal), Data("final original".utf8))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                atPath: finalOriginal.deletingLastPathComponent().path
+            ),
+            ["original.mobi"]
+        )
+        XCTAssertEqual(try Data(contentsOf: siblingOriginal), Data("sibling".utf8))
+    }
+
+    func testDeleteThrowsOnArtifactFailureAndRetryCompletesCleanup() throws {
+        let bookID = UUID()
+        let siblingID = UUID()
+        let oldSource = temporaryRoot.appendingPathComponent("old.txt")
+        let replacementSource = temporaryRoot.appendingPathComponent("replacement.epub")
+        let siblingSource = temporaryRoot.appendingPathComponent("sibling.txt")
+        try Data("old".utf8).write(to: oldSource)
+        try Data("replacement".utf8).write(to: replacementSource)
+        try Data("sibling".utf8).write(to: siblingSource)
+        let store = BookFileStore(applicationSupportRoot: temporaryRoot)
+        _ = try store.importOriginal(from: oldSource, bookID: bookID)
+        let siblingOriginal = try store.importOriginal(from: siblingSource, bookID: siblingID)
+        let cleanupFailingStore = BookFileStore(
+            applicationSupportRoot: temporaryRoot,
+            transactionHook: { operation in
+                if operation == .removeCommittedBackup {
+                    throw InjectedFileOperationError.cleanup
+                }
+            }
+        )
+        _ = try cleanupFailingStore.importOriginal(from: replacementSource, bookID: bookID)
+        var injectedFailure = false
+        let deleteFailingStore = BookFileStore(
+            applicationSupportRoot: temporaryRoot,
+            transactionHook: { operation in
+                if case let .removeBookArtifact(name) = operation,
+                   name.contains(".backup-"),
+                   !injectedFailure {
+                    injectedFailure = true
+                    throw InjectedFileOperationError.delete
+                }
+            }
+        )
+
+        XCTAssertThrowsError(try deleteFailingStore.deleteBookFiles(bookID: bookID)) { error in
+            XCTAssertEqual(error as? InjectedFileOperationError, .delete)
+        }
+
+        try deleteFailingStore.deleteBookFiles(bookID: bookID)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.booksRoot.path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: store.booksRoot.path),
+            [siblingID.uuidString]
+        )
+        XCTAssertEqual(try Data(contentsOf: siblingOriginal), Data("sibling".utf8))
+    }
+
     func testMissingAndUnsafeExtensionsAreRejected() throws {
         let store = BookFileStore(applicationSupportRoot: temporaryRoot)
         let missing = temporaryRoot.appendingPathComponent("book")
@@ -249,4 +347,5 @@ final class BookFileStoreTests: XCTestCase {
 private enum InjectedFileOperationError: Error, Equatable {
     case commit
     case cleanup
+    case delete
 }
