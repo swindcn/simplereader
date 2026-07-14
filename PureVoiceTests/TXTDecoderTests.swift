@@ -45,8 +45,7 @@ final class TXTDecoderTests: XCTestCase {
     }
 
     private func fixtureData(_ name: String) -> Data {
-        let url = Bundle(for: Self.self).url(forResource: name, withExtension: nil, subdirectory: "Fixtures/txt")
-            ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/txt/\(name)")
+        let url = Bundle(for: Self.self).url(forResource: name, withExtension: nil)!
         return try! Data(contentsOf: url)
     }
 }

@@ -38,6 +38,7 @@ protocol CanonicalPublicationConverting: Sendable {
     func convert(
         originalURL: URL,
         format: BookFormat,
+        suggestedTitle: String,
         destinationURL: URL
     ) async throws
 }
@@ -84,6 +85,7 @@ final class ImportCoordinator: ObservableObject {
         defer { isImporting = false }
 
         let bookID = UUID()
+        let suggestedTitle = sourceURL.deletingPathExtension().lastPathComponent
         var copiedOriginalURL: URL?
         var phase = ImportPhase.copy
 
@@ -105,6 +107,7 @@ final class ImportCoordinator: ObservableObject {
             try await converter.convert(
                 originalURL: originalURL,
                 format: format,
+                suggestedTitle: suggestedTitle,
                 destinationURL: canonicalURL
             )
             try Task.checkCancellation()
@@ -208,6 +211,9 @@ final class ImportCoordinator: ObservableObject {
             case .missingExtension, .invalidExtension:
                 return .copyFailed(String(describing: fileError))
             }
+        }
+        if case TXTConversionError.fileTooLarge = error {
+            return .tooLarge
         }
         if case BookFormatDetectionError.unsupportedExtension = error {
             return .unsupported

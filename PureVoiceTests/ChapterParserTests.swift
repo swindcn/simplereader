@@ -37,4 +37,14 @@ final class ChapterParserTests: XCTestCase {
             Chapter(index: 0, title: "正文", body: "第一段\n\n第二段\n尾声")
         ])
     }
+
+    func testAcceptsCompactChineseAndPunctuatedEnglishHeadings() {
+        let chapters = parser.parse("第一章重逢\nA\nChapter 12: Return\nB\nChapter 13 - Again\nC")
+        XCTAssertEqual(chapters.map(\.title), ["第一章重逢", "Chapter 12: Return", "Chapter 13 - Again"])
+    }
+
+    func testRejectsOverlongHeadingLikeSentences() {
+        let longTail = String(repeating: "这是一句很长的正文", count: 10)
+        XCTAssertEqual(parser.parse("第一章 \(longTail)").map(\.title), ["正文"])
+    }
 }

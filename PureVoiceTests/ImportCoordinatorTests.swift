@@ -24,8 +24,9 @@ final class ImportCoordinatorTests: XCTestCase {
     func testSuccessHasStrictStateOrderAndSavesMetadataLast() async throws {
         let source = try write(Data("text".utf8), named: "source.txt")
         let repository = RecordingRepository()
-        let converter = RecordingConverter { original, format, destination in
+        let converter = RecordingConverter { original, format, suggestedTitle, destination in
             XCTAssertEqual(format, .txt)
+            XCTAssertEqual(suggestedTitle, "source")
             XCTAssertEqual(try Data(contentsOf: original), Data("text".utf8))
             try Data("epub".utf8).write(to: destination)
         }
@@ -73,7 +74,7 @@ final class ImportCoordinatorTests: XCTestCase {
     func testConversionFailurePreservesOriginalCleansCanonicalAndDoesNotSave() async throws {
         let source = try write(Data("text".utf8), named: "source.txt")
         let repository = RecordingRepository()
-        let converter = RecordingConverter { _, _, destination in
+        let converter = RecordingConverter { _, _, _, destination in
             try Data("partial".utf8).write(to: destination)
             throw TestError.conversion
         }
@@ -93,6 +94,18 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: bookDirectory.appendingPathComponent("publication.epub").path))
         let saveCount = await repository.count()
         XCTAssertEqual(saveCount, 0)
+    }
+
+    func testTXTConversionSizeLimitMapsToTooLarge() async throws {
+        let source = try write(Data("text".utf8), named: "large.txt")
+        let converter = RecordingConverter { _, _, _, _ in
+            throw TXTConversionError.fileTooLarge(maxBytes: TXTCanonicalPublicationConverter.maximumSourceBytes)
+        }
+        let coordinator = makeCoordinator(repository: RecordingRepository(), converter: converter)
+
+        try await coordinator.importBook(from: source)
+
+        XCTAssertEqual(coordinator.state, .failed(.tooLarge))
     }
 
     func testDetectOpenAndSaveFailuresAreDistinctAndCleanCanonical() async throws {
@@ -151,7 +164,7 @@ final class ImportCoordinatorTests: XCTestCase {
         let firstSource = try write(Data("first".utf8), named: "first.txt")
         let secondSource = try write(Data("second".utf8), named: "second.txt")
         let barrier = ConversionBarrier()
-        let converter = RecordingConverter { _, _, destination in
+        let converter = RecordingConverter { _, _, _, destination in
             await barrier.waitUntilReleased()
             try Task.checkCancellation()
             try Data("epub".utf8).write(to: destination)
@@ -324,7 +337,7 @@ final class ImportCoordinatorTests: XCTestCase {
     func testCanonicalCleanupFailureOverridesOriginalFailure() async throws {
         let source = try write(Data("text".utf8), named: "cleanup-failure.txt")
         let cleanupFailingStore = CleanupFailingFileStore(base: fileStore)
-        let converter = RecordingConverter { _, _, destination in
+        let converter = RecordingConverter { _, _, _, destination in
             try Data("partial".utf8).write(to: destination)
             throw TestError.conversion
         }
@@ -358,7 +371,7 @@ final class ImportCoordinatorTests: XCTestCase {
     func testConcreteConversionErrorWinsWhenTaskIsAlreadyCancelled() async throws {
         let source = try write(Data("text".utf8), named: "cancelled-conversion-error.txt")
         let barrier = ConversionBarrier()
-        let converter = RecordingConverter { _, _, destination in
+        let converter = RecordingConverter { _, _, _, destination in
             try Data("partial".utf8).write(to: destination)
             await barrier.waitUntilReleased()
             throw TestError.conversion
@@ -383,7 +396,7 @@ final class ImportCoordinatorTests: XCTestCase {
         let source = try write(Data("text".utf8), named: "cancelled-cleanup-error.txt")
         let barrier = ConversionBarrier()
         let cleanupFailingStore = CleanupFailingFileStore(base: fileStore)
-        let converter = RecordingConverter { _, _, destination in
+        let converter = RecordingConverter { _, _, _, destination in
             try Data("partial".utf8).write(to: destination)
             await barrier.waitUntilReleased()
             throw TestError.conversion
@@ -447,19 +460,19 @@ private enum TestError: Error {
 }
 
 private actor RecordingConverter: CanonicalPublicationConverting {
-    typealias Operation = @Sendable (URL, BookFormat, URL) async throws -> Void
+    typealias Operation = @Sendable (URL, BookFormat, String, URL) async throws -> Void
     private let operation: Operation
     private(set) var convertCount = 0
 
-    init(operation: @escaping Operation = { _, _, destination in
+    init(operation: @escaping Operation = { _, _, _, destination in
         try Data("epub".utf8).write(to: destination)
     }) {
         self.operation = operation
     }
 
-    func convert(originalURL: URL, format: BookFormat, destinationURL: URL) async throws {
+    func convert(originalURL: URL, format: BookFormat, suggestedTitle: String, destinationURL: URL) async throws {
         convertCount += 1
-        try await operation(originalURL, format, destinationURL)
+        try await operation(originalURL, format, suggestedTitle, destinationURL)
     }
 
     func count() -> Int { convertCount }

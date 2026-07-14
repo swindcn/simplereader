@@ -22,9 +22,23 @@ final class EPUBBuilderTests: XCTestCase {
         XCTAssertEqual(mimetype, Data("application/epub+zip".utf8))
         XCTAssertEqual(entries.map(\.path), ["mimetype", "META-INF/container.xml", "EPUB/package.opf", "EPUB/nav.xhtml", "EPUB/chapter-0001.xhtml", "EPUB/chapter-0002.xhtml"])
         for entry in entries where entry.path.hasSuffix(".xml") || entry.path.hasSuffix(".opf") || entry.path.hasSuffix(".xhtml") {
-            let parser = XMLParser(data: try await data(for: entry, in: archive))
+            let entryData = try await data(for: entry, in: archive)
+            let parser = XMLParser(data: entryData)
             XCTAssertTrue(parser.parse(), "Invalid XML in \(entry.path): \(String(describing: parser.parserError))")
         }
+        let opf = String(decoding: try await data(for: entries[2], in: archive), as: UTF8.self)
+        let nav = String(decoding: try await data(for: entries[3], in: archive), as: UTF8.self)
+        let xhtml = String(decoding: try await data(for: entries[4], in: archive), as: UTF8.self)
+        XCTAssertTrue(opf.contains("书 &amp; &lt;名&gt; &quot;x&quot;"))
+        XCTAssertTrue(nav.contains("第一章 &amp; &lt;开场&gt;"))
+        XCTAssertTrue(xhtml.contains("A &amp; B &lt; C &gt; D &quot;quote&quot; &apos;apostrophe&apos;"))
+        XCTAssertTrue(xhtml.contains("第二节&#xFFFD;"))
+        let collector = XMLTextCollector()
+        let decodedParser = XMLParser(data: try await data(for: entries[4], in: archive))
+        decodedParser.delegate = collector
+        XCTAssertTrue(decodedParser.parse())
+        XCTAssertTrue(collector.text.contains("第一章 & <开场>"))
+        XCTAssertTrue(collector.text.contains("A & B < C > D \"quote\" 'apostrophe'"))
     }
 
     func testReadiumOpensBuiltEPUBAndSeesMetadataSpineAndTOC() async throws {
@@ -57,28 +71,65 @@ final class EPUBBuilderTests: XCTestCase {
         XCTAssertEqual(tableOfContents.first?.title, "正文")
     }
 
-    func testAdapterConvertsTXTAndRejectsOtherFormats() async throws {
-        let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/txt/utf8-novel.txt")
+    func testAdapterUsesSuggestedSourceTitleAndRejectsOtherFormats() async throws {
+        let source = fixtureURL("utf8-novel.txt")
         let destination = temporaryURL("adapter.epub")
-        try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, destinationURL: destination)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: destination.path))
+        try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, suggestedTitle: "原始书名", destinationURL: destination)
+        let publication = try await openPublication(at: destination)
+        XCTAssertEqual(publication.metadata.title, "原始书名")
         do {
-            try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .epub, destinationURL: temporaryURL("bad.epub"))
+            try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .epub, suggestedTitle: "Title", destinationURL: temporaryURL("bad.epub"))
             XCTFail("Expected unsupported format")
         } catch {
             XCTAssertEqual(error as? TXTConversionError, .unsupportedFormat(.epub))
         }
     }
 
-    func testAdapterRejectsNonTXTExtensionEvenWhenFormatWasMisreported() async throws {
+    func testAdapterTrustsDetectedTXTRegardlessOfStoredExtension() async throws {
         let source = temporaryURL("disguised.epub")
         try fixtureData("utf8-novel.txt").write(to: source)
+        let destination = temporaryURL("accepted.epub")
+        try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, suggestedTitle: "Detected", destinationURL: destination)
+        let publication = try await openPublication(at: destination)
+        XCTAssertEqual(publication.metadata.title, "Detected")
+    }
+
+    func testSameInputBuildsByteIdenticalEPUBs() async throws {
+        let chapters = [Chapter(index: 0, title: "第一章", body: "内容"), Chapter(index: 1, title: "Chapter 2", body: "Body")]
+        let first = temporaryURL("first.epub")
+        let second = temporaryURL("second.epub")
+        try await EPUBBuilder().build(chapters: chapters, title: "Stable", author: "Author", destinationURL: first)
+        try await EPUBBuilder().build(chapters: chapters, title: "Stable", author: "Author", destinationURL: second)
+        XCTAssertEqual(try Data(contentsOf: first), try Data(contentsOf: second))
+    }
+
+    func testAdapterRejectsSparseSourceAboveDecodedByteLimitWithoutReadingIt() async throws {
+        let source = temporaryURL("large.txt")
+        FileManager.default.createFile(atPath: source.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: source)
+        try handle.truncate(atOffset: UInt64(TXTCanonicalPublicationConverter.maximumSourceBytes + 1))
+        try handle.close()
         do {
-            try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, destinationURL: temporaryURL("bad.epub"))
-            XCTFail("Expected unsupported extension")
+            try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, suggestedTitle: "Large", destinationURL: temporaryURL("large.epub"))
+            XCTFail("Expected size rejection")
         } catch {
-            XCTAssertEqual(error as? TXTConversionError, .unsupportedFileExtension("epub"))
+            XCTAssertEqual(error as? TXTConversionError, .fileTooLarge(maxBytes: TXTCanonicalPublicationConverter.maximumSourceBytes))
         }
+    }
+
+    func testCancelledBuildKeepsExistingDestination() async throws {
+        let destination = temporaryURL("existing.epub")
+        let old = Data("old canonical".utf8)
+        try old.write(to: destination)
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await EPUBBuilder().build(chapters: [Chapter(index: 0, title: "One", body: "Body")], title: "Cancelled", destinationURL: destination)
+        }
+        do {
+            try await task.value
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {}
+        XCTAssertEqual(try Data(contentsOf: destination), old)
     }
 
     private func data(for entry: Entry, in archive: Archive) async throws -> Data {
@@ -95,8 +146,24 @@ final class EPUBBuilderTests: XCTestCase {
     }
 
     private func fixtureData(_ name: String) -> Data {
-        try! Data(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/txt/\(name)"))
+        try! Data(contentsOf: fixtureURL(name))
     }
+
+    private func fixtureURL(_ name: String) -> URL {
+        Bundle(for: Self.self).url(forResource: name, withExtension: nil)!
+    }
+
+    private func openPublication(at url: URL) async throws -> Publication {
+        let httpClient: HTTPClient = DefaultHTTPClient()
+        let retriever = AssetRetriever(httpClient: httpClient)
+        let opener = PublicationOpener(parser: DefaultPublicationParser(httpClient: httpClient, assetRetriever: retriever, pdfFactory: DefaultPDFDocumentFactory()), contentProtections: [])
+        return try await opener.open(asset: try await retriever.retrieve(url: FileURL(url: url)!).get(), allowUserInteraction: false, sender: nil).get()
+    }
+}
+
+private final class XMLTextCollector: NSObject, XMLParserDelegate {
+    private(set) var text = ""
+    func parser(_ parser: XMLParser, foundCharacters string: String) { text += string }
 }
 
 private actor DataCollector {

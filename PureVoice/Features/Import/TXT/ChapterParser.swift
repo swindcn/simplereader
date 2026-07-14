@@ -2,10 +2,10 @@ import Foundation
 
 struct ChapterParser: Sendable {
     private static let chineseHeading = try! NSRegularExpression(
-        pattern: #"^\s*第\s*(?:[0-9０-９]+|[零〇一二三四五六七八九十百千万两]+)\s*[章节回卷部篇](?:\s+.*)?\s*$"#
+        pattern: #"^\s*第\s*(?:[0-9０-９]+|[零〇一二三四五六七八九十百千万两]+)\s*[章节回卷部篇](?:\s*[:：\-—]?\s*.*)?\s*$"#
     )
     private static let englishHeading = try! NSRegularExpression(
-        pattern: #"^\s*chapter\s+[0-9]+(?:\s+.*)?\s*$"#,
+        pattern: #"^\s*chapter\s+[0-9]+(?:\s*[:：\-—]\s*.*|\s+.*)?\s*$"#,
         options: [.caseInsensitive]
     )
 
@@ -63,6 +63,7 @@ struct ChapterParser: Sendable {
     }
 
     private func isHeading(_ line: String) -> Bool {
+        guard !line.isEmpty, line.count <= 80 else { return false }
         let range = NSRange(line.startIndex..<line.endIndex, in: line)
         return Self.chineseHeading.firstMatch(in: line, range: range) != nil
             || Self.englishHeading.firstMatch(in: line, range: range) != nil
