@@ -86,6 +86,11 @@ struct LibraryView: View {
             .padding(.vertical, DesignTokens.stackGap)
         }
         .refreshable { await viewModel.load() }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color(uiColor: .systemGroupedBackground)
+                .frame(height: DesignTokens.minimumTouchTarget + DesignTokens.stackGap)
+                .accessibilityHidden(true)
+        }
     }
 
     private var emptyState: some View {

@@ -2,6 +2,8 @@ import SwiftUI
 import UIKit
 
 struct BookRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let book: Book
     let accessibilityIdentifier: String
     let onOpen: () -> Void
@@ -77,20 +79,43 @@ struct BookRow: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
-            HStack {
-                Text(progress >= 1 ? "已完成" : "阅读中")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(DesignTokens.primary)
-                Spacer()
-                Text("\(percentage)%")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
+            progressSummary
             ProgressView(value: progress)
                 .tint(DesignTokens.primary)
                 .frame(height: 4)
         }
         .frame(minHeight: 132, alignment: .top)
+    }
+
+    @ViewBuilder
+    private var progressSummary: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 3) {
+                progressStatus
+                progressPercentage
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        } else {
+            HStack {
+                progressStatus
+                Spacer()
+                progressPercentage
+            }
+        }
+    }
+
+    private var progressStatus: some View {
+        Text(progress >= 1 ? "已完成" : "阅读中")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(DesignTokens.primary)
+    }
+
+    private var progressPercentage: some View {
+        Text("\(percentage)%")
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var progress: Double {
