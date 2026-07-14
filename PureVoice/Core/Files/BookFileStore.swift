@@ -110,6 +110,14 @@ final class BookFileStore: @unchecked Sendable {
         bookDirectory(for: bookID).appendingPathComponent("cover")
     }
 
+    func removeCanonicalFile(bookID: UUID) throws {
+        try withBookLock(bookID: bookID) {
+            let canonical = canonicalURL(for: bookID)
+            guard fileManager.fileExists(atPath: canonical.path) else { return }
+            try fileManager.removeItem(at: canonical)
+        }
+    }
+
     func deleteBookFiles(bookID: UUID) throws {
         try withBookLock(bookID: bookID) {
             try transactionHook(.beginDelete)

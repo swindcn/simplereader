@@ -510,6 +510,30 @@ final class BookFileStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: store.booksRoot.path))
     }
 
+    func testRemoveCanonicalUsesCrossInstanceLockAndPreservesOtherArtifacts() throws {
+        let bookID = UUID()
+        let siblingID = UUID()
+        let source = temporaryRoot.appendingPathComponent("source.txt")
+        let siblingSource = temporaryRoot.appendingPathComponent("sibling.txt")
+        try Data("original".utf8).write(to: source)
+        try Data("sibling".utf8).write(to: siblingSource)
+        let firstStore = try BookFileStore(applicationSupportRoot: temporaryRoot)
+        let secondStore = try BookFileStore(applicationSupportRoot: temporaryRoot)
+        let original = try firstStore.importOriginal(from: source, bookID: bookID)
+        let sibling = try firstStore.importOriginal(from: siblingSource, bookID: siblingID)
+        let canonical = firstStore.canonicalURL(for: bookID)
+        let cover = firstStore.coverURL(for: bookID)
+        try Data("canonical".utf8).write(to: canonical)
+        try Data("cover".utf8).write(to: cover)
+
+        try secondStore.removeCanonicalFile(bookID: bookID)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: canonical.path))
+        XCTAssertEqual(try Data(contentsOf: original), Data("original".utf8))
+        XCTAssertEqual(try Data(contentsOf: cover), Data("cover".utf8))
+        XCTAssertEqual(try Data(contentsOf: sibling), Data("sibling".utf8))
+    }
+
     func testOutOfSpaceCocoaErrorIsTranslated() {
         let cocoaError = CocoaError(.fileWriteOutOfSpace)
 
