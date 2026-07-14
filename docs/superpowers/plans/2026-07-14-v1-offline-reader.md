@@ -86,8 +86,9 @@ packages:
     url: https://github.com/readium/swift-toolkit.git
     exactVersion: 3.8.0
   ZIPFoundation:
-    url: https://github.com/weichsel/ZIPFoundation.git
-    exactVersion: 0.9.20
+    # Readium 3.8.0 depends on this fork and its 3.x product name.
+    url: https://github.com/readium/ZIPFoundation.git
+    exactVersion: 3.0.1
 targets:
   PureVoice:
     type: application
@@ -109,7 +110,7 @@ targets:
       - package: Readium
         product: ReadiumNavigator
       - package: ZIPFoundation
-        product: ZIPFoundation
+        product: ReadiumZIPFoundation
   PureVoiceTests:
     type: bundle.unit-test
     platform: iOS
