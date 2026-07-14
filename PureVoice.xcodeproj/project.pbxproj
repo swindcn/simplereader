@@ -17,12 +17,16 @@
 		3A5C293EAE9AE10A6719C8E2 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B525D4A979008B7CF9F2400 /* RootTabView.swift */; };
 		49340BB5130F27B69DD08CE1 /* AppTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A6B898F8756837F9E0F9A0B /* AppTab.swift */; };
 		4F5D96AA4C1FE11BC3FA5011 /* BookFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5987B62E1F92A79B2753E3D /* BookFileStore.swift */; };
+		571C92C193D100A2C93EB0D7 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F40F617D2E30B89515CE45B8 /* LibraryView.swift */; };
 		5969C7FFC251635EAAA24D4A /* ImportState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8980D2AA6AE14CABEF3305D5 /* ImportState.swift */; };
 		6071F2D0BDFBFAD331541CBE /* AccessibleIconButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADE8A4C689E8B676410F69FE /* AccessibleIconButton.swift */; };
 		6DEC0C33E2552DF52396EF57 /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */; };
 		7C80FDDA24454D67762E9C32 /* DesignTokensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09EF7FE4CADB435F6E7A925D /* DesignTokensTests.swift */; };
 		806ECDADF5E4CF9B1D9D780D /* PureVoiceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */; };
 		836FCE637F4319A5E8408F86 /* ReadingPosition.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB62BB69DBEFED245AC3DA95 /* ReadingPosition.swift */; };
+		87909EE856128F1AE257E5EF /* LibraryAccessibilityUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05641AD1149C3D98463B43A4 /* LibraryAccessibilityUITests.swift */; };
+		88D5751EAA40555324007F89 /* BookRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F943AA79DBD848EAF1FAA7 /* BookRow.swift */; };
+		8A60C3C9C22877BF69D4FA7D /* ContinueReadingSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA2209A99103072CA22F081 /* ContinueReadingSection.swift */; };
 		8C8D147FDF84497DD0091985 /* CoreDataBookRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A930E0E50005BC7846151BA /* CoreDataBookRepository.swift */; };
 		AB4CC60D13C54C51CC63B9C9 /* Book+Fixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B9C2711561B6DBBC8D53C3 /* Book+Fixture.swift */; };
 		AE8D5EF4FBF87078D1A7974E /* BookFileStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9B0F737EA32A13BDB9A860 /* BookFileStoreTests.swift */; };
@@ -31,6 +35,8 @@
 		CE731FF0FCACE630AF77788D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2935B1DC349E1F472A8E9EE3 /* Assets.xcassets */; };
 		E991454E60833B506AFAB9E0 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28C7ADD515B41FC0DF988BB2 /* DesignTokens.swift */; };
 		F094E409435F0C7D66B3248B /* ReadiumStreamer in Frameworks */ = {isa = PBXBuildFile; productRef = 493F4F402A81CBF0E56BAAE7 /* ReadiumStreamer */; };
+		F1498E36BFAAB60AB180D71C /* LibraryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79C751CA4B40005532664CE8 /* LibraryViewModelTests.swift */; };
+		F198E025BA055D6D4BA1EC12 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F51AD659BDFDC8C3DE6BE8 /* LibraryViewModel.swift */; };
 		F625251C7725D735B8D4F798 /* ReadiumZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 01A5DF0FE938A5E4FA221F7A /* ReadiumZIPFoundation */; };
 		F7C3B7FFF5C02E8D19B5D63F /* InMemoryBookRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC33CF94D984AF48C5635C44 /* InMemoryBookRepository.swift */; };
 /* End PBXBuildFile section */
@@ -53,12 +59,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		05641AD1149C3D98463B43A4 /* LibraryAccessibilityUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryAccessibilityUITests.swift; sourceTree = "<group>"; };
 		0695FD82E44D0C56A5DAD98D /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
 		09EF7FE4CADB435F6E7A925D /* DesignTokensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokensTests.swift; sourceTree = "<group>"; };
 		0A6B898F8756837F9E0F9A0B /* AppTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTab.swift; sourceTree = "<group>"; };
 		1302C69FF12AB105064DCFE2 /* BookRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookRepository.swift; sourceTree = "<group>"; };
 		28C7ADD515B41FC0DF988BB2 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		2935B1DC349E1F472A8E9EE3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2DA2209A99103072CA22F081 /* ContinueReadingSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContinueReadingSection.swift; sourceTree = "<group>"; };
 		3F0D382848817610EFA827F5 /* BookFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookFormat.swift; sourceTree = "<group>"; };
 		4B525D4A979008B7CF9F2400 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		4D51D650090A3FA7F449E54B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -66,8 +74,11 @@
 		53038ED097129FD8615221D2 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
 		665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchUITests.swift; sourceTree = "<group>"; };
 		67B6C35A7720F74DAEAA69E5 /* CoreDataBookRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataBookRepositoryTests.swift; sourceTree = "<group>"; };
+		79C751CA4B40005532664CE8 /* LibraryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModelTests.swift; sourceTree = "<group>"; };
 		7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PureVoiceApp.swift; sourceTree = "<group>"; };
 		8980D2AA6AE14CABEF3305D5 /* ImportState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportState.swift; sourceTree = "<group>"; };
+		96F51AD659BDFDC8C3DE6BE8 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
+		98F943AA79DBD848EAF1FAA7 /* BookRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookRow.swift; sourceTree = "<group>"; };
 		9A930E0E50005BC7846151BA /* CoreDataBookRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataBookRepository.swift; sourceTree = "<group>"; };
 		ADE8A4C689E8B676410F69FE /* AccessibleIconButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibleIconButton.swift; sourceTree = "<group>"; };
 		AFCF4D1BB3E96447B49D9CEB /* PureVoice.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PureVoice.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -77,6 +88,7 @@
 		D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSmokeTests.swift; sourceTree = "<group>"; };
 		DC33CF94D984AF48C5635C44 /* InMemoryBookRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InMemoryBookRepository.swift; sourceTree = "<group>"; };
 		F34B394663F4C909425287C5 /* PureVoiceUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PureVoiceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F40F617D2E30B89515CE45B8 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		F5987B62E1F92A79B2753E3D /* BookFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookFileStore.swift; sourceTree = "<group>"; };
 		FB62BB69DBEFED245AC3DA95 /* ReadingPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingPosition.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -114,10 +126,22 @@
 				67B6C35A7720F74DAEAA69E5 /* CoreDataBookRepositoryTests.swift */,
 				09EF7FE4CADB435F6E7A925D /* DesignTokensTests.swift */,
 				D3F4456FD4DCB8FFBCA97A16 /* InMemoryBookRepositoryTests.swift */,
+				79C751CA4B40005532664CE8 /* LibraryViewModelTests.swift */,
 				D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */,
 				6EAB468D3C1E6A05941711C2 /* Support */,
 			);
 			path = PureVoiceTests;
+			sourceTree = "<group>";
+		};
+		1241F866EA999EADA126A73E /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				98F943AA79DBD848EAF1FAA7 /* BookRow.swift */,
+				2DA2209A99103072CA22F081 /* ContinueReadingSection.swift */,
+				F40F617D2E30B89515CE45B8 /* LibraryView.swift */,
+				96F51AD659BDFDC8C3DE6BE8 /* LibraryViewModel.swift */,
+			);
+			path = Library;
 			sourceTree = "<group>";
 		};
 		288DFE091F53F48307BD6D9C /* DesignSystem */ = {
@@ -166,6 +190,14 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		9E5DDFD394C1C5D5CD5AF202 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				1241F866EA999EADA126A73E /* Library */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
 		B8CA1ADD9800BBF5285C0C37 /* Files */ = {
 			isa = PBXGroup;
 			children = (
@@ -188,6 +220,7 @@
 			isa = PBXGroup;
 			children = (
 				665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */,
+				05641AD1149C3D98463B43A4 /* LibraryAccessibilityUITests.swift */,
 			);
 			path = PureVoiceUITests;
 			sourceTree = "<group>";
@@ -219,6 +252,7 @@
 				9A72CA0ACB78C8FEE1E93143 /* App */,
 				93F510954A14285BE6EBFEC0 /* Core */,
 				288DFE091F53F48307BD6D9C /* DesignSystem */,
+				9E5DDFD394C1C5D5CD5AF202 /* Features */,
 				6006D8BB908E6051D02C293E /* Resources */,
 			);
 			path = PureVoice;
@@ -346,6 +380,7 @@
 				01E5D1A5C0708BED1B96156C /* CoreDataBookRepositoryTests.swift in Sources */,
 				7C80FDDA24454D67762E9C32 /* DesignTokensTests.swift in Sources */,
 				C1CBBDF0A3D023632CE7FA82 /* InMemoryBookRepositoryTests.swift in Sources */,
+				F1498E36BFAAB60AB180D71C /* LibraryViewModelTests.swift in Sources */,
 				2AAEE1EE5882194C610F114D /* ProjectSmokeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -360,10 +395,14 @@
 				4F5D96AA4C1FE11BC3FA5011 /* BookFileStore.swift in Sources */,
 				1BA719D63ACDD035D1DF00DC /* BookFormat.swift in Sources */,
 				38C538DDF9F764CF59A9865D /* BookRepository.swift in Sources */,
+				88D5751EAA40555324007F89 /* BookRow.swift in Sources */,
+				8A60C3C9C22877BF69D4FA7D /* ContinueReadingSection.swift in Sources */,
 				8C8D147FDF84497DD0091985 /* CoreDataBookRepository.swift in Sources */,
 				E991454E60833B506AFAB9E0 /* DesignTokens.swift in Sources */,
 				5969C7FFC251635EAAA24D4A /* ImportState.swift in Sources */,
 				F7C3B7FFF5C02E8D19B5D63F /* InMemoryBookRepository.swift in Sources */,
+				571C92C193D100A2C93EB0D7 /* LibraryView.swift in Sources */,
+				F198E025BA055D6D4BA1EC12 /* LibraryViewModel.swift in Sources */,
 				26B40611AFD8716F2FB5A89B /* PersistenceController.swift in Sources */,
 				806ECDADF5E4CF9B1D9D780D /* PureVoiceApp.swift in Sources */,
 				836FCE637F4319A5E8408F86 /* ReadingPosition.swift in Sources */,
@@ -376,6 +415,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6DEC0C33E2552DF52396EF57 /* AppLaunchUITests.swift in Sources */,
+				87909EE856128F1AE257E5EF /* LibraryAccessibilityUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

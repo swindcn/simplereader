@@ -1,7 +1,11 @@
 import Foundation
 
 actor InMemoryBookRepository: BookRepository {
-    private var booksByID: [UUID: Book] = [:]
+    private var booksByID: [UUID: Book]
+
+    init(books: [Book] = []) {
+        booksByID = Dictionary(books.map { ($0.id, $0) }, uniquingKeysWith: { _, newest in newest })
+    }
 
     func allBooks() -> [Book] {
         booksByID.values.sorted(by: Self.libraryOrder)
