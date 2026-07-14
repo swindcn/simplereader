@@ -5,6 +5,7 @@ struct PureVoiceApp: App {
     private let repository: any BookRepository
 
     init() {
+        LibraryNavigationBarStyle.apply()
         repository = Self.makeRepository()
     }
 

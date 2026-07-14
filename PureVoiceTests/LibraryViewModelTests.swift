@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import PureVoice
 
 @MainActor
@@ -88,6 +89,13 @@ final class LibraryViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.continueReadingBook?.id, newBook.id)
         XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testLibraryNavigationBarAppearanceIsOpaque() {
+        let appearance = LibraryNavigationBarStyle.makeAppearance()
+
+        XCTAssertNil(appearance.backgroundEffect)
+        XCTAssertEqual(appearance.backgroundColor, .systemGroupedBackground)
     }
 
     private static let books: [Book] = [

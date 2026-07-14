@@ -48,21 +48,29 @@ final class LibraryAccessibilityUITests: XCTestCase {
         XCTAssertFalse(app.tabBars.buttons["听书"].exists)
 
         let scrollView = app.scrollViews.firstMatch
+        let navigationBar = app.navigationBars.firstMatch
         let tabBar = app.tabBars.firstMatch
         let firstRecentBook = app.buttons[
             "library.recent.book.22222222-2222-2222-2222-222222222222"
+        ]
+        let secondRecentBook = app.buttons[
+            "library.recent.book.33333333-3333-3333-3333-333333333333"
         ]
         let lastRecentBook = app.buttons[
             "library.recent.book.44444444-4444-4444-4444-444444444444"
         ]
         XCTAssertTrue(scrollView.exists)
+        XCTAssertTrue(navigationBar.exists)
         XCTAssertTrue(tabBar.exists)
         if firstRecentBook.frame.insetBy(dx: 0, dy: 2).intersects(tabBar.frame) {
             let dragStart = scrollView.coordinate(
                 withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72)
             )
             let dragEnd = scrollView.coordinate(
-                withNormalizedOffset: CGVector(dx: 0.5, dy: 0.52)
+                withNormalizedOffset: CGVector(
+                    dx: 0.5,
+                    dy: contentSizeCategory == "UICTContentSizeCategoryL" ? 0.52 : 0.25
+                )
             )
             dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
         }
@@ -72,7 +80,36 @@ final class LibraryAccessibilityUITests: XCTestCase {
             firstRecentFrame.intersects(tabBar.frame),
             "First recent book \(firstRecentFrame) must remain above tab bar \(tabBar.frame)"
         )
-        XCTAssertGreaterThanOrEqual(firstRecentFrame.minY, scrollView.frame.minY - 2)
+
+        var viewportBook = firstRecentBook
+        if contentSizeCategory != "UICTContentSizeCategoryL" {
+            let dragStart = scrollView.coordinate(
+                withNormalizedOffset: CGVector(dx: 0.5, dy: 0.70)
+            )
+            let dragEnd = scrollView.coordinate(
+                withNormalizedOffset: CGVector(dx: 0.5, dy: 0.29)
+            )
+            dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
+            viewportBook = secondRecentBook
+        }
+
+        position(
+            viewportBook,
+            in: scrollView,
+            between: navigationBar,
+            and: tabBar
+        )
+        let viewportBookFrame = viewportBook.frame.insetBy(dx: 0, dy: 2)
+        XCTAssertGreaterThanOrEqual(viewportBookFrame.minY, navigationBar.frame.maxY - 2)
+        XCTAssertLessThanOrEqual(viewportBookFrame.maxY, tabBar.frame.minY + 2)
+
+        Thread.sleep(forTimeInterval: 1)
+        let viewportScreenshot = XCTAttachment(screenshot: app.screenshot())
+        viewportScreenshot.name = contentSizeCategory == "UICTContentSizeCategoryL"
+            ? "Library-Standard-Navigation-Clear"
+            : "Library-Accessibility-XXXL-Navigation-Clear"
+        viewportScreenshot.lifetime = .keepAlways
+        add(viewportScreenshot)
 
         for _ in 0..<4 {
             scrollView.swipeUp()
@@ -80,17 +117,56 @@ final class LibraryAccessibilityUITests: XCTestCase {
 
         let visibleBookFrame = lastRecentBook.frame.insetBy(dx: 0, dy: 2)
         XCTAssertGreaterThan(visibleBookFrame.width, 0)
-        XCTAssertGreaterThanOrEqual(visibleBookFrame.minY, scrollView.frame.minY - 2)
+        XCTAssertGreaterThanOrEqual(visibleBookFrame.minY, navigationBar.frame.maxY - 2)
         XCTAssertFalse(
             visibleBookFrame.intersects(tabBar.frame),
             "Last recent book \(visibleBookFrame) must remain above tab bar \(tabBar.frame)"
         )
 
+        Thread.sleep(forTimeInterval: 1)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = contentSizeCategory == "UICTContentSizeCategoryL"
-            ? "Library-Standard"
-            : "Library-Accessibility-XXXL"
+            ? "Library-Standard-Last-Book"
+            : "Library-Accessibility-XXXL-Last-Book"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    private func position(
+        _ element: XCUIElement,
+        in scrollView: XCUIElement,
+        between navigationBar: XCUIElement,
+        and tabBar: XCUIElement
+    ) {
+        let padding: CGFloat = 12
+
+        for _ in 0..<6 {
+            let frame = element.frame.insetBy(dx: 0, dy: 2)
+            let top = navigationBar.frame.maxY + padding
+            let bottom = tabBar.frame.minY - padding
+            let scrollHeight = scrollView.frame.height
+
+            if frame.minY < top {
+                let distance = min(max(top - frame.minY, 28), scrollHeight * 0.12)
+                let start = scrollView.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)
+                )
+                let end = scrollView.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42 + distance / scrollHeight)
+                )
+                start.press(forDuration: 0.1, thenDragTo: end)
+            } else if frame.maxY > bottom {
+                let distance = min(max(frame.maxY - bottom, 28), scrollHeight * 0.12)
+                let start = scrollView.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.58)
+                )
+                let end = scrollView.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.58 - distance / scrollHeight)
+                )
+                start.press(forDuration: 0.1, thenDragTo: end)
+            } else {
+                return
+            }
+        }
     }
 }

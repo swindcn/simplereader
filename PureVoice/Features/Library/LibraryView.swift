@@ -88,6 +88,7 @@ struct LibraryView: View {
         .refreshable { await viewModel.load() }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color(uiColor: .systemGroupedBackground)
+                .ignoresSafeArea(edges: .bottom)
                 .frame(height: DesignTokens.minimumTouchTarget + DesignTokens.stackGap)
                 .accessibilityHidden(true)
         }
