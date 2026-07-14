@@ -1,7 +1,7 @@
 import XCTest
 
 final class ProjectSmokeTests: XCTestCase {
-    func testTestHostLoads() {
-        XCTAssertTrue(true)
+    func testHostedAppBundleIdentifier() {
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "com.taotaoxiaoshuo.purevoice")
     }
 }
