@@ -64,8 +64,10 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: saved.canonicalFileURL.path))
         let openCount = await opener.count()
         let saveCount = await repository.count()
+        let deleteCount = await repository.deleteCountValue()
         XCTAssertEqual(openCount, 1)
         XCTAssertEqual(saveCount, 1)
+        XCTAssertEqual(deleteCount, 0)
     }
 
     func testConversionFailurePreservesOriginalCleansCanonicalAndDoesNotSave() async throws {
@@ -183,6 +185,73 @@ final class ImportCoordinatorTests: XCTestCase {
         })
     }
 
+    func testCancellationDuringSaveRollsBackSavedBookAndCleansCanonical() async throws {
+        let source = try write(Data("text".utf8), named: "save-cancel.txt")
+        let repository = SaveBarrierRepository()
+        var states: [ImportState] = []
+        let coordinator = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: repository,
+            stateObserver: { states.append($0) }
+        )
+
+        let importTask = Task { try? await coordinator.importBook(from: source) }
+        await repository.waitUntilSaveEntered()
+        let recordedBook = await repository.recordedBook()
+        let savedBook = try XCTUnwrap(recordedBook)
+        importTask.cancel()
+        await repository.releaseSave()
+        await importTask.value
+
+        XCTAssertEqual(coordinator.state, .failed(.cancelled))
+        let rolledBackBook = await repository.book(id: savedBook.id)
+        XCTAssertNil(rolledBackBook)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.originalFileURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
+        XCTAssertFalse(states.contains { state in
+            if case .completed = state { return true }
+            return false
+        })
+    }
+
+    func testCancellationDuringSaveReportsRollbackFailureAndKeepsRecordVisible() async throws {
+        let source = try write(Data("text".utf8), named: "rollback-failure.txt")
+        let repository = SaveBarrierRepository(deleteError: TestError.rollback)
+        var states: [ImportState] = []
+        let coordinator = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: repository,
+            stateObserver: { states.append($0) }
+        )
+
+        let importTask = Task { try? await coordinator.importBook(from: source) }
+        await repository.waitUntilSaveEntered()
+        let recordedBook = await repository.recordedBook()
+        let savedBook = try XCTUnwrap(recordedBook)
+        importTask.cancel()
+        await repository.releaseSave()
+        await importTask.value
+
+        guard case let .failed(.saveFailed(message)) = coordinator.state else {
+            return XCTFail("Unexpected state: \(coordinator.state)")
+        }
+        XCTAssertTrue(message.contains("回滚失败"))
+        let remainingBook = await repository.book(id: savedBook.id)
+        XCTAssertEqual(remainingBook, savedBook)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.originalFileURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
+        XCTAssertFalse(states.contains { state in
+            if case .completed = state { return true }
+            return false
+        })
+    }
+
     private func makeCoordinator(
         repository: RecordingRepository,
         converter: RecordingConverter = RecordingConverter(),
@@ -210,6 +279,7 @@ private enum TestError: Error {
     case conversion
     case open
     case save
+    case rollback
 }
 
 private actor RecordingConverter: CanonicalPublicationConverting {
@@ -257,6 +327,7 @@ private actor RecordingRepository: BookRepository {
     private var books: [UUID: Book] = [:]
     private let saveError: Error?
     private(set) var saveCount = 0
+    private var deleteCount = 0
 
     init(saveError: Error? = nil) {
         self.saveError = saveError
@@ -270,8 +341,58 @@ private actor RecordingRepository: BookRepository {
         if let saveError { throw saveError }
         books[book.id] = book
     }
-    func delete(id: UUID) { books[id] = nil }
+    func delete(id: UUID) {
+        deleteCount += 1
+        books[id] = nil
+    }
     func count() -> Int { saveCount }
+    func deleteCountValue() -> Int { deleteCount }
+}
+
+private actor SaveBarrierRepository: BookRepository {
+    private var books: [UUID: Book] = [:]
+    private var lastSavedBook: Book?
+    private let deleteError: Error?
+    private var saveEntered = false
+    private var saveReleased = false
+    private var enteredContinuations: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+
+    init(deleteError: Error? = nil) {
+        self.deleteError = deleteError
+    }
+
+    func allBooks() -> [Book] { Array(books.values) }
+    func recentBooks(limit: Int) -> [Book] { Array(books.values.prefix(limit)) }
+    func book(id: UUID) -> Book? { books[id] }
+
+    func save(_ book: Book) async {
+        books[book.id] = book
+        lastSavedBook = book
+        saveEntered = true
+        enteredContinuations.forEach { $0.resume() }
+        enteredContinuations.removeAll()
+        if saveReleased { return }
+        await withCheckedContinuation { releaseContinuations.append($0) }
+    }
+
+    func delete(id: UUID) throws {
+        if let deleteError { throw deleteError }
+        books[id] = nil
+    }
+
+    func waitUntilSaveEntered() async {
+        if saveEntered { return }
+        await withCheckedContinuation { enteredContinuations.append($0) }
+    }
+
+    func releaseSave() {
+        saveReleased = true
+        releaseContinuations.forEach { $0.resume() }
+        releaseContinuations.removeAll()
+    }
+
+    func recordedBook() -> Book? { lastSavedBook }
 }
 
 private struct FailingImportFileStore: ImportFileStoring {

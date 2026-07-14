@@ -106,6 +106,18 @@ final class ImportCoordinator: ObservableObject {
                 createdAt: Date()
             )
             try await repository.save(book)
+            do {
+                try Task.checkCancellation()
+            } catch is CancellationError {
+                do {
+                    try await repository.delete(id: bookID)
+                } catch {
+                    throw ImportPipelineError.rollbackFailed(
+                        (error as NSError).localizedDescription
+                    )
+                }
+                throw CancellationError()
+            }
             transition(to: .completed(bookID))
         } catch {
             if copiedOriginalURL != nil {
@@ -121,6 +133,9 @@ final class ImportCoordinator: ObservableObject {
     }
 
     private func map(_ error: Error, phase: ImportPhase) -> ImportFailure {
+        if case let ImportPipelineError.rollbackFailed(message) = error {
+            return .saveFailed("取消导入后回滚失败：\(message)")
+        }
         if error is CancellationError || Task.isCancelled {
             return .cancelled
         }
@@ -159,4 +174,8 @@ private enum ImportPhase {
     case convert
     case open
     case save
+}
+
+private enum ImportPipelineError: Error {
+    case rollbackFailed(String)
 }
