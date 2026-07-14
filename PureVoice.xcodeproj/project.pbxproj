@@ -1,0 +1,591 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		127FD13EA9FAA94EBED4DF45 /* ReadiumShared in Frameworks */ = {isa = PBXBuildFile; productRef = 36F09C703D66AC7B4F8BDC8B /* ReadiumShared */; };
+		2AAEE1EE5882194C610F114D /* ProjectSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */; };
+		3A5C293EAE9AE10A6719C8E2 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B525D4A979008B7CF9F2400 /* RootTabView.swift */; };
+		6DEC0C33E2552DF52396EF57 /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */; };
+		806ECDADF5E4CF9B1D9D780D /* PureVoiceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */; };
+		B436499082AEB5C11A2CC7E7 /* ReadiumNavigator in Frameworks */ = {isa = PBXBuildFile; productRef = 2F4B84C5552249F413E0DB2F /* ReadiumNavigator */; };
+		CE731FF0FCACE630AF77788D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2935B1DC349E1F472A8E9EE3 /* Assets.xcassets */; };
+		F094E409435F0C7D66B3248B /* ReadiumStreamer in Frameworks */ = {isa = PBXBuildFile; productRef = 493F4F402A81CBF0E56BAAE7 /* ReadiumStreamer */; };
+		F625251C7725D735B8D4F798 /* ReadiumZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 01A5DF0FE938A5E4FA221F7A /* ReadiumZIPFoundation */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		04A5AE6CA0CB97CB2F4C87F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B108EC47E26CB0CD34A0444B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6DA08C6A4E0771CD58D69A43;
+			remoteInfo = PureVoice;
+		};
+		59F32C55788E7BB570932712 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B108EC47E26CB0CD34A0444B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6DA08C6A4E0771CD58D69A43;
+			remoteInfo = PureVoice;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2935B1DC349E1F472A8E9EE3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4B525D4A979008B7CF9F2400 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
+		4D51D650090A3FA7F449E54B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchUITests.swift; sourceTree = "<group>"; };
+		7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PureVoiceApp.swift; sourceTree = "<group>"; };
+		AFCF4D1BB3E96447B49D9CEB /* PureVoice.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PureVoice.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D390A7236037D6A7F3074E3C /* PureVoiceTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PureVoiceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSmokeTests.swift; sourceTree = "<group>"; };
+		F34B394663F4C909425287C5 /* PureVoiceUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PureVoiceUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		63A724A6CB33989817F418BC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				127FD13EA9FAA94EBED4DF45 /* ReadiumShared in Frameworks */,
+				F094E409435F0C7D66B3248B /* ReadiumStreamer in Frameworks */,
+				B436499082AEB5C11A2CC7E7 /* ReadiumNavigator in Frameworks */,
+				F625251C7725D735B8D4F798 /* ReadiumZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		07042A29A3A55B57AE64469B /* PureVoiceTests */ = {
+			isa = PBXGroup;
+			children = (
+				D656EAE5C8A86A97797894F7 /* ProjectSmokeTests.swift */,
+			);
+			path = PureVoiceTests;
+			sourceTree = "<group>";
+		};
+		6006D8BB908E6051D02C293E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2935B1DC349E1F472A8E9EE3 /* Assets.xcassets */,
+				4D51D650090A3FA7F449E54B /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		9A72CA0ACB78C8FEE1E93143 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7CD33896F2BED7FCBBC0156E /* PureVoiceApp.swift */,
+				4B525D4A979008B7CF9F2400 /* RootTabView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		C9FDCD7D3B8ADDE9F19B5EC7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AFCF4D1BB3E96447B49D9CEB /* PureVoice.app */,
+				D390A7236037D6A7F3074E3C /* PureVoiceTests.xctest */,
+				F34B394663F4C909425287C5 /* PureVoiceUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CD4BE3780DB96B23B4EEC12C /* PureVoiceUITests */ = {
+			isa = PBXGroup;
+			children = (
+				665A27A1A5EF2F442C562D7B /* AppLaunchUITests.swift */,
+			);
+			path = PureVoiceUITests;
+			sourceTree = "<group>";
+		};
+		E64F9AAAC65EE7120D431F5D = {
+			isa = PBXGroup;
+			children = (
+				EA8597BA4162AC64E4207227 /* PureVoice */,
+				07042A29A3A55B57AE64469B /* PureVoiceTests */,
+				CD4BE3780DB96B23B4EEC12C /* PureVoiceUITests */,
+				C9FDCD7D3B8ADDE9F19B5EC7 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		EA8597BA4162AC64E4207227 /* PureVoice */ = {
+			isa = PBXGroup;
+			children = (
+				9A72CA0ACB78C8FEE1E93143 /* App */,
+				6006D8BB908E6051D02C293E /* Resources */,
+			);
+			path = PureVoice;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6DA08C6A4E0771CD58D69A43 /* PureVoice */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E66E5FD0A6C32AB7DB89F9C6 /* Build configuration list for PBXNativeTarget "PureVoice" */;
+			buildPhases = (
+				4664C7009316C1EAD529C0F0 /* Sources */,
+				50EA255F674CA803C2E1E045 /* Resources */,
+				63A724A6CB33989817F418BC /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PureVoice;
+			packageProductDependencies = (
+				36F09C703D66AC7B4F8BDC8B /* ReadiumShared */,
+				493F4F402A81CBF0E56BAAE7 /* ReadiumStreamer */,
+				2F4B84C5552249F413E0DB2F /* ReadiumNavigator */,
+				01A5DF0FE938A5E4FA221F7A /* ReadiumZIPFoundation */,
+			);
+			productName = PureVoice;
+			productReference = AFCF4D1BB3E96447B49D9CEB /* PureVoice.app */;
+			productType = "com.apple.product-type.application";
+		};
+		6F3948ED5A6F2E43EBEAEBA6 /* PureVoiceUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DB846F7A419E4E4ED4A3984E /* Build configuration list for PBXNativeTarget "PureVoiceUITests" */;
+			buildPhases = (
+				6E78284EFDA1260447D69A86 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				24FB18150C708A304879E97E /* PBXTargetDependency */,
+			);
+			name = PureVoiceUITests;
+			packageProductDependencies = (
+			);
+			productName = PureVoiceUITests;
+			productReference = F34B394663F4C909425287C5 /* PureVoiceUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		CA87F5A940A678EBAFC2855A /* PureVoiceTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 122A433C07E1223EFF5D3D01 /* Build configuration list for PBXNativeTarget "PureVoiceTests" */;
+			buildPhases = (
+				048576FC563D1BB7B04EDC7D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FFB246D8C06DAF843782261B /* PBXTargetDependency */,
+			);
+			name = PureVoiceTests;
+			packageProductDependencies = (
+			);
+			productName = PureVoiceTests;
+			productReference = D390A7236037D6A7F3074E3C /* PureVoiceTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B108EC47E26CB0CD34A0444B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6F3948ED5A6F2E43EBEAEBA6 = {
+						TestTargetID = 6DA08C6A4E0771CD58D69A43;
+					};
+				};
+			};
+			buildConfigurationList = 7C3E5D063C8B5AE358E146C7 /* Build configuration list for PBXProject "PureVoice" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = E64F9AAAC65EE7120D431F5D;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				831243CA705B2F21B9918598 /* XCRemoteSwiftPackageReference "swift-toolkit" */,
+				E493B7D4BF13F5096385B1B5 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C9FDCD7D3B8ADDE9F19B5EC7 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6DA08C6A4E0771CD58D69A43 /* PureVoice */,
+				CA87F5A940A678EBAFC2855A /* PureVoiceTests */,
+				6F3948ED5A6F2E43EBEAEBA6 /* PureVoiceUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		50EA255F674CA803C2E1E045 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE731FF0FCACE630AF77788D /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		048576FC563D1BB7B04EDC7D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2AAEE1EE5882194C610F114D /* ProjectSmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4664C7009316C1EAD529C0F0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				806ECDADF5E4CF9B1D9D780D /* PureVoiceApp.swift in Sources */,
+				3A5C293EAE9AE10A6719C8E2 /* RootTabView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6E78284EFDA1260447D69A86 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6DEC0C33E2552DF52396EF57 /* AppLaunchUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		24FB18150C708A304879E97E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6DA08C6A4E0771CD58D69A43 /* PureVoice */;
+			targetProxy = 04A5AE6CA0CB97CB2F4C87F4 /* PBXContainerItemProxy */;
+		};
+		FFB246D8C06DAF843782261B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6DA08C6A4E0771CD58D69A43 /* PureVoice */;
+			targetProxy = 59F32C55788E7BB570932712 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1231CF3242B6EFFE5193CE4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.taotaoxiaoshuo.PureVoiceUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PureVoice;
+			};
+			name = Debug;
+		};
+		47824A63908EE310FEE0BD7A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.taotaoxiaoshuo.PureVoiceUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PureVoice;
+			};
+			name = Release;
+		};
+		483B4AA6F37B7386741F5316 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = PureVoice/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.taotaoxiaoshuo.purevoice;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		76787EAA305D8AEE990E530C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AAB34E6736F48F2229A1F246 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.taotaoxiaoshuo.PureVoiceTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PureVoice.app/PureVoice";
+			};
+			name = Release;
+		};
+		D36AC6618A0B144DDA802B9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.taotaoxiaoshuo.PureVoiceTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PureVoice.app/PureVoice";
+			};
+			name = Debug;
+		};
+		D7D9CA3FC128BC0736F344C5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = PureVoice/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.taotaoxiaoshuo.purevoice;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F5F8BAEE4E06713EF203499B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		122A433C07E1223EFF5D3D01 /* Build configuration list for PBXNativeTarget "PureVoiceTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D36AC6618A0B144DDA802B9A /* Debug */,
+				AAB34E6736F48F2229A1F246 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7C3E5D063C8B5AE358E146C7 /* Build configuration list for PBXProject "PureVoice" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F5F8BAEE4E06713EF203499B /* Debug */,
+				76787EAA305D8AEE990E530C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DB846F7A419E4E4ED4A3984E /* Build configuration list for PBXNativeTarget "PureVoiceUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1231CF3242B6EFFE5193CE4E /* Debug */,
+				47824A63908EE310FEE0BD7A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E66E5FD0A6C32AB7DB89F9C6 /* Build configuration list for PBXNativeTarget "PureVoice" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				483B4AA6F37B7386741F5316 /* Debug */,
+				D7D9CA3FC128BC0736F344C5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		831243CA705B2F21B9918598 /* XCRemoteSwiftPackageReference "swift-toolkit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/readium/swift-toolkit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.8.0;
+			};
+		};
+		E493B7D4BF13F5096385B1B5 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/readium/ZIPFoundation.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		01A5DF0FE938A5E4FA221F7A /* ReadiumZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E493B7D4BF13F5096385B1B5 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ReadiumZIPFoundation;
+		};
+		2F4B84C5552249F413E0DB2F /* ReadiumNavigator */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 831243CA705B2F21B9918598 /* XCRemoteSwiftPackageReference "swift-toolkit" */;
+			productName = ReadiumNavigator;
+		};
+		36F09C703D66AC7B4F8BDC8B /* ReadiumShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 831243CA705B2F21B9918598 /* XCRemoteSwiftPackageReference "swift-toolkit" */;
+			productName = ReadiumShared;
+		};
+		493F4F402A81CBF0E56BAAE7 /* ReadiumStreamer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 831243CA705B2F21B9918598 /* XCRemoteSwiftPackageReference "swift-toolkit" */;
+			productName = ReadiumStreamer;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B108EC47E26CB0CD34A0444B /* Project object */;
+}

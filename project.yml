@@ -1,0 +1,76 @@
+name: PureVoice
+
+options:
+  bundleIdPrefix: com.taotaoxiaoshuo
+  deploymentTarget:
+    iOS: "15.0"
+
+packages:
+  Readium:
+    url: https://github.com/readium/swift-toolkit.git
+    exactVersion: 3.8.0
+  ZIPFoundation:
+    # Matches the package source and 3.0.1..<4.0.0 constraint used by Readium 3.8.0.
+    url: https://github.com/readium/ZIPFoundation.git
+    exactVersion: 3.0.1
+
+targets:
+  PureVoice:
+    type: application
+    platform: iOS
+    sources:
+      - path: PureVoice
+    info:
+      path: PureVoice/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: PureVoice
+        UILaunchScreen: {}
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        PRODUCT_BUNDLE_IDENTIFIER: com.taotaoxiaoshuo.purevoice
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - package: Readium
+        product: ReadiumShared
+      - package: Readium
+        product: ReadiumStreamer
+      - package: Readium
+        product: ReadiumNavigator
+      - package: ZIPFoundation
+        product: ReadiumZIPFoundation
+
+  PureVoiceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PureVoiceTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 6.0
+    dependencies:
+      - target: PureVoice
+
+  PureVoiceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: PureVoiceUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 6.0
+    dependencies:
+      - target: PureVoice
+
+schemes:
+  PureVoice:
+    build:
+      targets:
+        PureVoice: all
+    test:
+      targets:
+        - PureVoiceTests
+        - PureVoiceUITests
