@@ -17,6 +17,18 @@ struct PureVoiceApp: App {
 
     private static func makeRepository() -> any BookRepository {
 #if DEBUG
+        if let readerPath = ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_READER_EPUB"] {
+            let fileURL = URL(fileURLWithPath: readerPath)
+            let book = seededBook(
+                "99999999-9999-9999-9999-999999999999",
+                "无障碍阅读示例",
+                "示例作者",
+                0,
+                500,
+                canonicalFileURL: fileURL
+            )
+            return InMemoryBookRepository(books: [book])
+        }
         if ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_LIBRARY_SEED"] == "1" {
             return InMemoryBookRepository(books: uiTestBooks)
         }
@@ -37,7 +49,8 @@ struct PureVoiceApp: App {
         _ title: String,
         _ author: String,
         _ progression: Double,
-        _ openedAt: TimeInterval
+        _ openedAt: TimeInterval,
+        canonicalFileURL: URL? = nil
     ) -> Book {
         let id = UUID(uuidString: id)!
         return Book(
@@ -46,7 +59,7 @@ struct PureVoiceApp: App {
             author: author,
             format: .epub,
             originalFileURL: URL(fileURLWithPath: "/tmp/\(id)/original.epub"),
-            canonicalFileURL: URL(fileURLWithPath: "/tmp/\(id)/publication.epub"),
+            canonicalFileURL: canonicalFileURL ?? URL(fileURLWithPath: "/tmp/\(id)/publication.epub"),
             coverFileURL: nil,
             position: ReadingPosition(href: "chapter.xhtml", progression: progression),
             lastOpenedAt: Date(timeIntervalSince1970: openedAt),

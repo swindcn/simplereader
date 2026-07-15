@@ -58,6 +58,8 @@ targets:
     platform: iOS
     sources:
       - path: PureVoiceUITests
+      - path: PureVoiceTests/Fixtures/epub/minimal.epub
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
