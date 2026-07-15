@@ -54,36 +54,49 @@ struct ReaderView: View {
     }
 
     private func reader(_ publication: OpenedPublication) -> some View {
-        ZStack {
-            EPUBNavigatorController(
-                publication: publication,
-                initialLocation: viewModel.initialLocator,
-                navigationRequest: viewModel.navigationRequest,
-                commands: commands,
-                onLocationChange: viewModel.receive(locator:),
-                onNavigationFailure: viewModel.reportNavigationFailure,
-                onError: viewModel.reportNavigatorError
+        VStack(spacing: 0) {
+            AccessibilityChapterHeading(
+                title: displayedHeading(for: publication),
+                focusGeneration: viewModel.chapterFocusGeneration
             )
-            .accessibilityLabel("阅读内容")
-            .accessibilityAction(named: Text("上一页"), commands.previousPage)
-            .accessibilityAction(named: Text("下一页"), commands.nextPage)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 64)
 
-            VStack(spacing: 0) {
-                AccessibilityChapterHeading(
-                    title: viewModel.chapterTitle.isEmpty ? publication.title : viewModel.chapterTitle,
-                    focusGeneration: viewModel.chapterFocusGeneration
+            ReaderHeaderToolbar(
+                onBack: closeReader,
+                onTableOfContents: { viewModel.isTableOfContentsPresented = true }
+            )
+
+            ZStack(alignment: .topLeading) {
+                EPUBNavigatorController(
+                    publication: publication,
+                    initialLocation: viewModel.initialLocator,
+                    navigationRequest: viewModel.navigationRequest,
+                    commands: commands,
+                    onLocationChange: viewModel.receive(locator:),
+                    onNavigationFailure: viewModel.reportNavigationFailure,
+                    onError: viewModel.reportNavigatorError
                 )
-                .frame(height: 52)
-                .padding(.horizontal, 64)
-                ReaderToolbar(
-                    onBack: closeReader,
-                    onTableOfContents: { viewModel.isTableOfContentsPresented = true },
-                    onPreviousPage: commands.previousPage,
-                    onNextPage: commands.nextPage,
-                    onListen: { onListen(publication, viewModel.currentLocator) },
-                    onSettings: onSettings
-                )
+                .accessibilityLabel("阅读内容")
+                .accessibilityAction(named: Text("上一页"), commands.previousPage)
+                .accessibilityAction(named: Text("下一页"), commands.nextPage)
+#if DEBUG
+                Text(debugLocatorLabel)
+                    .font(.system(size: 1))
+                    .frame(width: 2, height: 2)
+                    .foregroundStyle(.clear)
+                    .accessibilityLabel(debugLocatorLabel)
+                    .accessibilityIdentifier("reader.debug.locator")
+#endif
             }
+
+            ReaderToolbar(
+                onPreviousPage: commands.previousPage,
+                onNextPage: commands.nextPage,
+                onListen: { onListen(publication, viewModel.currentLocator) },
+                onSettings: onSettings
+            )
         }
     }
 
@@ -97,7 +110,7 @@ struct ReaderView: View {
                         .padding(.leading, CGFloat(entry.level) * 20)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .accessibilityIdentifier("reader.toc.\(entry.href)")
+                .accessibilityIdentifier("reader.toc.\(entry.id)")
             }
             .navigationTitle("目录")
             .toolbar {
@@ -133,10 +146,28 @@ struct ReaderView: View {
 
     private func closeReader() {
         Task {
-            await viewModel.flushProgress()
-            dismiss()
+            if await viewModel.flushProgress() {
+                dismiss()
+            }
         }
     }
+
+    private func displayedHeading(for publication: OpenedPublication) -> String {
+#if DEBUG
+        if let override = ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_READER_HEADING"] {
+            return override
+        }
+#endif
+        return viewModel.chapterTitle.isEmpty ? publication.title : viewModel.chapterTitle
+    }
+
+#if DEBUG
+    private var debugLocatorLabel: String {
+        guard let locator = viewModel.currentLocator else { return "等待定位" }
+        let progression = locator.locations.totalProgression ?? locator.locations.progression ?? 0
+        return "\(locator.href.string)|\(progression)"
+    }
+#endif
 }
 
 private struct AccessibilityChapterHeading: UIViewRepresentable {
@@ -150,7 +181,10 @@ private struct AccessibilityChapterHeading: UIViewRepresentable {
         label.font = .preferredFont(forTextStyle: .headline)
         label.adjustsFontForContentSizeCategory = true
         label.textAlignment = .center
-        label.lineBreakMode = .byTruncatingTail
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.setContentHuggingPriority(.required, for: .vertical)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
         label.backgroundColor = .systemBackground.withAlphaComponent(0.92)
         label.isAccessibilityElement = true
         label.accessibilityTraits = .header

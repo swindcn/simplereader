@@ -57,6 +57,18 @@ final class CoreDataBookRepository: BookRepository, @unchecked Sendable {
         }
     }
 
+    func updatePosition(id: UUID, position: ReadingPosition?) async throws {
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let request = NSFetchRequest<NSManagedObject>(entityName: "BookEntity")
+            request.predicate = NSPredicate(format: "id == %@", id as NSUUID)
+            request.fetchLimit = 1
+            guard let object = try context.fetch(request).first else { return }
+            object.setValue(try Self.encodePosition(position), forKey: "position")
+            try context.save()
+        }
+    }
+
     func delete(id: UUID) async throws {
         let context = container.newBackgroundContext()
         try await context.perform {

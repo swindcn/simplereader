@@ -41,6 +41,25 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isReady)
     }
 
+    func testInvalidSavedPositionDoesNotBlockPublicationWhenCleanupFails() async throws {
+        let epubURL = try copyFixture()
+        let invalidPosition = ReadingPosition(
+            href: "EPUB/missing.xhtml",
+            locationsJSON: "{\"progression\":0.5}",
+            progression: 0.5
+        )
+        let book = Book.fixture(canonicalFileURL: epubURL, position: invalidPosition)
+        let repository = PositionUpdateFailingRepository(book: book)
+        let viewModel = ReaderViewModel(book: book, repository: repository)
+
+        await viewModel.open()
+
+        XCTAssertNotNil(viewModel.openedPublication)
+        XCTAssertNil(viewModel.initialLocator)
+        XCTAssertEqual(viewModel.chapterTitle, "第一章 起点")
+        XCTAssertEqual(viewModel.errorMessage, "上次阅读位置已失效，已从书首开始。")
+    }
+
     func testLocatorChangesAreCoalescedUntilFlushAndPersistOnlyLatestPosition() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)
@@ -168,6 +187,53 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(savedProgressions, [0.4])
     }
 
+    func testFlushOutcomeStaysFailedUntilPendingPositionIsRetriedSuccessfully() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let repository = ControlledSaveBookRepository(book: book, outcomes: [.failure, .success])
+        let viewModel = ReaderViewModel(book: book, repository: repository, persistenceDelay: 60)
+        await viewModel.open()
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.45))
+
+        let firstFlush = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(1)
+        await repository.releaseNextSave()
+        let firstOutcome = await firstFlush.value
+
+        let retryFlush = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(2)
+        await repository.releaseNextSave()
+        let retryOutcome = await retryFlush.value
+
+        XCTAssertFalse(firstOutcome)
+        XCTAssertTrue(retryOutcome)
+    }
+
+    func testProgressUpdateDoesNotRollbackBookFieldsChangedWhileReading() async throws {
+        let epubURL = try copyFixture()
+        let openedBook = Book.fixture(
+            title: "打开时书名",
+            canonicalFileURL: epubURL,
+            lastOpenedAt: Date(timeIntervalSince1970: 10)
+        )
+        let repository = AtomicPositionBookRepository(book: openedBook)
+        let viewModel = ReaderViewModel(book: openedBook, repository: repository, persistenceDelay: 60)
+        await viewModel.open()
+        var editedBook = openedBook
+        editedBook.title = "阅读期间重命名"
+        editedBook.lastOpenedAt = Date(timeIntervalSince1970: 99)
+        await repository.replace(with: editedBook)
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-2.xhtml", progression: 0.9))
+        let outcome = await viewModel.flushProgress()
+
+        let persisted = await repository.currentBook
+        XCTAssertTrue(outcome)
+        XCTAssertEqual(persisted.title, "阅读期间重命名")
+        XCTAssertEqual(persisted.lastOpenedAt, Date(timeIntervalSince1970: 99))
+        XCTAssertEqual(persisted.position?.progression, 0.9)
+    }
+
     func testChapterFocusChangesOncePerChapterRatherThanForEveryProgressUpdate() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)
@@ -199,6 +265,17 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.navigationRequest?.href, "EPUB/chapter-2.xhtml")
         XCTAssertFalse(viewModel.isTableOfContentsPresented)
         XCTAssertNil(viewModel.errorMessage)
+    }
+
+    func testFlattenedTableOfContentsUsesTreePathForDuplicateHREFIdentity() {
+        let entries = ReaderViewModel.flatten([
+            PublicationTOCItem(title: "镜像一", href: "same.xhtml"),
+            PublicationTOCItem(title: "镜像二", href: "same.xhtml")
+        ])
+
+        XCTAssertEqual(entries.map(\.id), ["0", "1"])
+        XCTAssertEqual(Set(entries.map(\.id)).count, 2)
+        XCTAssertEqual(entries.map(\.href), ["same.xhtml", "same.xhtml"])
     }
 
     func testEPUBPreferencesRoundTripThroughUserDefaultsStore() throws {
@@ -324,4 +401,34 @@ private actor ControlledSaveBookRepository: BookRepository {
 
 private enum ControlledSaveError: Error {
     case expected
+}
+
+private actor PositionUpdateFailingRepository: BookRepository {
+    private let bookValue: Book
+
+    init(book: Book) { bookValue = book }
+    func allBooks() -> [Book] { [bookValue] }
+    func recentBooks(limit: Int) -> [Book] { limit > 0 ? [bookValue] : [] }
+    func book(id: UUID) -> Book? { id == bookValue.id ? bookValue : nil }
+    func save(_ book: Book) throws { throw ControlledSaveError.expected }
+    func updatePosition(id: UUID, position: ReadingPosition?) throws {
+        throw ControlledSaveError.expected
+    }
+    func delete(id: UUID) {}
+}
+
+private actor AtomicPositionBookRepository: BookRepository {
+    private(set) var currentBook: Book
+
+    init(book: Book) { currentBook = book }
+    func allBooks() -> [Book] { [currentBook] }
+    func recentBooks(limit: Int) -> [Book] { limit > 0 ? [currentBook] : [] }
+    func book(id: UUID) -> Book? { id == currentBook.id ? currentBook : nil }
+    func save(_ book: Book) { currentBook = book }
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard currentBook.id == id else { return }
+        currentBook.position = position
+    }
+    func delete(id: UUID) {}
+    func replace(with book: Book) { currentBook = book }
 }

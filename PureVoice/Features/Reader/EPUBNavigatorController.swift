@@ -38,13 +38,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
             let navigator = try EPUBNavigatorViewController(
                 publication: publication.readiumPublication,
                 initialLocation: initialLocation,
-                config: .init(
-                    preferences: ReaderEPUBPreferencesStore().load(),
-                    contentInset: [
-                        .compact: (top: 100, bottom: 72),
-                        .regular: (top: 112, bottom: 80),
-                    ]
-                )
+                config: .init(preferences: ReaderEPUBPreferencesStore().load())
             )
             navigator.delegate = context.coordinator
             context.coordinator.navigator = navigator

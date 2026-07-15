@@ -24,6 +24,12 @@ actor InMemoryBookRepository: BookRepository {
         booksByID[book.id] = book
     }
 
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard var book = booksByID[id] else { return }
+        book.position = position
+        booksByID[id] = book
+    }
+
     func delete(id: UUID) {
         booksByID[id] = nil
     }

@@ -2,11 +2,10 @@ import Foundation
 @preconcurrency import ReadiumShared
 
 struct ReaderTOCEntry: Equatable, Identifiable {
+    let id: String
     let title: String
     let href: String
     let level: Int
-
-    var id: String { "\(level):\(href)" }
 }
 
 struct ReaderNavigationRequest: Equatable, Identifiable {
@@ -27,7 +26,7 @@ final class ReaderViewModel: ObservableObject {
     @Published private(set) var navigationRequest: ReaderNavigationRequest?
     @Published private(set) var errorMessage: String?
 
-    var isReady: Bool { openedPublication != nil && !isLoading && errorMessage == nil }
+    var isReady: Bool { openedPublication != nil && !isLoading }
 
     private let repository: any BookRepository
     private let publicationService: PublicationService
@@ -36,7 +35,7 @@ final class ReaderViewModel: ObservableObject {
     private var pendingPosition: ReadingPosition?
     private var persistenceTask: Task<Void, Never>?
     private var isPersisting = false
-    private var persistenceWaiters: [CheckedContinuation<Void, Never>] = []
+    private var persistenceWaiters: [CheckedContinuation<Bool, Never>] = []
     private var hasOpened = false
 
     init(
@@ -57,22 +56,30 @@ final class ReaderViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        let publication: OpenedPublication
         do {
-            let publication = try await publicationService.open(at: book.canonicalFileURL)
-            let restoredLocator: Locator?
-            if let position = book.position {
-                restoredLocator = try await publication.locator(from: position)
-            } else {
-                restoredLocator = nil
-            }
-
-            openedPublication = publication
-            initialLocator = restoredLocator
-            currentLocator = restoredLocator
-            tableOfContents = Self.flatten(publication.tableOfContents)
-            updateChapter(for: restoredLocator?.href.string ?? publication.tableOfContents.first?.href)
+            publication = try await publicationService.open(at: book.canonicalFileURL)
         } catch {
             errorMessage = Self.message(for: error)
+            isLoading = false
+            return
+        }
+
+        if let position = book.position {
+            do {
+                let locator = try await publication.locator(from: position)
+                publish(publication, initialLocator: locator)
+            } catch {
+                book.position = nil
+                try? await repository.updatePosition(id: book.id, position: nil)
+                publish(
+                    publication,
+                    initialLocator: nil,
+                    warning: "上次阅读位置已失效，已从书首开始。"
+                )
+            }
+        } else {
+            publish(publication, initialLocator: nil)
         }
         isLoading = false
     }
@@ -113,25 +120,26 @@ final class ReaderViewModel: ObservableObject {
         errorMessage = nil
     }
 
-    func flushProgress() async {
+    @discardableResult
+    func flushProgress() async -> Bool {
         persistenceTask?.cancel()
         persistenceTask = nil
 
         if isPersisting {
-            await withCheckedContinuation { continuation in
+            return await withCheckedContinuation { continuation in
                 persistenceWaiters.append(continuation)
             }
-            return
         }
 
-        guard pendingPosition != nil else { return }
+        guard pendingPosition != nil else { return true }
         isPersisting = true
-        await drainPendingProgress()
+        let succeeded = await drainPendingProgress()
         isPersisting = false
 
         let waiters = persistenceWaiters
         persistenceWaiters.removeAll()
-        waiters.forEach { $0.resume() }
+        waiters.forEach { $0.resume(returning: succeeded) }
+        return succeeded
     }
 
     private func schedulePersistence() {
@@ -153,25 +161,24 @@ final class ReaderViewModel: ObservableObject {
         await flushProgress()
     }
 
-    private func drainPendingProgress() async {
+    private func drainPendingProgress() async -> Bool {
         while let position = pendingPosition {
             persistenceTask?.cancel()
             persistenceTask = nil
             pendingPosition = nil
 
-            var bookToSave = book
-            bookToSave.position = position
             do {
-                try await repository.save(bookToSave)
-                book = bookToSave
+                try await repository.updatePosition(id: book.id, position: position)
+                book.position = position
             } catch {
                 if pendingPosition == nil {
                     pendingPosition = position
                 }
                 errorMessage = "无法保存阅读进度。"
-                return
+                return false
             }
         }
+        return true
     }
 
     private func updateChapter(for href: String?) {
@@ -193,11 +200,34 @@ final class ReaderViewModel: ObservableObject {
         }?.title
     }
 
-    private static func flatten(_ items: [PublicationTOCItem], level: Int = 0) -> [ReaderTOCEntry] {
-        items.flatMap { item in
-            [ReaderTOCEntry(title: item.title, href: item.href, level: level)]
-                + flatten(item.children, level: level + 1)
+    static func flatten(
+        _ items: [PublicationTOCItem],
+        level: Int = 0,
+        parentPath: [Int] = []
+    ) -> [ReaderTOCEntry] {
+        items.enumerated().flatMap { index, item in
+            let path = parentPath + [index]
+            return [ReaderTOCEntry(
+                id: path.map(String.init).joined(separator: "."),
+                title: item.title,
+                href: item.href,
+                level: level
+            )] + flatten(item.children, level: level + 1, parentPath: path)
         }
+    }
+
+    private func publish(
+        _ publication: OpenedPublication,
+        initialLocator: Locator?,
+        warning: String? = nil
+    ) {
+        openedPublication = publication
+        self.initialLocator = initialLocator
+        currentLocator = initialLocator
+        tableOfContents = Self.flatten(publication.tableOfContents)
+        updateChapter(for: initialLocator?.href.string ?? publication.tableOfContents.first?.href)
+        errorMessage = warning
+        isLoading = false
     }
 
     private static func message(for error: Error) -> String {

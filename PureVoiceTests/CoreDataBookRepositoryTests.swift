@@ -52,6 +52,29 @@ final class CoreDataBookRepositoryTests: XCTestCase {
         XCTAssertEqual(books, [replacement])
     }
 
+    func testUpdatePositionDoesNotModifyOtherBookFields() async throws {
+        let repository = try await makeRepository()
+        let book = Book.fixture(
+            title: "保留书名",
+            author: "保留作者",
+            position: ReadingPosition(href: "old.xhtml", progression: 0.1),
+            lastOpenedAt: Date(timeIntervalSince1970: 77)
+        )
+        try await repository.save(book)
+        let updatedPosition = ReadingPosition(
+            href: "new.xhtml",
+            locationsJSON: "{\"progression\":0.8}",
+            progression: 0.8
+        )
+
+        try await repository.updatePosition(id: book.id, position: updatedPosition)
+
+        var expected = book
+        expected.position = updatedPosition
+        let persisted = try await repository.book(id: book.id)
+        XCTAssertEqual(persisted, expected)
+    }
+
     func testAllAndRecentBooksMatchRepositoryOrderingContract() async throws {
         let repository = try await makeRepository()
         let firstID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!

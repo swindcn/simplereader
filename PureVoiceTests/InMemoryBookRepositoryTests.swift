@@ -2,6 +2,23 @@ import XCTest
 @testable import PureVoice
 
 final class InMemoryBookRepositoryTests: XCTestCase {
+    func testUpdatePositionPreservesOtherFields() async throws {
+        let original = Book.fixture(
+            title: "保留书名",
+            position: ReadingPosition(href: "old", progression: 0.1),
+            lastOpenedAt: Date(timeIntervalSince1970: 88)
+        )
+        let repository = InMemoryBookRepository(books: [original])
+        let position = ReadingPosition(href: "new", progression: 0.9)
+
+        try await repository.updatePosition(id: original.id, position: position)
+
+        var expected = original
+        expected.position = position
+        let persisted = await repository.book(id: original.id)
+        XCTAssertEqual(persisted, expected)
+    }
+
     func testSaveUpdateAndDeleteBook() async throws {
         let repository: any BookRepository = InMemoryBookRepository()
         let originalFileURL = URL(fileURLWithPath: "/tmp/custom/original.mobi")
