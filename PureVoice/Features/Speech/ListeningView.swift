@@ -163,7 +163,7 @@ struct ListeningView: View {
                 Slider(
                     value: Binding(
                         get: { viewModel.rate },
-                        set: { viewModel.setRate($0) }
+                        set: { viewModel.setRate($0, announces: false) }
                     ),
                     in: 0.5 ... 2,
                     step: 0.25
@@ -184,7 +184,7 @@ struct ListeningView: View {
                     "声音",
                     selection: Binding(
                         get: { viewModel.selectedVoiceIdentifier ?? "" },
-                        set: { viewModel.selectVoice(identifier: $0) }
+                        set: { viewModel.selectVoice(identifier: $0, announces: false) }
                     )
                 ) {
                     ForEach(viewModel.voices) { voice in

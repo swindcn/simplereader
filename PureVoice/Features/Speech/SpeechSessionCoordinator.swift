@@ -8,14 +8,24 @@ final class SpeechSessionCoordinator: ObservableObject {
     @Published var errorMessage: String?
 
     private let repository: any BookRepository
+    private let finalizations = ProgressFinalizationQueue()
     private var remoteCommands: RemoteCommandController?
+
+    var hasPendingProgressRetry: Bool { finalizations.pendingCount > 0 }
 
     init(repository: any BookRepository) {
         self.repository = repository
+        finalizations.onFailure = { [weak self] in
+            self?.errorMessage = "无法保存听书进度，请重试。"
+        }
     }
 
     func begin(book: Book, publication: OpenedPublication, locator: Locator?) {
-        if let viewModel, viewModel.bookID == book.id {
+        if let viewModel, Self.shouldReuseSession(
+            bookID: book.id,
+            existingBookID: viewModel.bookID,
+            state: viewModel.state
+        ) {
             isListeningPresented = true
             return
         }
@@ -70,9 +80,11 @@ final class SpeechSessionCoordinator: ObservableObject {
         isListeningPresented = true
     }
 
-    func dismissListening() {
+    func dismissListening(flushesProgress: Bool = true) {
         isListeningPresented = false
-        Task { await viewModel?.flushProgress() }
+        if flushesProgress {
+            Task { await viewModel?.flushProgress() }
+        }
     }
 
     func presentListening() {
@@ -81,15 +93,82 @@ final class SpeechSessionCoordinator: ObservableObject {
     }
 
     func endSession() {
-        viewModel?.stop(announces: false)
-        viewModel?.onNowPlayingChange = nil
+        let endingViewModel = viewModel
+        endingViewModel?.stop(announces: false)
+        endingViewModel?.onNowPlayingChange = nil
+        if let endingViewModel {
+            finalizations.enqueue {
+                await endingViewModel.flushProgress()
+            }
+        }
         remoteCommands?.teardown()
         remoteCommands = nil
         viewModel = nil
         isListeningPresented = false
     }
 
+    @discardableResult
+    func flushProgress() async -> Bool {
+        await viewModel?.flushProgress() ?? true
+    }
+
+    nonisolated static func shouldReuseSession(
+        bookID: UUID,
+        existingBookID: UUID,
+        state: SpeechPlaybackState
+    ) -> Bool {
+        guard bookID == existingBookID else { return false }
+        switch state {
+        case .loading, .playing, .paused:
+            return true
+        case .stopped, .failed:
+            return false
+        }
+    }
+
     func dismissError() { errorMessage = nil }
+
+    func retryPendingProgress() {
+        errorMessage = nil
+        finalizations.retryAll()
+    }
+}
+
+@MainActor
+final class ProgressFinalizationQueue {
+    typealias Operation = @MainActor () async -> Bool
+
+    var onFailure: (() -> Void)?
+    var pendingCount: Int { operations.count }
+
+    private var operations: [UUID: Operation] = [:]
+    private var running: Set<UUID> = []
+
+    func enqueue(_ operation: @escaping Operation) {
+        let id = UUID()
+        operations[id] = operation
+        run(id)
+    }
+
+    func retryAll() {
+        for id in operations.keys {
+            run(id)
+        }
+    }
+
+    private func run(_ id: UUID) {
+        guard let operation = operations[id], !running.contains(id) else { return }
+        running.insert(id)
+        Task {
+            let succeeded = await operation()
+            running.remove(id)
+            if succeeded {
+                operations.removeValue(forKey: id)
+            } else {
+                onFailure?()
+            }
+        }
+    }
 }
 
 #if DEBUG

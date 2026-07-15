@@ -71,10 +71,7 @@ final class ReadiumSpeechService: SpeechService {
         let minimum = Double(AVSpeechUtteranceMinimumSpeechRate)
         let normal = Double(AVSpeechUtteranceDefaultSpeechRate)
         let maximum = Double(AVSpeechUtteranceMaximumSpeechRate)
-        if multiplier <= 1 {
-            return minimum + (normal - minimum) * ((multiplier - 0.5) / 0.5)
-        }
-        return normal + (maximum - normal) * (multiplier - 1)
+        return min(max(normal * multiplier, minimum), maximum)
     }
 
     static func orderedVoices(
@@ -86,7 +83,8 @@ final class ReadiumSpeechService: SpeechService {
             voices.filter { Self.baseLanguage($0.language) == base }
         } ?? voices
 
-        return compatible.sorted { lhs, rhs in
+        let candidates = compatible.isEmpty ? voices : compatible
+        return candidates.sorted { lhs, rhs in
             let lhsQuality = lhs.quality?.rawValue ?? -1
             let rhsQuality = rhs.quality?.rawValue ?? -1
             if lhsQuality != rhsQuality { return lhsQuality > rhsQuality }

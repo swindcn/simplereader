@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 @preconcurrency import ReadiumShared
 
@@ -74,4 +75,16 @@ protocol SpeechService: AnyObject {
     func stop()
     func previous()
     func next()
+}
+
+@MainActor
+protocol AudioSessionActivating: AnyObject {
+    func activate() async throws
+}
+
+@MainActor
+final class SystemAudioSessionActivator: AudioSessionActivating {
+    func activate() async throws {
+        try AVAudioSession.sharedInstance().setActive(true)
+    }
 }

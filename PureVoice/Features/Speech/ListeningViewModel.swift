@@ -18,7 +18,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
     let voices: [SpeechVoice]
 
     var currentSentence: String { state.utterance?.text ?? "等待播放" }
-    var currentLocator: Locator? { state.utterance?.locator ?? pendingLocator ?? initialLocator }
+    var currentLocator: Locator? { lastKnownLocator ?? initialLocator }
     var isMiniPlayerVisible: Bool {
         switch state {
         case .playing, .paused: true
@@ -34,7 +34,13 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private let service: any SpeechService
     private let defaults: UserDefaults
     private let announce: (String) -> Void
+    private let persistenceDelay: TimeInterval
+    private let audioSession: any AudioSessionActivating
+    private var lastKnownLocator: Locator?
     private var pendingLocator: Locator?
+    private var persistenceTask: Task<Void, Never>?
+    private var isPersisting = false
+    private var persistenceWaiters: [CheckedContinuation<Bool, Never>] = []
     private var wasPlayingBeforeInterruption = false
     private var hasStarted = false
 
@@ -48,7 +54,9 @@ final class ListeningViewModel: NSObject, ObservableObject {
         announce: @escaping (String) -> Void = { message in
             UIAccessibility.post(notification: .announcement, argument: message)
         },
-        observesAudioSession: Bool = true
+        observesAudioSession: Bool = true,
+        persistenceDelay: TimeInterval = 1,
+        audioSession: any AudioSessionActivating = SystemAudioSessionActivator()
     ) {
         bookID = book.id
         title = book.title
@@ -60,6 +68,9 @@ final class ListeningViewModel: NSObject, ObservableObject {
         self.service = service
         self.defaults = defaults
         self.announce = announce
+        self.persistenceDelay = persistenceDelay
+        self.audioSession = audioSession
+        lastKnownLocator = initialLocator
         voices = service.voices
 
         let persistedRate = defaults.object(forKey: Self.rateKey) as? Double ?? 1
@@ -142,21 +153,21 @@ final class ListeningViewModel: NSObject, ObservableObject {
         if announces { announce("下一句") }
     }
 
-    func setRate(_ newValue: Double) {
+    func setRate(_ newValue: Double, announces: Bool = true) {
         let clamped = Self.clampedRate(newValue)
         rate = clamped
         service.rate = clamped
         defaults.set(clamped, forKey: Self.rateKey)
-        announce("语速 \(Self.rateLabel(clamped))")
+        if announces { announce("语速 \(Self.rateLabel(clamped))") }
         onNowPlayingChange?()
     }
 
-    func selectVoice(identifier: String) {
+    func selectVoice(identifier: String, announces: Bool = true) {
         guard voices.contains(where: { $0.identifier == identifier }) else { return }
         selectedVoiceIdentifier = identifier
         service.selectedVoiceIdentifier = identifier
         defaults.set(identifier, forKey: Self.voiceKey)
-        if let voice = voices.first(where: { $0.identifier == identifier }) {
+        if announces, let voice = voices.first(where: { $0.identifier == identifier }) {
             announce("已选择\(voice.displayName)")
         }
     }
@@ -168,24 +179,38 @@ final class ListeningViewModel: NSObject, ObservableObject {
         if wasPlayingBeforeInterruption { pause(announces: false) }
     }
 
-    func handleInterruptionEnded(shouldResume: Bool) {
+    func handleInterruptionEnded(shouldResume: Bool) async {
         defer { wasPlayingBeforeInterruption = false }
         guard shouldResume, wasPlayingBeforeInterruption else { return }
+        do {
+            try await audioSession.activate()
+        } catch {
+            errorMessage = "无法恢复播放，请点击播放重试。"
+            return
+        }
         resume(announces: false)
     }
 
     @discardableResult
     func flushProgress() async -> Bool {
-        guard let locator = pendingLocator else { return true }
-        do {
-            let position = try readingPosition(from: locator)
-            try await repository.updatePosition(id: bookID, position: position)
-            if pendingLocator == locator { pendingLocator = nil }
-            return true
-        } catch {
-            errorMessage = "无法保存听书进度。"
-            return false
+        persistenceTask?.cancel()
+        persistenceTask = nil
+
+        if isPersisting {
+            return await withCheckedContinuation { continuation in
+                persistenceWaiters.append(continuation)
+            }
         }
+
+        guard pendingLocator != nil else { return true }
+        isPersisting = true
+        let succeeded = await drainPendingProgress()
+        isPersisting = false
+
+        let waiters = persistenceWaiters
+        persistenceWaiters.removeAll()
+        waiters.forEach { $0.resume(returning: succeeded) }
+        return succeeded
     }
 
     static func rateLabel(_ rate: Double) -> String {
@@ -195,12 +220,56 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private func receive(_ state: SpeechPlaybackState) {
         self.state = state
         if let locator = state.utterance?.locator {
+            lastKnownLocator = locator
             pendingLocator = locator
+            schedulePersistence()
         }
         if case let .failed(message) = state {
             errorMessage = message
         }
+        if case .stopped = state {
+            Task { await flushProgress() }
+        }
         onNowPlayingChange?()
+    }
+
+    private func schedulePersistence() {
+        persistenceTask?.cancel()
+        persistenceTask = Task { [weak self, persistenceDelay] in
+            do {
+                let nanoseconds = UInt64(max(persistenceDelay, 0) * 1_000_000_000)
+                try await Task.sleep(nanoseconds: nanoseconds)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await self?.flushScheduledProgress()
+        }
+    }
+
+    private func flushScheduledProgress() async {
+        persistenceTask = nil
+        await flushProgress()
+    }
+
+    private func drainPendingProgress() async -> Bool {
+        while let locator = pendingLocator {
+            persistenceTask?.cancel()
+            persistenceTask = nil
+            pendingLocator = nil
+
+            do {
+                let position = try readingPosition(from: locator)
+                try await repository.updatePosition(id: bookID, position: position)
+            } catch {
+                if pendingLocator == nil {
+                    pendingLocator = locator
+                }
+                errorMessage = "无法保存听书进度。"
+                return false
+            }
+        }
+        return true
     }
 
     private func startPlayback(from locator: Locator?, announces: Bool) {
@@ -235,7 +304,8 @@ final class ListeningViewModel: NSObject, ObservableObject {
             handleInterruptionBegan()
         case .ended:
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-            handleInterruptionEnded(shouldResume: AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume))
+            let shouldResume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
+            Task { await handleInterruptionEnded(shouldResume: shouldResume) }
         @unknown default:
             break
         }

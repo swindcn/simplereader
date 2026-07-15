@@ -2,6 +2,7 @@ import SwiftUI
 @preconcurrency import ReadiumShared
 
 struct RootTabView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var readerBook: Book?
     @StateObject private var speechSession: SpeechSessionCoordinator
     private let repository: any BookRepository
@@ -32,7 +33,7 @@ struct RootTabView: View {
                 ListeningView(viewModel: viewModel) {
                     Task {
                         _ = await viewModel.flushProgress()
-                        speechSession.dismissListening()
+                        speechSession.dismissListening(flushesProgress: false)
                     }
                 }
             }
@@ -43,6 +44,18 @@ struct RootTabView: View {
                readerBook == nil {
                 MiniPlayerView(viewModel: viewModel, onOpen: speechSession.presentListening)
             }
+        }
+        .onChange(of: scenePhase) { phase in
+            guard phase != .active else { return }
+            Task { await speechSession.flushProgress() }
+        }
+        .alert("听书提示", isPresented: rootSessionErrorPresented) {
+            if speechSession.hasPendingProgressRetry {
+                Button("重试保存") { speechSession.retryPendingProgress() }
+            }
+            Button("好", role: .cancel) { speechSession.dismissError() }
+        } message: {
+            Text(speechSession.errorMessage ?? "发生未知错误")
         }
 #if DEBUG
         .task {
@@ -68,6 +81,13 @@ struct RootTabView: View {
         Binding(
             get: { readerBook == nil && speechSession.isListeningPresented },
             set: { if !$0 { speechSession.dismissListening() } }
+        )
+    }
+
+    private var rootSessionErrorPresented: Binding<Bool> {
+        Binding(
+            get: { readerBook == nil && speechSession.errorMessage != nil },
+            set: { if !$0 { speechSession.dismissError() } }
         )
     }
 }
@@ -97,14 +117,18 @@ private struct ReaderListeningHost: View {
             if let viewModel = speechSession.viewModel {
                 ListeningView(viewModel: viewModel) {
                     Task {
+                        let returnLocator = viewModel.currentLocator
                         _ = await viewModel.flushProgress()
-                        listeningReturnLocator = viewModel.currentLocator
-                        speechSession.dismissListening()
+                        listeningReturnLocator = returnLocator
+                        speechSession.dismissListening(flushesProgress: false)
                     }
                 }
             }
         }
         .alert("听书提示", isPresented: sessionErrorPresented) {
+            if speechSession.hasPendingProgressRetry {
+                Button("重试保存") { speechSession.retryPendingProgress() }
+            }
             Button("好", role: .cancel) { speechSession.dismissError() }
         } message: {
             Text(speechSession.errorMessage ?? "发生未知错误")
