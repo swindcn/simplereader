@@ -25,6 +25,8 @@ targets:
       properties:
         CFBundleDisplayName: PureVoice
         UILaunchScreen: {}
+        UIBackgroundModes:
+          - audio
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: ""

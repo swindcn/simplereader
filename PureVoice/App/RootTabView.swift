@@ -1,11 +1,14 @@
 import SwiftUI
+@preconcurrency import ReadiumShared
 
 struct RootTabView: View {
     @State private var readerBook: Book?
+    @StateObject private var speechSession: SpeechSessionCoordinator
     private let repository: any BookRepository
 
     init(repository: any BookRepository = InMemoryBookRepository()) {
         self.repository = repository
+        _speechSession = StateObject(wrappedValue: SpeechSessionCoordinator(repository: repository))
     }
 
     var body: some View {
@@ -18,7 +21,28 @@ struct RootTabView: View {
             }
         }
         .fullScreenCover(item: $readerBook) { book in
-            ReaderView(book: book, repository: repository)
+            ReaderListeningHost(
+                book: book,
+                repository: repository,
+                speechSession: speechSession
+            )
+        }
+        .fullScreenCover(isPresented: rootListeningPresented) {
+            if let viewModel = speechSession.viewModel {
+                ListeningView(viewModel: viewModel) {
+                    Task {
+                        _ = await viewModel.flushProgress()
+                        speechSession.dismissListening()
+                    }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let viewModel = speechSession.viewModel,
+               !speechSession.isListeningPresented,
+               readerBook == nil {
+                MiniPlayerView(viewModel: viewModel, onOpen: speechSession.presentListening)
+            }
         }
 #if DEBUG
         .task {
@@ -38,5 +62,59 @@ struct RootTabView: View {
         case .importBooks, .settings:
             Text(tab.title)
         }
+    }
+
+    private var rootListeningPresented: Binding<Bool> {
+        Binding(
+            get: { readerBook == nil && speechSession.isListeningPresented },
+            set: { if !$0 { speechSession.dismissListening() } }
+        )
+    }
+}
+
+private struct ReaderListeningHost: View {
+    @State private var listeningReturnLocator: Locator?
+    let book: Book
+    let repository: any BookRepository
+    @ObservedObject var speechSession: SpeechSessionCoordinator
+
+    var body: some View {
+        ReaderView(
+            book: book,
+            repository: repository,
+            onListen: { publication, locator in
+                speechSession.begin(book: book, publication: publication, locator: locator)
+            },
+            listeningReturnLocator: listeningReturnLocator
+        )
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let viewModel = speechSession.viewModel,
+               !speechSession.isListeningPresented {
+                MiniPlayerView(viewModel: viewModel, onOpen: speechSession.presentListening)
+            }
+        }
+        .fullScreenCover(isPresented: $speechSession.isListeningPresented) {
+            if let viewModel = speechSession.viewModel {
+                ListeningView(viewModel: viewModel) {
+                    Task {
+                        _ = await viewModel.flushProgress()
+                        listeningReturnLocator = viewModel.currentLocator
+                        speechSession.dismissListening()
+                    }
+                }
+            }
+        }
+        .alert("听书提示", isPresented: sessionErrorPresented) {
+            Button("好", role: .cancel) { speechSession.dismissError() }
+        } message: {
+            Text(speechSession.errorMessage ?? "发生未知错误")
+        }
+    }
+
+    private var sessionErrorPresented: Binding<Bool> {
+        Binding(
+            get: { speechSession.errorMessage != nil },
+            set: { if !$0 { speechSession.dismissError() } }
+        )
     }
 }

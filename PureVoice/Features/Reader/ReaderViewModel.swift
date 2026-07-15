@@ -11,6 +11,12 @@ struct ReaderTOCEntry: Equatable, Identifiable {
 struct ReaderNavigationRequest: Equatable, Identifiable {
     let id = UUID()
     let href: String
+    let locator: Locator?
+
+    init(href: String, locator: Locator? = nil) {
+        self.href = href
+        self.locator = locator
+    }
 }
 
 @MainActor
@@ -105,6 +111,14 @@ final class ReaderViewModel: ObservableObject {
         }
         navigationRequest = ReaderNavigationRequest(href: entry.href)
         isTableOfContentsPresented = false
+    }
+
+    func returnFromListening(at locator: Locator) {
+        guard openedPublication?.readiumPublication.linkWithHREF(locator.href) != nil else {
+            errorMessage = "无法返回到当前听书位置。"
+            return
+        }
+        navigationRequest = ReaderNavigationRequest(href: locator.href.string, locator: locator)
     }
 
     func reportNavigationFailure() {

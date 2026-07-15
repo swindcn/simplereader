@@ -265,6 +265,18 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.chapterFocusGeneration, openingGeneration + 1)
     }
 
+    func testListeningLocatorCreatesPreciseReaderNavigationRequest() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let viewModel = ReaderViewModel(book: book, repository: InMemoryBookRepository(books: [book]))
+        await viewModel.open()
+        let locator = makeLocator(href: "EPUB/chapter-2.xhtml", progression: 0.64)
+
+        viewModel.returnFromListening(at: locator)
+
+        XCTAssertEqual(viewModel.navigationRequest?.locator, locator)
+    }
+
     func testTableOfContentsIsFlattenedAndSelectionCreatesNavigationRequest() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)

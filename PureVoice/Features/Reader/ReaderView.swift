@@ -10,16 +10,19 @@ struct ReaderView: View {
 
     private let onListen: (OpenedPublication, Locator?) -> Void
     private let onSettings: () -> Void
+    private let listeningReturnLocator: Locator?
 
     init(
         book: Book,
         repository: any BookRepository,
         onListen: @escaping (OpenedPublication, Locator?) -> Void = { _, _ in },
-        onSettings: @escaping () -> Void = {}
+        onSettings: @escaping () -> Void = {},
+        listeningReturnLocator: Locator? = nil
     ) {
         _viewModel = StateObject(wrappedValue: ReaderViewModel(book: book, repository: repository))
         self.onListen = onListen
         self.onSettings = onSettings
+        self.listeningReturnLocator = listeningReturnLocator
     }
 
     var body: some View {
@@ -42,6 +45,9 @@ struct ReaderView: View {
             if phase != .active {
                 Task { await viewModel.flushProgress() }
             }
+        }
+        .onChange(of: listeningReturnLocator) { locator in
+            if let locator { viewModel.returnFromListening(at: locator) }
         }
         .sheet(isPresented: $viewModel.isTableOfContentsPresented) {
             tableOfContents

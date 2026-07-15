@@ -57,6 +57,15 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
         else { return }
         context.coordinator.lastNavigationRequestID = request.id
 
+        if let locator = request.locator {
+            Task {
+                if !(await navigator.go(to: locator)) {
+                    onNavigationFailure()
+                }
+            }
+            return
+        }
+
         guard let href = AnyURL(string: request.href),
               let link = publication.readiumPublication.linkWithHREF(href)
         else {
