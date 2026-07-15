@@ -103,18 +103,48 @@ final class EPUBBuilderTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: first), try Data(contentsOf: second))
     }
 
-    func testAdapterRejectsSparseSourceAboveDecodedByteLimitWithoutReadingIt() async throws {
+    func testTXTSourceLimitCoversTwentyMiBPerformanceBaseline() {
+        XCTAssertGreaterThanOrEqual(TXTCanonicalPublicationConverter.maximumSourceBytes, 20 * 1_024 * 1_024)
+    }
+
+    func testTwentyMiBSparseSourceIsNotRejectedAsTooLarge() async throws {
+        let source = temporaryURL("performance-baseline.txt")
+        FileManager.default.createFile(atPath: source.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: source)
+        try handle.truncate(atOffset: UInt64(20 * 1_024 * 1_024))
+        try handle.close()
+
+        do {
+            try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, suggestedTitle: "Baseline", destinationURL: temporaryURL("baseline.epub"))
+            XCTFail("The sparse fixture should fail encoding detection")
+        } catch let error as TXTDecodingError {
+            XCTAssertEqual(error, .unsupportedEncoding)
+        } catch TXTConversionError.fileTooLarge {
+            XCTFail("The 20 MiB performance fixture must pass the TXT size gate")
+        } catch {
+            XCTFail("Unexpected conversion error: \(error)")
+        }
+    }
+
+    func testAdapterRejectsSparseSourceAboveThirtyTwoMiBLimitWithoutReadingIt() async throws {
         let source = temporaryURL("large.txt")
         FileManager.default.createFile(atPath: source.path, contents: nil)
         let handle = try FileHandle(forWritingTo: source)
-        try handle.truncate(atOffset: UInt64(TXTCanonicalPublicationConverter.maximumSourceBytes + 1))
+        try handle.truncate(atOffset: UInt64(32 * 1_024 * 1_024 + 1))
         try handle.close()
+        let startedAt = Date()
         do {
             try await TXTCanonicalPublicationConverter().convert(originalURL: source, format: .txt, suggestedTitle: "Large", destinationURL: temporaryURL("large.epub"))
             XCTFail("Expected size rejection")
         } catch {
-            XCTAssertEqual(error as? TXTConversionError, .fileTooLarge(maxBytes: TXTCanonicalPublicationConverter.maximumSourceBytes))
+            XCTAssertEqual(error as? TXTConversionError, .fileTooLarge(maxBytes: 32 * 1_024 * 1_024))
+            XCTAssertLessThan(Date().timeIntervalSince(startedAt), 1)
         }
+    }
+
+    func testTXTSizeErrorDescribesThirtyTwoMBLimit() {
+        let error = TXTConversionError.fileTooLarge(maxBytes: 32 * 1_024 * 1_024)
+        XCTAssertEqual(error.errorDescription, "TXT 文件超过 32 MB 本地转换上限。")
     }
 
     func testCancelledBuildKeepsExistingDestination() async throws {

@@ -9,13 +9,14 @@ enum TXTConversionError: Error, Equatable, LocalizedError {
         case .unsupportedFormat:
             return "TXT 转换器仅支持 TXT 文件。"
         case let .fileTooLarge(maxBytes):
-            return "TXT 文件超过本地转换上限（\(maxBytes) 字节）。"
+            return "TXT 文件超过 \(maxBytes / 1_024 / 1_024) MB 本地转换上限。"
         }
     }
 }
 
 struct TXTCanonicalPublicationConverter: CanonicalPublicationConverting {
-    static let maximumSourceBytes = 16 * 1_024 * 1_024
+    // V1 decodes the complete source in memory; raise this safety cap after streaming decode lands.
+    static let maximumSourceBytes = 32 * 1_024 * 1_024
 
     private let decoder = TXTDecoder()
     private let parser = ChapterParser()
