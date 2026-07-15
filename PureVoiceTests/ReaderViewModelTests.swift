@@ -87,6 +87,87 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(savedBook?.position?.progression, 0.75)
     }
 
+    func testFlushSerializesInFlightSaveAndDrainsLatestLocator() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let repository = ControlledSaveBookRepository(book: book, outcomes: [.success, .success])
+        let viewModel = ReaderViewModel(book: book, repository: repository, persistenceDelay: 60)
+        await viewModel.open()
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.2))
+        let firstFlush = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(1)
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-2.xhtml", progression: 0.8))
+        let joinedFlush = Task { await viewModel.flushProgress() }
+        for _ in 0..<20 { await Task.yield() }
+
+        let startsWhileFirstIsBlocked = await repository.startedCount
+        let maximumConcurrency = await repository.maximumConcurrentSaveCount
+        XCTAssertEqual(startsWhileFirstIsBlocked, 1)
+        XCTAssertEqual(maximumConcurrency, 1)
+
+        await repository.releaseNextSave()
+        await repository.waitUntilSaveStarts(2)
+        await repository.releaseNextSave()
+        await firstFlush.value
+        await joinedFlush.value
+
+        let savedProgressions = await repository.savedBooks.compactMap { $0.position?.progression }
+        let finalMaximumConcurrency = await repository.maximumConcurrentSaveCount
+        XCTAssertEqual(savedProgressions, [0.2, 0.8])
+        XCTAssertEqual(finalMaximumConcurrency, 1)
+    }
+
+    func testFailedOldSaveDoesNotOverwriteNewerPendingLocator() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let repository = ControlledSaveBookRepository(book: book, outcomes: [.failure, .success])
+        let viewModel = ReaderViewModel(book: book, repository: repository, persistenceDelay: 60)
+        await viewModel.open()
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.2))
+        let failedFlush = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(1)
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-2.xhtml", progression: 0.85))
+        await repository.releaseNextSave()
+        await failedFlush.value
+
+        let retry = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(2)
+        await repository.releaseNextSave()
+        await retry.value
+
+        let attemptedProgressions = await repository.attemptedBooks.compactMap { $0.position?.progression }
+        let savedProgressions = await repository.savedBooks.compactMap { $0.position?.progression }
+        XCTAssertEqual(attemptedProgressions, [0.2, 0.85])
+        XCTAssertEqual(savedProgressions, [0.85])
+    }
+
+    func testFailedSaveWithoutNewLocatorRemainsPendingForRetry() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let repository = ControlledSaveBookRepository(book: book, outcomes: [.failure, .success])
+        let viewModel = ReaderViewModel(book: book, repository: repository, persistenceDelay: 60)
+        await viewModel.open()
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.4))
+        let failedFlush = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(1)
+        await repository.releaseNextSave()
+        await failedFlush.value
+
+        let retry = Task { await viewModel.flushProgress() }
+        await repository.waitUntilSaveStarts(2)
+        await repository.releaseNextSave()
+        await retry.value
+
+        let attemptedProgressions = await repository.attemptedBooks.compactMap { $0.position?.progression }
+        let savedProgressions = await repository.savedBooks.compactMap { $0.position?.progression }
+        XCTAssertEqual(attemptedProgressions, [0.4, 0.4])
+        XCTAssertEqual(savedProgressions, [0.4])
+    }
+
     func testChapterFocusChangesOncePerChapterRatherThanForEveryProgressUpdate() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)
@@ -171,4 +252,76 @@ private actor RecordingBookRepository: BookRepository {
     }
 
     func delete(id: UUID) {}
+}
+
+private actor ControlledSaveBookRepository: BookRepository {
+    enum Outcome {
+        case success
+        case failure
+    }
+
+    private var bookValue: Book
+    private var outcomes: [Outcome]
+    private var activeSaveCount = 0
+    private(set) var maximumConcurrentSaveCount = 0
+    private(set) var attemptedBooks: [Book] = []
+    private(set) var savedBooks: [Book] = []
+    private var saveContinuations: [CheckedContinuation<Void, Never>] = []
+    private var startWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    var startedCount: Int { attemptedBooks.count }
+
+    init(book: Book, outcomes: [Outcome]) {
+        bookValue = book
+        self.outcomes = outcomes
+    }
+
+    func allBooks() -> [Book] { [bookValue] }
+    func recentBooks(limit: Int) -> [Book] { limit > 0 ? [bookValue] : [] }
+    func book(id: UUID) -> Book? { id == bookValue.id ? bookValue : nil }
+
+    func save(_ book: Book) async throws {
+        attemptedBooks.append(book)
+        activeSaveCount += 1
+        maximumConcurrentSaveCount = max(maximumConcurrentSaveCount, activeSaveCount)
+        resumeSatisfiedStartWaiters()
+
+        await withCheckedContinuation { continuation in
+            saveContinuations.append(continuation)
+        }
+
+        activeSaveCount -= 1
+        let outcome = outcomes.isEmpty ? Outcome.success : outcomes.removeFirst()
+        switch outcome {
+        case .success:
+            bookValue = book
+            savedBooks.append(book)
+        case .failure:
+            throw ControlledSaveError.expected
+        }
+    }
+
+    func delete(id: UUID) {}
+
+    func waitUntilSaveStarts(_ count: Int) async {
+        guard attemptedBooks.count < count else { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append((count, continuation))
+        }
+    }
+
+    func releaseNextSave() {
+        guard !saveContinuations.isEmpty else { return }
+        saveContinuations.removeFirst().resume()
+    }
+
+    private func resumeSatisfiedStartWaiters() {
+        let satisfied = startWaiters.filter { attemptedBooks.count >= $0.count }
+        startWaiters.removeAll { attemptedBooks.count >= $0.count }
+        satisfied.forEach { $0.continuation.resume() }
+    }
+}
+
+private enum ControlledSaveError: Error {
+    case expected
 }

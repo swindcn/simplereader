@@ -35,6 +35,8 @@ final class ReaderViewModel: ObservableObject {
     private var book: Book
     private var pendingPosition: ReadingPosition?
     private var persistenceTask: Task<Void, Never>?
+    private var isPersisting = false
+    private var persistenceWaiters: [CheckedContinuation<Void, Never>] = []
     private var hasOpened = false
 
     init(
@@ -114,15 +116,22 @@ final class ReaderViewModel: ObservableObject {
     func flushProgress() async {
         persistenceTask?.cancel()
         persistenceTask = nil
-        guard let position = pendingPosition else { return }
-        pendingPosition = nil
-        book.position = position
-        do {
-            try await repository.save(book)
-        } catch {
-            pendingPosition = position
-            errorMessage = "无法保存阅读进度。"
+
+        if isPersisting {
+            await withCheckedContinuation { continuation in
+                persistenceWaiters.append(continuation)
+            }
+            return
         }
+
+        guard pendingPosition != nil else { return }
+        isPersisting = true
+        await drainPendingProgress()
+        isPersisting = false
+
+        let waiters = persistenceWaiters
+        persistenceWaiters.removeAll()
+        waiters.forEach { $0.resume() }
     }
 
     private func schedulePersistence() {
@@ -135,7 +144,33 @@ final class ReaderViewModel: ObservableObject {
                 return
             }
             guard !Task.isCancelled else { return }
-            await self?.flushProgress()
+            await self?.flushScheduledProgress()
+        }
+    }
+
+    private func flushScheduledProgress() async {
+        persistenceTask = nil
+        await flushProgress()
+    }
+
+    private func drainPendingProgress() async {
+        while let position = pendingPosition {
+            persistenceTask?.cancel()
+            persistenceTask = nil
+            pendingPosition = nil
+
+            var bookToSave = book
+            bookToSave.position = position
+            do {
+                try await repository.save(bookToSave)
+                book = bookToSave
+            } catch {
+                if pendingPosition == nil {
+                    pendingPosition = position
+                }
+                errorMessage = "无法保存阅读进度。"
+                return
+            }
         }
     }
 
