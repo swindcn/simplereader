@@ -29,18 +29,57 @@ final class PublicationServiceTests: XCTestCase {
         let epubURL = try copyFixture("minimal.epub")
         let service = PublicationService()
 
-        let opened = try await service.open(at: epubURL)
+        let metadata = try await service.openPublication(at: epubURL)
 
-        XCTAssertEqual(opened.title, "无障碍阅读示例")
-        XCTAssertEqual(opened.author, "示例作者")
-        XCTAssertTrue(opened.readiumPublication.conforms(to: .epub))
-        XCTAssertEqual(opened.coverURL, epubURL.deletingLastPathComponent().appendingPathComponent("cover"))
-        let coverURL = try XCTUnwrap(opened.coverURL)
+        XCTAssertEqual(metadata.title, "无障碍阅读示例")
+        XCTAssertEqual(metadata.author, "示例作者")
+        let coverURL = try XCTUnwrap(metadata.coverURL)
+        XCTAssertEqual(coverURL, epubURL.deletingLastPathComponent().appendingPathComponent("cover"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: coverURL.path))
         XCTAssertFalse(try Data(contentsOf: coverURL).isEmpty)
 
-        let metadata = try await service.openPublication(at: epubURL)
-        XCTAssertEqual(metadata, PublicationMetadata(title: "无障碍阅读示例", author: "示例作者", coverURL: coverURL))
+        let opened = try await service.open(at: epubURL)
+        XCTAssertEqual(opened.coverURL, coverURL)
+        XCTAssertTrue(opened.readiumPublication.conforms(to: .epub))
+    }
+
+    func testReaderOpenDoesNotCreateOrRewriteStableCover() async throws {
+        let withoutCover = try copyFixture("minimal.epub")
+        let service = PublicationService()
+
+        let firstOpened = try await service.open(at: withoutCover)
+
+        XCTAssertNil(firstOpened.coverURL)
+        let coverURL = withoutCover.deletingLastPathComponent().appendingPathComponent("cover")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: coverURL.path))
+
+        let sentinel = Data("existing cover".utf8)
+        try sentinel.write(to: coverURL)
+        let secondOpened = try await service.open(at: withoutCover)
+
+        XCTAssertEqual(secondOpened.coverURL, coverURL)
+        XCTAssertEqual(try Data(contentsOf: coverURL), sentinel)
+    }
+
+    func testReaderOpenSucceedsWithoutCoverInReadOnlyDirectory() async throws {
+        let readOnlyDirectory = temporaryDirectory.appendingPathComponent("read-only", isDirectory: true)
+        try FileManager.default.createDirectory(at: readOnlyDirectory, withIntermediateDirectories: true)
+        let epubURL = readOnlyDirectory.appendingPathComponent("minimal.epub")
+        try FileManager.default.copyItem(at: fixtureURL("minimal.epub"), to: epubURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: readOnlyDirectory.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: readOnlyDirectory.path)
+        }
+
+        let opened = try await PublicationService().open(at: epubURL)
+
+        XCTAssertEqual(opened.title, "无障碍阅读示例")
+        XCTAssertNil(opened.coverURL)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: readOnlyDirectory.appendingPathComponent("cover").path
+            )
+        )
     }
 
     func testExtractsNestedTableOfContents() async throws {

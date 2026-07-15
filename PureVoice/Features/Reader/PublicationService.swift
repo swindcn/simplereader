@@ -146,25 +146,29 @@ final class PublicationService: PublicationOpening {
             throw PublicationServiceError.invalidPublication
         }
 
-        let coverURL: URL?
-        do {
-            coverURL = try await persistCover(of: publication, beside: fileURL)
-        } catch {
-            throw PublicationServiceError.coverPersistenceFailed
-        }
-
         return OpenedPublication(
             publication: publication,
             title: title,
             author: author,
-            coverURL: coverURL,
+            coverURL: existingCoverURL(beside: fileURL),
             tableOfContents: tocLinks.map(PublicationTOCItem.init(link:))
         )
     }
 
     func openPublication(at canonicalURL: URL) async throws -> PublicationMetadata {
         let opened = try await open(at: canonicalURL)
-        return PublicationMetadata(title: opened.title, author: opened.author, coverURL: opened.coverURL)
+        let coverURL: URL?
+        do {
+            coverURL = try await persistCover(of: opened.readiumPublication, beside: canonicalURL)
+        } catch {
+            throw PublicationServiceError.coverPersistenceFailed
+        }
+        return PublicationMetadata(title: opened.title, author: opened.author, coverURL: coverURL)
+    }
+
+    private func existingCoverURL(beside fileURL: URL) -> URL? {
+        let coverURL = fileURL.deletingLastPathComponent().appendingPathComponent("cover")
+        return FileManager.default.fileExists(atPath: coverURL.path) ? coverURL : nil
     }
 
     private func persistCover(of publication: Publication, beside fileURL: URL) async throws -> URL? {
