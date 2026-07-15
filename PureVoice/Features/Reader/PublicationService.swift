@@ -1,5 +1,6 @@
 import Foundation
 @preconcurrency import ReadiumShared
+@preconcurrency import ReadiumStreamer
 
 enum PublicationServiceError: Error, Equatable, LocalizedError {
     case invalidFileURL
@@ -102,9 +103,9 @@ final class OpenedPublication {
 
 @MainActor
 final class PublicationService: PublicationOpening {
-    private let container: ReadiumContainer
+    private let container: any ReadiumPublicationOpening
 
-    init(container: ReadiumContainer = ReadiumContainer()) {
+    init(container: any ReadiumPublicationOpening = ReadiumContainer()) {
         self.container = container
     }
 
@@ -115,7 +116,7 @@ final class PublicationService: PublicationOpening {
         } catch let error as PublicationServiceError {
             throw error
         } catch {
-            throw PublicationServiceError.invalidPublication
+            throw mapOpenError(error)
         }
 
         guard publication.conforms(to: .epub) else {
@@ -166,6 +167,54 @@ final class PublicationService: PublicationOpening {
         let destination = fileURL.deletingLastPathComponent().appendingPathComponent("cover.png")
         try data.write(to: destination, options: .atomic)
         return destination
+    }
+
+    private func mapOpenError(_ error: Error) -> PublicationServiceError {
+        if error is ContentProtectionSchemeNotSupportedError {
+            return .protectedPublication
+        }
+        if let error = error as? AssetRetrieveURLError {
+            switch error {
+            case .schemeNotSupported:
+                return .invalidFileURL
+            case .formatNotSupported:
+                return .invalidPublication
+            case let .reading(error):
+                return mapReadError(error)
+            }
+        }
+        if let error = error as? PublicationOpenError {
+            switch error {
+            case .formatNotSupported:
+                return .invalidPublication
+            case let .reading(error):
+                return mapReadError(error)
+            }
+        }
+        if let error = error as? ContentProtectionOpenError {
+            switch error {
+            case let .assetNotSupported(underlying):
+                return underlying is ContentProtectionSchemeNotSupportedError
+                    ? .protectedPublication
+                    : .invalidPublication
+            case let .reading(error):
+                return mapReadError(error)
+            }
+        }
+        return .invalidPublication
+    }
+
+    private func mapReadError(_ error: ReadError) -> PublicationServiceError {
+        switch error {
+        case .access:
+            return .invalidFileURL
+        case let .decoding(underlying):
+            return underlying is ContentProtectionSchemeNotSupportedError
+                ? .protectedPublication
+                : .invalidPublication
+        case .unsupportedOperation:
+            return .invalidPublication
+        }
     }
 
     private func normalized(_ value: String?) -> String? {

@@ -3,7 +3,12 @@ import Foundation
 @preconcurrency import ReadiumStreamer
 
 @MainActor
-final class ReadiumContainer {
+protocol ReadiumPublicationOpening {
+    func openPublication(at fileURL: URL) async throws -> Publication
+}
+
+@MainActor
+final class ReadiumContainer: ReadiumPublicationOpening {
     func openPublication(at fileURL: URL) async throws -> Publication {
         let httpClient: HTTPClient = DefaultHTTPClient()
         let assetRetriever = AssetRetriever(httpClient: httpClient)

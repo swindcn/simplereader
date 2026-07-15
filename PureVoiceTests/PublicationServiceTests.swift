@@ -1,6 +1,10 @@
 import enum ReadiumShared.AnyURL
+import enum ReadiumShared.AssetRetrieveURLError
+import struct ReadiumShared.ContentProtectionSchemeNotSupportedError
 import struct ReadiumShared.Locator
 import struct ReadiumShared.MediaType
+import class ReadiumShared.Publication
+import enum ReadiumStreamer.PublicationOpenError
 import XCTest
 @testable import PureVoice
 
@@ -91,6 +95,29 @@ final class PublicationServiceTests: XCTestCase {
         }
     }
 
+    func testMapsTypedReadiumOpenFailuresWithoutInspectingMessages() async {
+        let cases: [(Error, PublicationServiceError)] = [
+            (
+                PublicationOpenError.reading(
+                    .decoding(ContentProtectionSchemeNotSupportedError(scheme: .lcp))
+                ),
+                .protectedPublication
+            ),
+            (AssetRetrieveURLError.reading(.access(.fileSystem(.fileNotFound(nil)))), .invalidFileURL),
+            (PublicationOpenError.formatNotSupported, .invalidPublication)
+        ]
+
+        for (readiumError, expected) in cases {
+            let service = PublicationService(container: FailingReadiumContainer(error: readiumError))
+            do {
+                _ = try await service.open(at: fixtureURL("minimal.epub"))
+                XCTFail("Expected typed Readium error to be mapped")
+            } catch {
+                XCTAssertEqual(error as? PublicationServiceError, expected)
+            }
+        }
+    }
+
     private func copyFixture(_ name: String) throws -> URL {
         let destination = temporaryDirectory.appendingPathComponent(name)
         try FileManager.default.copyItem(at: fixtureURL(name), to: destination)
@@ -102,5 +129,18 @@ final class PublicationServiceTests: XCTestCase {
             forResource: name.replacingOccurrences(of: ".epub", with: ""),
             withExtension: "epub"
         )!
+    }
+}
+
+@MainActor
+private final class FailingReadiumContainer: ReadiumPublicationOpening {
+    private let error: Error
+
+    init(error: Error) {
+        self.error = error
+    }
+
+    func openPublication(at fileURL: URL) async throws -> Publication {
+        throw error
     }
 }
