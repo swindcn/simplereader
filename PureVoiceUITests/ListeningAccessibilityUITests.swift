@@ -13,17 +13,24 @@ final class ListeningAccessibilityUITests: XCTestCase {
 
         playPause.tap()
         XCTAssertEqual(playPause.label, "播放")
-        playPause.tap()
-        XCTAssertEqual(playPause.label, "暂停")
         app.buttons["listening.previous"].tap()
         app.buttons["listening.next"].tap()
+        XCTAssertEqual(playPause.label, "暂停")
+        playPause.tap()
+        XCTAssertEqual(playPause.label, "播放")
 
         let rate = app.sliders["listening.rate"]
         XCTAssertTrue(rate.exists)
         rate.adjust(toNormalizedSliderPosition: 0.5)
         XCTAssertFalse(rate.value as? String == nil)
-        XCTAssertTrue(app.buttons["listening.voice"].exists)
-        XCTAssertFalse((app.buttons["listening.voice"].value as? String ?? "").isEmpty)
+        app.swipeUp()
+        let voice = app.pickerWheels.firstMatch
+        XCTAssertTrue(voice.waitForExistence(timeout: 3))
+        let initialVoice = voice.value as? String
+        let targetVoice = initialVoice == "小语，女声" ? "小宇，男声" : "小语，女声"
+        voice.adjust(toPickerWheelValue: targetVoice)
+        XCTAssertEqual(voice.value as? String, targetVoice)
+        XCTAssertNotEqual(voice.value as? String, initialVoice)
 
         app.buttons["listening.back"].tap()
         XCTAssertTrue(app.otherElements["miniPlayer"].waitForExistence(timeout: 3))
@@ -31,6 +38,7 @@ final class ListeningAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["miniPlayer.playPause"].exists)
         app.buttons["miniPlayer.open"].tap()
         XCTAssertTrue(app.buttons["listening.back"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["listening.playPause"].label, "播放")
 
         app.buttons["listening.back"].tap()
         XCTAssertTrue(app.buttons["reader.back"].waitForExistence(timeout: 3))
@@ -56,7 +64,8 @@ final class ListeningAccessibilityUITests: XCTestCase {
         XCTAssertFalse(previous.frame.intersects(playPause.frame))
         XCTAssertFalse(playPause.frame.intersects(next.frame))
         XCTAssertTrue(app.sliders["listening.rate"].exists)
-        XCTAssertTrue(app.buttons["listening.voice"].exists)
+        app.swipeUp()
+        XCTAssertTrue(app.pickerWheels.firstMatch.waitForExistence(timeout: 3))
     }
 
     private func launchListening(contentSizeCategory: String) -> XCUIApplication {

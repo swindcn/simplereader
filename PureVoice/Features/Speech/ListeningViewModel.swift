@@ -97,15 +97,9 @@ final class ListeningViewModel: NSObject, ObservableObject {
         NotificationCenter.default.removeObserver(self)
     }
 
-    func start() {
-        guard !hasStarted else {
-            if case .paused = state { resume() }
-            return
-        }
-        hasStarted = true
-        state = .loading
-        service.start(from: initialLocator)
-        announce("开始播放")
+    func ensureStarted() {
+        guard !hasStarted else { return }
+        startPlayback(from: initialLocator, announces: true)
     }
 
     func pause(announces: Bool = true) {
@@ -125,10 +119,8 @@ final class ListeningViewModel: NSObject, ObservableObject {
         case .paused:
             resume(announces: announces)
         case .stopped, .failed:
-            if hasStarted {
-                hasStarted = false
-            }
-            if announces { start() } else { startWithoutAnnouncement() }
+            hasStarted = false
+            startPlayback(from: pendingLocator ?? initialLocator, announces: announces)
         case .loading:
             break
         }
@@ -211,11 +203,12 @@ final class ListeningViewModel: NSObject, ObservableObject {
         onNowPlayingChange?()
     }
 
-    private func startWithoutAnnouncement() {
+    private func startPlayback(from locator: Locator?, announces: Bool) {
         guard !hasStarted else { return }
         hasStarted = true
         state = .loading
-        service.start(from: pendingLocator ?? initialLocator)
+        service.start(from: locator)
+        if announces { announce("开始播放") }
     }
 
     private func readingPosition(from locator: Locator) throws -> ReadingPosition {

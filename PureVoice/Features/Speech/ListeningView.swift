@@ -21,7 +21,7 @@ struct ListeningView: View {
             }
         }
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-        .onAppear { viewModel.start() }
+        .onAppear { viewModel.ensureStarted() }
         .onDisappear { Task { await viewModel.flushProgress() } }
         .alert("Listening 提示", isPresented: errorPresented) {
             Button("重试") {
@@ -173,9 +173,13 @@ struct ListeningView: View {
                 .accessibilityIdentifier("listening.rate")
             }
 
-            HStack {
-                Text("声音")
-                Spacer()
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("声音")
+                    Spacer()
+                    Text(selectedVoiceName)
+                        .foregroundStyle(.secondary)
+                }
                 Picker(
                     "声音",
                     selection: Binding(
@@ -187,7 +191,9 @@ struct ListeningView: View {
                         Text(voice.displayName).tag(voice.identifier)
                     }
                 }
-                .pickerStyle(.menu)
+                .pickerStyle(.wheel)
+                .frame(height: 160)
+                .clipped()
                 .disabled(viewModel.voices.isEmpty)
                 .accessibilityValue(selectedVoiceName)
                 .accessibilityIdentifier("listening.voice")

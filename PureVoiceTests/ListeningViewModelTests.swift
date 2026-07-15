@@ -26,7 +26,7 @@ final class ListeningViewModelTests: XCTestCase {
         let service = FakeSpeechService()
         let viewModel = makeViewModel(service: service, locator: locator)
 
-        viewModel.start()
+        viewModel.ensureStarted()
         XCTAssertEqual(service.startedLocators, [locator])
         XCTAssertEqual(viewModel.state, .loading)
 
@@ -48,7 +48,7 @@ final class ListeningViewModelTests: XCTestCase {
         var announcements: [String] = []
         let viewModel = makeViewModel(service: service, announcements: { announcements.append($0) })
 
-        viewModel.start()
+        viewModel.ensureStarted()
         service.send(.playing(service.utterance))
         viewModel.pause()
         service.send(.paused(service.utterance))
@@ -64,6 +64,47 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(service.previousCount, 1)
         XCTAssertEqual(service.nextCount, 1)
         XCTAssertEqual(announcements, ["开始播放", "已暂停", "继续播放", "上一句", "下一句"])
+    }
+
+    func testEnsureStartedDoesNotResumeOrAnnounceWhenPausedSessionReappears() {
+        let service = FakeSpeechService()
+        var announcements: [String] = []
+        let viewModel = makeViewModel(service: service, announcements: { announcements.append($0) })
+
+        viewModel.ensureStarted()
+        service.send(.playing(service.utterance))
+        viewModel.pause()
+        service.send(.paused(service.utterance))
+        let announcementsBeforeReappearing = announcements
+
+        viewModel.ensureStarted()
+
+        XCTAssertEqual(viewModel.state, .paused(service.utterance))
+        XCTAssertEqual(service.startCount, 1)
+        XCTAssertEqual(service.resumeCount, 0)
+        XCTAssertEqual(announcements, announcementsBeforeReappearing)
+    }
+
+    func testEnsureStartedIsNoOpForOtherExistingSessionStates() {
+        for existingState in [
+            SpeechPlaybackState.loading,
+            .playing(FakeSpeechService().utterance),
+            .stopped
+        ] {
+            let service = FakeSpeechService()
+            var announcements: [String] = []
+            let viewModel = makeViewModel(service: service, announcements: { announcements.append($0) })
+            viewModel.ensureStarted()
+            service.send(existingState)
+            let announcementsBeforeReappearing = announcements
+
+            viewModel.ensureStarted()
+
+            XCTAssertEqual(viewModel.state, existingState)
+            XCTAssertEqual(service.startCount, 1)
+            XCTAssertEqual(service.resumeCount, 0)
+            XCTAssertEqual(announcements, announcementsBeforeReappearing)
+        }
     }
 
     func testRateClampsAppliesAndPersistsSemanticMultiplier() {
