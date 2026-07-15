@@ -112,9 +112,20 @@ final class BookFileStore: @unchecked Sendable {
 
     func removeCanonicalFile(bookID: UUID) throws {
         try withBookLock(bookID: bookID) {
-            let canonical = canonicalURL(for: bookID)
-            guard fileManager.fileExists(atPath: canonical.path) else { return }
-            try fileManager.removeItem(at: canonical)
+            var firstError: Error?
+            for artifact in [canonicalURL(for: bookID), coverURL(for: bookID)]
+            where fileManager.fileExists(atPath: artifact.path) {
+                do {
+                    try fileManager.removeItem(at: artifact)
+                } catch {
+                    if firstError == nil {
+                        firstError = error
+                    }
+                }
+            }
+            if let firstError {
+                throw firstError
+            }
         }
     }
 

@@ -529,8 +529,8 @@ final class BookFileStoreTests: XCTestCase {
         try secondStore.removeCanonicalFile(bookID: bookID)
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: canonical.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cover.path))
         XCTAssertEqual(try Data(contentsOf: original), Data("original".utf8))
-        XCTAssertEqual(try Data(contentsOf: cover), Data("cover".utf8))
         XCTAssertEqual(try Data(contentsOf: sibling), Data("sibling".utf8))
     }
 

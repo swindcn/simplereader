@@ -33,7 +33,8 @@ final class PublicationServiceTests: XCTestCase {
 
         XCTAssertEqual(opened.title, "无障碍阅读示例")
         XCTAssertEqual(opened.author, "示例作者")
-        XCTAssertEqual(opened.coverURL, epubURL.deletingLastPathComponent().appendingPathComponent("cover.png"))
+        XCTAssertTrue(opened.readiumPublication.conforms(to: .epub))
+        XCTAssertEqual(opened.coverURL, epubURL.deletingLastPathComponent().appendingPathComponent("cover"))
         let coverURL = try XCTUnwrap(opened.coverURL)
         XCTAssertTrue(FileManager.default.fileExists(atPath: coverURL.path))
         XCTAssertFalse(try Data(contentsOf: coverURL).isEmpty)
@@ -69,10 +70,40 @@ final class PublicationServiceTests: XCTestCase {
         XCTAssertEqual(position.progression, 0.125)
         XCTAssertNotNil(position.locationsJSON)
 
-        let restored = try opened.locator(from: position)
+        let restored = try await opened.locator(from: position)
         XCTAssertEqual(restored.href.string, locator.href.string)
         XCTAssertEqual(restored.mediaType, locator.mediaType)
         XCTAssertEqual(restored.locations, locator.locations)
+    }
+
+    func testRestoresMissingLocationsFromWholePublicationProgression() async throws {
+        let opened = try await PublicationService().open(at: try copyFixture("minimal.epub"))
+        let position = ReadingPosition(
+            href: "EPUB/chapter-1.xhtml",
+            locationsJSON: nil,
+            progression: 0.75
+        )
+
+        let restored = try await opened.locator(from: position)
+
+        XCTAssertEqual(restored.href.string, "EPUB/chapter-2.xhtml")
+        XCTAssertEqual(restored.locations.totalProgression, 0.75)
+        XCTAssertNotEqual(restored.locations.progression, 0.75)
+    }
+
+    func testNormalizesLegacyPackagedHREFBeforeValidation() async throws {
+        let opened = try await PublicationService().open(at: try copyFixture("minimal.epub"))
+        let legacy = ReadingPosition(
+            href: "/EPUB/chapter-2.xhtml",
+            locationsJSON: "{\"progression\":0.2}",
+            progression: 0.6
+        )
+
+        let restored = try await opened.locator(from: legacy)
+
+        XCTAssertEqual(restored.href.string, "EPUB/chapter-2.xhtml")
+        XCTAssertEqual(restored.locations.progression, 0.2)
+        XCTAssertEqual(restored.locations.totalProgression, 0.6)
     }
 
     func testMalformedEPUBMapsToLocalizedUserError() async throws {

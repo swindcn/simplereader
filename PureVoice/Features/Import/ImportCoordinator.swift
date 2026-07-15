@@ -166,7 +166,7 @@ final class ImportCoordinator: ObservableObject {
                 try await importIO.removeCanonicalFile(bookID: bookID)
             } catch {
                 return .cleanupFailed(
-                    "清理 publication.epub 失败：\((error as NSError).localizedDescription)"
+                    "清理 publication.epub 和封面失败：\((error as NSError).localizedDescription)"
                 )
             }
         }

@@ -108,6 +108,28 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.state, .failed(.tooLarge))
     }
 
+    func testOpenFailureCleansCanonicalAndCoverButPreservesOriginal() async throws {
+        let source = try write(Data("text".utf8), named: "cover-cleanup.txt")
+        let coordinator = makeCoordinator(
+            repository: RecordingRepository(),
+            opener: CoverWritingPublicationOpener(error: TestError.open)
+        )
+
+        try await coordinator.importBook(from: source)
+
+        guard case .failed(.openFailed) = coordinator.state else {
+            return XCTFail("Unexpected final state: \(coordinator.state)")
+        }
+        let directories = try FileManager.default.contentsOfDirectory(
+            at: fileStore.booksRoot,
+            includingPropertiesForKeys: nil
+        )
+        let directory = try XCTUnwrap(directories.first)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("original.txt").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("publication.epub").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("cover").path))
+    }
+
     func testDetectOpenAndSaveFailuresAreDistinctAndCleanCanonical() async throws {
         let unsupported = try write(Data("data".utf8), named: "source.pdf")
         let detectCoordinator = makeCoordinator(repository: RecordingRepository())
@@ -206,7 +228,7 @@ final class ImportCoordinatorTests: XCTestCase {
             fileStore: fileStore,
             detector: BookFormatDetector(),
             converter: RecordingConverter(),
-            publicationOpener: RecordingPublicationOpener(),
+            publicationOpener: CoverWritingPublicationOpener(),
             repository: repository,
             stateObserver: { states.append($0) }
         )
@@ -224,6 +246,8 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertNil(rolledBackBook)
         XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.originalFileURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
+        let coverURL = try XCTUnwrap(savedBook.coverFileURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: coverURL.path))
         XCTAssertFalse(states.contains { state in
             if case .completed = state { return true }
             return false
@@ -238,7 +262,7 @@ final class ImportCoordinatorTests: XCTestCase {
             fileStore: fileStore,
             detector: BookFormatDetector(),
             converter: RecordingConverter(),
-            publicationOpener: RecordingPublicationOpener(),
+            publicationOpener: CoverWritingPublicationOpener(),
             repository: repository,
             stateObserver: { states.append($0) }
         )
@@ -259,6 +283,8 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertEqual(remainingBook, savedBook)
         XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.originalFileURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: savedBook.canonicalFileURL.path))
+        let coverURL = try XCTUnwrap(savedBook.coverFileURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: coverURL.path))
         XCTAssertFalse(states.contains { state in
             if case .completed = state { return true }
             return false
@@ -431,7 +457,7 @@ final class ImportCoordinatorTests: XCTestCase {
     private func makeCoordinator(
         repository: RecordingRepository,
         converter: RecordingConverter = RecordingConverter(),
-        opener: RecordingPublicationOpener = RecordingPublicationOpener(),
+        opener: any PublicationOpening = RecordingPublicationOpener(),
         stateObserver: @escaping @MainActor (ImportState) -> Void = { _ in }
     ) -> ImportCoordinator {
         ImportCoordinator(
@@ -498,6 +524,21 @@ private actor RecordingPublicationOpener: PublicationOpening {
     }
 
     func count() -> Int { openCount }
+}
+
+private actor CoverWritingPublicationOpener: PublicationOpening {
+    private let error: Error?
+
+    init(error: Error? = nil) {
+        self.error = error
+    }
+
+    func openPublication(at canonicalURL: URL) async throws -> PublicationMetadata {
+        let coverURL = canonicalURL.deletingLastPathComponent().appendingPathComponent("cover")
+        try Data("cover".utf8).write(to: coverURL)
+        if let error { throw error }
+        return PublicationMetadata(title: "Title", author: nil, coverURL: coverURL)
+    }
 }
 
 private actor RecordingRepository: BookRepository {

@@ -43,8 +43,7 @@ final class OpenedPublication {
     let author: String?
     let coverURL: URL?
     let tableOfContents: [PublicationTOCItem]
-
-    private let publication: Publication
+    let readiumPublication: Publication
 
     init(
         publication: Publication,
@@ -53,7 +52,7 @@ final class OpenedPublication {
         coverURL: URL?,
         tableOfContents: [PublicationTOCItem]
     ) {
-        self.publication = publication
+        readiumPublication = publication
         self.title = title
         self.author = author
         self.coverURL = coverURL
@@ -61,8 +60,8 @@ final class OpenedPublication {
     }
 
     func readingPosition(from locator: Locator) throws -> ReadingPosition {
-        let locator = publication.normalizeLocator(locator)
-        guard publication.linkWithHREF(locator.href) != nil else {
+        let locator = readiumPublication.normalizeLocator(locator)
+        guard readiumPublication.linkWithHREF(locator.href) != nil else {
             throw PublicationServiceError.invalidReadingPosition
         }
         let locationsData = try JSONSerialization.data(
@@ -73,31 +72,40 @@ final class OpenedPublication {
         return ReadingPosition(
             href: locator.href.string,
             locationsJSON: locationsJSON,
-            progression: locator.locations.totalProgression ?? locator.locations.progression ?? 0
+            progression: locator.locations.totalProgression ?? 0
         )
     }
 
-    func locator(from position: ReadingPosition) throws -> Locator {
-        guard let href = AnyURL(string: position.href),
-              let link = publication.linkWithHREF(href),
-              let mediaType = link.mediaType
-        else {
-            throw PublicationServiceError.invalidReadingPosition
-        }
-
-        let locations: Locator.Locations
-        if let json = position.locationsJSON {
-            do {
-                let data = Data(json.utf8)
-                let object = try JSONSerialization.jsonObject(with: data)
-                locations = try Locator.Locations(json: object)
-            } catch {
+    func locator(from position: ReadingPosition) async throws -> Locator {
+        guard let json = position.locationsJSON else {
+            guard let locator = await readiumPublication.locate(progression: position.progression) else {
                 throw PublicationServiceError.invalidReadingPosition
             }
-        } else {
-            locations = Locator.Locations(progression: position.progression)
+            return locator
         }
-        return publication.normalizeLocator(Locator(href: href, mediaType: mediaType, locations: locations))
+
+        do {
+            guard let href = AnyURL(string: position.href) else {
+                throw PublicationServiceError.invalidReadingPosition
+            }
+            let data = Data(json.utf8)
+            let object = try JSONSerialization.jsonObject(with: data)
+            var locations = try Locator.Locations(json: object)
+            if locations.totalProgression == nil {
+                locations.totalProgression = position.progression
+            }
+            let normalized = readiumPublication.normalizeLocator(
+                Locator(href: href, mediaType: .xhtml, locations: locations)
+            )
+            guard let mediaType = readiumPublication.linkWithHREF(normalized.href)?.mediaType else {
+                throw PublicationServiceError.invalidReadingPosition
+            }
+            return normalized.copy(mediaType: mediaType)
+        } catch let error as PublicationServiceError {
+            throw error
+        } catch {
+            throw PublicationServiceError.invalidReadingPosition
+        }
     }
 }
 
@@ -164,7 +172,7 @@ final class PublicationService: PublicationOpening {
         guard let data = image.pngData() else {
             throw PublicationServiceError.coverPersistenceFailed
         }
-        let destination = fileURL.deletingLastPathComponent().appendingPathComponent("cover.png")
+        let destination = fileURL.deletingLastPathComponent().appendingPathComponent("cover")
         try data.write(to: destination, options: .atomic)
         return destination
     }
