@@ -559,6 +559,11 @@ private actor RecordingRepository: BookRepository {
         if let saveError { throw saveError }
         books[book.id] = book
     }
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard var book = books[id] else { return }
+        book.position = position
+        books[id] = book
+    }
     func delete(id: UUID) {
         deleteCount += 1
         books[id] = nil
@@ -599,6 +604,12 @@ private actor SaveBarrierRepository: BookRepository {
         await withCheckedContinuation { releaseContinuations.append($0) }
     }
 
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard var book = books[id] else { return }
+        book.position = position
+        books[id] = book
+    }
+
     func delete(id: UUID) throws {
         if let deleteError { throw deleteError }
         books[id] = nil
@@ -630,6 +641,11 @@ private actor CommitThenThrowRepository: BookRepository {
         books[book.id] = book
         lastSavedBook = book
         throw TestError.save
+    }
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard var book = books[id] else { return }
+        book.position = position
+        books[id] = book
     }
     func delete(id: UUID) { books[id] = nil }
     func recordedBook() -> Book? { lastSavedBook }

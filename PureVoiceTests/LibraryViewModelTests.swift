@@ -228,6 +228,11 @@ private actor DelayedSuccessfulMutationRepository: BookRepository {
         pendingSave = nil
     }
 
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard let index = books.firstIndex(where: { $0.id == id }) else { return }
+        books[index].position = position
+    }
+
     func delete(id: UUID) async {
         pendingDeleteID = id
         deleteStartedContinuations.forEach { $0.resume() }
@@ -284,6 +289,8 @@ private actor DelayedFailingSaveRepository: BookRepository {
         }
         throw SaveError.failed
     }
+
+    func updatePosition(id: UUID, position: ReadingPosition?) {}
 
     func delete(id: UUID) {}
 

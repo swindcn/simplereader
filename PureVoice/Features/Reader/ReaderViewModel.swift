@@ -71,7 +71,6 @@ final class ReaderViewModel: ObservableObject {
                 publish(publication, initialLocator: locator)
             } catch {
                 book.position = nil
-                try? await repository.updatePosition(id: book.id, position: nil)
                 publish(
                     publication,
                     initialLocator: nil,

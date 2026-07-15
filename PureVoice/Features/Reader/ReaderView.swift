@@ -82,12 +82,14 @@ struct ReaderView: View {
                 .accessibilityAction(named: Text("上一页"), commands.previousPage)
                 .accessibilityAction(named: Text("下一页"), commands.nextPage)
 #if DEBUG
-                Text(debugLocatorLabel)
-                    .font(.system(size: 1))
-                    .frame(width: 2, height: 2)
-                    .foregroundStyle(.clear)
-                    .accessibilityLabel(debugLocatorLabel)
-                    .accessibilityIdentifier("reader.debug.locator")
+                if ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_READER_EPUB"] != nil {
+                    Text(debugLocatorLabel)
+                        .font(.system(size: 1))
+                        .frame(width: 2, height: 2)
+                        .foregroundStyle(.clear)
+                        .accessibilityLabel(debugLocatorLabel)
+                        .accessibilityIdentifier("reader.debug.locator")
+                }
 #endif
             }
 

@@ -41,7 +41,7 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.isReady)
     }
 
-    func testInvalidSavedPositionDoesNotBlockPublicationWhenCleanupFails() async throws {
+    func testInvalidSavedPositionIsIgnoredUntilNavigatorProvidesAValidReplacement() async throws {
         let epubURL = try copyFixture()
         let invalidPosition = ReadingPosition(
             href: "EPUB/missing.xhtml",
@@ -49,8 +49,8 @@ final class ReaderViewModelTests: XCTestCase {
             progression: 0.5
         )
         let book = Book.fixture(canonicalFileURL: epubURL, position: invalidPosition)
-        let repository = PositionUpdateFailingRepository(book: book)
-        let viewModel = ReaderViewModel(book: book, repository: repository)
+        let repository = AtomicPositionBookRepository(book: book)
+        let viewModel = ReaderViewModel(book: book, repository: repository, persistenceDelay: 60)
 
         await viewModel.open()
 
@@ -58,6 +58,21 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.initialLocator)
         XCTAssertEqual(viewModel.chapterTitle, "第一章 起点")
         XCTAssertEqual(viewModel.errorMessage, "上次阅读位置已失效，已从书首开始。")
+        let openingUpdates = await repository.positionUpdates
+        let openingPosition = await repository.currentBook.position
+        XCTAssertEqual(openingUpdates, [])
+        XCTAssertEqual(openingPosition, invalidPosition)
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.25))
+        let flushSucceeded = await viewModel.flushProgress()
+
+        let updates = await repository.positionUpdates
+        let persistedProgression = await repository.currentBook.position?.progression
+        let replacement = try XCTUnwrap(updates.first ?? nil)
+        XCTAssertTrue(flushSucceeded)
+        XCTAssertEqual(updates.count, 1)
+        XCTAssertEqual(replacement.href, "EPUB/chapter-1.xhtml")
+        XCTAssertEqual(persistedProgression, 0.25)
     }
 
     func testLocatorChangesAreCoalescedUntilFlushAndPersistOnlyLatestPosition() async throws {
@@ -328,6 +343,13 @@ private actor RecordingBookRepository: BookRepository {
         saveCount += 1
     }
 
+    func updatePosition(id: UUID, position: ReadingPosition?) {
+        guard bookValue.id == id else { return }
+        bookValue.position = position
+        savedBook = bookValue
+        saveCount += 1
+    }
+
     func delete(id: UUID) {}
 }
 
@@ -378,6 +400,13 @@ private actor ControlledSaveBookRepository: BookRepository {
         }
     }
 
+    func updatePosition(id: UUID, position: ReadingPosition?) async throws {
+        guard bookValue.id == id else { return }
+        var updatedBook = bookValue
+        updatedBook.position = position
+        try await save(updatedBook)
+    }
+
     func delete(id: UUID) {}
 
     func waitUntilSaveStarts(_ count: Int) async {
@@ -403,22 +432,9 @@ private enum ControlledSaveError: Error {
     case expected
 }
 
-private actor PositionUpdateFailingRepository: BookRepository {
-    private let bookValue: Book
-
-    init(book: Book) { bookValue = book }
-    func allBooks() -> [Book] { [bookValue] }
-    func recentBooks(limit: Int) -> [Book] { limit > 0 ? [bookValue] : [] }
-    func book(id: UUID) -> Book? { id == bookValue.id ? bookValue : nil }
-    func save(_ book: Book) throws { throw ControlledSaveError.expected }
-    func updatePosition(id: UUID, position: ReadingPosition?) throws {
-        throw ControlledSaveError.expected
-    }
-    func delete(id: UUID) {}
-}
-
 private actor AtomicPositionBookRepository: BookRepository {
     private(set) var currentBook: Book
+    private(set) var positionUpdates: [ReadingPosition?] = []
 
     init(book: Book) { currentBook = book }
     func allBooks() -> [Book] { [currentBook] }
@@ -427,6 +443,7 @@ private actor AtomicPositionBookRepository: BookRepository {
     func save(_ book: Book) { currentBook = book }
     func updatePosition(id: UUID, position: ReadingPosition?) {
         guard currentBook.id == id else { return }
+        positionUpdates.append(position)
         currentBook.position = position
     }
     func delete(id: UUID) {}
