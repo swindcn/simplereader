@@ -155,12 +155,14 @@ final class ListeningViewModelTests: XCTestCase {
         service.send(.playing(service.utterance))
 
         viewModel.handleInterruptionBegan()
+        service.send(.paused(service.utterance))
         XCTAssertEqual(service.pauseCount, 1)
         await viewModel.handleInterruptionEnded(shouldResume: false)
         XCTAssertEqual(service.resumeCount, 0)
 
         service.send(.playing(service.utterance))
         viewModel.handleInterruptionBegan()
+        service.send(.paused(service.utterance))
         await viewModel.handleInterruptionEnded(shouldResume: true)
         XCTAssertEqual(audioSession.activationCount, 1)
         XCTAssertEqual(service.resumeCount, 1)
@@ -179,11 +181,50 @@ final class ListeningViewModelTests: XCTestCase {
         service.send(.playing(service.utterance))
 
         viewModel.handleInterruptionBegan()
+        service.send(.paused(service.utterance))
         await viewModel.handleInterruptionEnded(shouldResume: true)
 
         XCTAssertEqual(audioSession.activationCount, 1)
         XCTAssertEqual(service.resumeCount, 0)
         XCTAssertEqual(viewModel.errorMessage, "无法恢复播放，请点击播放重试。")
+    }
+
+    func testStoppingWhileInterruptionActivationIsPendingDoesNotResume() async {
+        let service = FakeSpeechService()
+        let audioSession = ControlledAudioSessionActivator()
+        let viewModel = makeViewModel(service: service, audioSession: audioSession)
+        service.send(.playing(service.utterance))
+        viewModel.handleInterruptionBegan()
+        service.send(.paused(service.utterance))
+
+        let recovery = Task { await viewModel.handleInterruptionEnded(shouldResume: true) }
+        await audioSession.waitUntilActivationStarts()
+        viewModel.stop(announces: false)
+        audioSession.completeSuccessfully()
+        await recovery.value
+
+        XCTAssertEqual(service.resumeCount, 0)
+    }
+
+    func testStaleInterruptionActivationFailureDoesNotPolluteRestartedSession() async {
+        let service = FakeSpeechService()
+        let audioSession = ControlledAudioSessionActivator()
+        let viewModel = makeViewModel(service: service, audioSession: audioSession)
+        service.send(.playing(service.utterance))
+        viewModel.handleInterruptionBegan()
+        service.send(.paused(service.utterance))
+
+        let recovery = Task { await viewModel.handleInterruptionEnded(shouldResume: true) }
+        await audioSession.waitUntilActivationStarts()
+        viewModel.stop(announces: false)
+        service.send(.stopped)
+        viewModel.togglePlayback(announces: false)
+        audioSession.completeWithFailure()
+        await recovery.value
+
+        XCTAssertEqual(service.startCount, 1)
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertEqual(service.resumeCount, 0)
     }
 
     func testFlushPersistsCurrentSpeechLocatorWithAtomicPositionUpdate() async throws {
@@ -454,6 +495,42 @@ private final class FakeAudioSessionActivator: AudioSessionActivating {
         activationCount += 1
         onActivate()
         if shouldFail { throw ActivationError.expected }
+    }
+
+    private enum ActivationError: Error { case expected }
+}
+
+@MainActor
+private final class ControlledAudioSessionActivator: AudioSessionActivating {
+    private var activationContinuation: CheckedContinuation<Void, Error>?
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private(set) var activationCount = 0
+
+    func activate() async throws {
+        activationCount += 1
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        try await withCheckedThrowingContinuation { continuation in
+            activationContinuation = continuation
+        }
+    }
+
+    func waitUntilActivationStarts() async {
+        guard activationCount == 0 else { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func completeSuccessfully() {
+        activationContinuation?.resume()
+        activationContinuation = nil
+    }
+
+    func completeWithFailure() {
+        activationContinuation?.resume(throwing: ActivationError.expected)
+        activationContinuation = nil
     }
 
     private enum ActivationError: Error { case expected }

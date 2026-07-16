@@ -42,6 +42,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private var isPersisting = false
     private var persistenceWaiters: [CheckedContinuation<Bool, Never>] = []
     private var wasPlayingBeforeInterruption = false
+    private var interruptionGeneration = 0
     private var hasStarted = false
 
     init(
@@ -114,11 +115,13 @@ final class ListeningViewModel: NSObject, ObservableObject {
     }
 
     func pause(announces: Bool = true) {
+        invalidateInterruptionRecovery()
         service.pause()
         if announces { announce("已暂停") }
     }
 
     func resume(announces: Bool = true) {
+        invalidateInterruptionRecovery()
         service.resume()
         if announces { announce("继续播放") }
     }
@@ -138,9 +141,15 @@ final class ListeningViewModel: NSObject, ObservableObject {
     }
 
     func stop(announces: Bool = true) {
+        invalidateInterruptionRecovery()
         service.stop()
         if announces { announce("已停止") }
         Task { await flushProgress() }
+    }
+
+    func teardown() {
+        stop(announces: false)
+        onNowPlayingChange = nil
     }
 
     func previousSentence(announces: Bool = true) {
@@ -175,20 +184,32 @@ final class ListeningViewModel: NSObject, ObservableObject {
     func dismissError() { errorMessage = nil }
 
     func handleInterruptionBegan() {
+        invalidateInterruptionRecovery()
         wasPlayingBeforeInterruption = state.isPlaying
-        if wasPlayingBeforeInterruption { pause(announces: false) }
+        if wasPlayingBeforeInterruption { service.pause() }
     }
 
     func handleInterruptionEnded(shouldResume: Bool) async {
-        defer { wasPlayingBeforeInterruption = false }
-        guard shouldResume, wasPlayingBeforeInterruption else { return }
+        let generation = interruptionGeneration
+        await completeInterruptionRecovery(shouldResume: shouldResume, generation: generation)
+    }
+
+    private func completeInterruptionRecovery(shouldResume: Bool, generation: Int) async {
+        guard shouldResume, isInterruptionRecoveryCurrent(generation: generation) else {
+            if generation == interruptionGeneration { invalidateInterruptionRecovery() }
+            return
+        }
         do {
             try await audioSession.activate()
         } catch {
+            guard canCompleteInterruptionRecovery(generation: generation) else { return }
             errorMessage = "无法恢复播放，请点击播放重试。"
+            invalidateInterruptionRecovery()
             return
         }
-        resume(announces: false)
+        guard canCompleteInterruptionRecovery(generation: generation) else { return }
+        invalidateInterruptionRecovery()
+        service.resume()
     }
 
     @discardableResult
@@ -274,6 +295,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
 
     private func startPlayback(from locator: Locator?, announces: Bool) {
         guard !hasStarted else { return }
+        invalidateInterruptionRecovery()
         hasStarted = true
         state = .loading
         service.start(from: locator)
@@ -295,6 +317,21 @@ final class ListeningViewModel: NSObject, ObservableObject {
         return min(max(rate, 0.5), 2)
     }
 
+    private func canCompleteInterruptionRecovery(generation: Int) -> Bool {
+        guard isInterruptionRecoveryCurrent(generation: generation) else { return false }
+        if case .paused = state { return true }
+        return false
+    }
+
+    private func isInterruptionRecoveryCurrent(generation: Int) -> Bool {
+        generation == interruptionGeneration && wasPlayingBeforeInterruption
+    }
+
+    private func invalidateInterruptionRecovery() {
+        interruptionGeneration &+= 1
+        wasPlayingBeforeInterruption = false
+    }
+
     @objc private func audioSessionInterrupted(_ notification: Notification) {
         guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue)
@@ -305,7 +342,10 @@ final class ListeningViewModel: NSObject, ObservableObject {
         case .ended:
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let shouldResume = AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume)
-            Task { await handleInterruptionEnded(shouldResume: shouldResume) }
+            let generation = interruptionGeneration
+            Task { [weak self] in
+                await self?.completeInterruptionRecovery(shouldResume: shouldResume, generation: generation)
+            }
         @unknown default:
             break
         }

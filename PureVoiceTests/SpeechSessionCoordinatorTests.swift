@@ -40,4 +40,91 @@ final class SpeechSessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(attempts, 2)
         XCTAssertEqual(queue.pendingCount, 0)
     }
+
+    @MainActor
+    func testEndSessionInvalidatesPendingInterruptionRecovery() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let publication = try await PublicationService().open(at: fixture)
+        let service = CoordinatorSpeechService()
+        let audioSession = CoordinatorControlledAudioSessionActivator()
+        let coordinator = SpeechSessionCoordinator(
+            repository: InMemoryBookRepository(),
+            serviceFactory: { _ in service },
+            audioSessionFactory: { audioSession }
+        )
+        coordinator.begin(book: .fixture(), publication: publication, locator: nil)
+        let viewModel = try XCTUnwrap(coordinator.viewModel)
+        service.send(.playing(service.utterance))
+        viewModel.handleInterruptionBegan()
+        service.send(.paused(service.utterance))
+
+        let recovery = Task { await viewModel.handleInterruptionEnded(shouldResume: true) }
+        await audioSession.waitUntilActivationStarts()
+        coordinator.endSession()
+        audioSession.completeSuccessfully()
+        await recovery.value
+
+        XCTAssertNil(coordinator.viewModel)
+        XCTAssertEqual(service.resumeCount, 0)
+    }
+}
+
+@MainActor
+private final class CoordinatorSpeechService: SpeechService {
+    var state: SpeechPlaybackState = .stopped
+    var onStateChange: ((SpeechPlaybackState) -> Void)?
+    let voices: [SpeechVoice] = []
+    var rate: Double = 1
+    var selectedVoiceIdentifier: String?
+    private(set) var resumeCount = 0
+
+    let utterance = SpeechUtterance(
+        text: "测试",
+        locator: Locator(
+            href: AnyURL(string: "EPUB/chapter.xhtml")!,
+            mediaType: .xhtml,
+            locations: .init(progression: 0.2)
+        )
+    )
+
+    func start(from locator: Locator?) {}
+    func pause() {}
+    func resume() { resumeCount += 1 }
+    func stop() { send(.stopped) }
+    func previous() {}
+    func next() {}
+
+    func send(_ state: SpeechPlaybackState) {
+        self.state = state
+        onStateChange?(state)
+    }
+}
+
+@MainActor
+private final class CoordinatorControlledAudioSessionActivator: AudioSessionActivating {
+    private var activationContinuation: CheckedContinuation<Void, Error>?
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var hasStarted = false
+
+    func activate() async throws {
+        hasStarted = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        try await withCheckedThrowingContinuation { continuation in
+            activationContinuation = continuation
+        }
+    }
+
+    func waitUntilActivationStarts() async {
+        guard !hasStarted else { return }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func completeSuccessfully() {
+        activationContinuation?.resume()
+        activationContinuation = nil
+    }
 }

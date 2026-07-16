@@ -8,13 +8,21 @@ final class SpeechSessionCoordinator: ObservableObject {
     @Published var errorMessage: String?
 
     private let repository: any BookRepository
+    private let serviceFactory: @MainActor (OpenedPublication) -> (any SpeechService)?
+    private let audioSessionFactory: @MainActor () -> any AudioSessionActivating
     private let finalizations = ProgressFinalizationQueue()
     private var remoteCommands: RemoteCommandController?
 
     var hasPendingProgressRetry: Bool { finalizations.pendingCount > 0 }
 
-    init(repository: any BookRepository) {
+    init(
+        repository: any BookRepository,
+        serviceFactory: @MainActor @escaping (OpenedPublication) -> (any SpeechService)? = SpeechSessionCoordinator.makeService,
+        audioSessionFactory: @MainActor @escaping () -> any AudioSessionActivating = { SystemAudioSessionActivator() }
+    ) {
         self.repository = repository
+        self.serviceFactory = serviceFactory
+        self.audioSessionFactory = audioSessionFactory
         finalizations.onFailure = { [weak self] in
             self?.errorMessage = "无法保存听书进度，请重试。"
         }
@@ -31,16 +39,7 @@ final class SpeechSessionCoordinator: ObservableObject {
         }
         endSession()
 
-        let service: (any SpeechService)?
-#if DEBUG
-        if ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_LISTENING"] == "1" {
-            service = DebugSpeechService()
-        } else {
-            service = ReadiumSpeechService(publication: publication)
-        }
-#else
-        service = ReadiumSpeechService(publication: publication)
-#endif
+        let service = serviceFactory(publication)
         guard let service else {
             errorMessage = "这本书暂不支持听书。"
             return
@@ -51,7 +50,8 @@ final class SpeechSessionCoordinator: ObservableObject {
             publication: publication,
             initialLocator: locator,
             repository: repository,
-            service: service
+            service: service,
+            audioSession: audioSessionFactory()
         )
         let remoteCommands = RemoteCommandController { [weak viewModel] command in
             guard let viewModel else { return }
@@ -94,8 +94,7 @@ final class SpeechSessionCoordinator: ObservableObject {
 
     func endSession() {
         let endingViewModel = viewModel
-        endingViewModel?.stop(announces: false)
-        endingViewModel?.onNowPlayingChange = nil
+        endingViewModel?.teardown()
         if let endingViewModel {
             finalizations.enqueue {
                 await endingViewModel.flushProgress()
@@ -131,6 +130,15 @@ final class SpeechSessionCoordinator: ObservableObject {
     func retryPendingProgress() {
         errorMessage = nil
         finalizations.retryAll()
+    }
+
+    private static func makeService(publication: OpenedPublication) -> (any SpeechService)? {
+#if DEBUG
+        if ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_LISTENING"] == "1" {
+            return DebugSpeechService()
+        }
+#endif
+        return ReadiumSpeechService(publication: publication)
     }
 }
 
