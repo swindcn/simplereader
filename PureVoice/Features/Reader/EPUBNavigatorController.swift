@@ -3,6 +3,20 @@ import UIKit
 @preconcurrency import ReadiumNavigator
 @preconcurrency import ReadiumShared
 
+struct PreferenceSubmissionDecision<Value: Equatable> {
+    private var lastValue: Value?
+
+    init(initialValue: Value? = nil) {
+        lastValue = initialValue
+    }
+
+    mutating func shouldSubmit(_ value: Value) -> Bool {
+        guard lastValue != value else { return false }
+        lastValue = value
+        return true
+    }
+}
+
 @MainActor
 final class EPUBNavigatorCommands: ObservableObject {
     fileprivate weak var navigator: EPUBNavigatorViewController?
@@ -43,6 +57,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
             )
             navigator.delegate = context.coordinator
             context.coordinator.navigator = navigator
+            context.coordinator.preferencesDecision = .init(initialValue: preferences)
             commands.navigator = navigator
             return navigator
         } catch {
@@ -52,7 +67,9 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        context.coordinator.navigator?.submitPreferences(preferences)
+        if context.coordinator.preferencesDecision.shouldSubmit(preferences) {
+            context.coordinator.navigator?.submitPreferences(preferences)
+        }
         guard let request = navigationRequest,
               request.id != context.coordinator.lastNavigationRequestID,
               let navigator = context.coordinator.navigator
@@ -84,6 +101,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
     final class Coordinator: NSObject, EPUBNavigatorDelegate {
         weak var navigator: EPUBNavigatorViewController?
         var lastNavigationRequestID: UUID?
+        var preferencesDecision = PreferenceSubmissionDecision<EPUBPreferences>()
         private let onLocationChange: (Locator) -> Void
         private let onNavigationFailure: () -> Void
         private let onError: () -> Void

@@ -183,18 +183,18 @@ struct ListeningView: View {
                 Picker(
                     "声音",
                     selection: Binding(
-                        get: { viewModel.selectedVoiceIdentifier ?? "" },
+                        get: { viewModel.selectedVoiceIdentifier },
                         set: { viewModel.selectVoice(identifier: $0, announces: false) }
                     )
                 ) {
+                    Text("系统默认").tag(String?.none)
                     ForEach(viewModel.voices) { voice in
-                        Text(voice.displayName).tag(voice.identifier)
+                        Text(voice.displayName).tag(Optional(voice.identifier))
                     }
                 }
                 .pickerStyle(.wheel)
                 .frame(height: 160)
                 .clipped()
-                .disabled(viewModel.voices.isEmpty)
                 .accessibilityValue(selectedVoiceName)
                 .accessibilityIdentifier("listening.voice")
             }
@@ -202,8 +202,8 @@ struct ListeningView: View {
     }
 
     private var selectedVoiceName: String {
-        viewModel.voices.first { $0.identifier == viewModel.selectedVoiceIdentifier }?.displayName
-            ?? "无可用声音"
+        guard let identifier = viewModel.selectedVoiceIdentifier else { return "系统默认" }
+        return viewModel.voices.first { $0.identifier == identifier }?.displayName ?? "无可用声音"
     }
 
     private var errorPresented: Binding<Bool> {

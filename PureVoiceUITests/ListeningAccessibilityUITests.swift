@@ -26,6 +26,7 @@ final class ListeningAccessibilityUITests: XCTestCase {
         app.swipeUp()
         let voice = app.pickerWheels.firstMatch
         XCTAssertTrue(voice.waitForExistence(timeout: 3))
+        XCTAssertEqual(voice.value as? String, "系统默认")
         let initialVoice = voice.value as? String
         let targetVoice = initialVoice == "小语，女声" ? "小宇，男声" : "小语，女声"
         voice.adjust(toPickerWheelValue: targetVoice)
@@ -74,6 +75,8 @@ final class ListeningAccessibilityUITests: XCTestCase {
         app.launchArguments = ["-uiTesting", "-UIPreferredContentSizeCategoryName", contentSizeCategory]
         app.launchEnvironment["PUREVOICE_UI_TEST_READER_EPUB"] = fixture.path
         app.launchEnvironment["PUREVOICE_UI_TEST_LISTENING"] = "1"
+        app.launchEnvironment["PUREVOICE_UI_TEST_SETTINGS_SUITE"] = "ListeningAccessibilityUITests-\(UUID().uuidString)"
+        app.launchEnvironment["PUREVOICE_UI_TEST_SETTINGS_RESET"] = "1"
         app.launch()
         XCTAssertTrue(app.buttons["reader.listen"].waitForExistence(timeout: 8))
         app.buttons["reader.listen"].tap()

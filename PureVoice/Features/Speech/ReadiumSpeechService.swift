@@ -19,10 +19,10 @@ final class ReadiumSpeechService: SpeechService {
     var selectedVoiceIdentifier: String? {
         get { synthesizer.config.voiceIdentifier }
         set {
-            let selected = newValue.flatMap { identifier in
-                voices.first { $0.identifier == identifier }?.identifier
-            } ?? voices.first?.identifier
-            synthesizer.config.voiceIdentifier = selected
+            synthesizer.config.voiceIdentifier = Self.resolvedVoiceIdentifier(
+                requested: newValue,
+                availableVoices: voices
+            )
         }
     }
 
@@ -95,6 +95,15 @@ final class ReadiumSpeechService: SpeechService {
             if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
             return lhs.identifier < rhs.identifier
         }
+    }
+
+    static func resolvedVoiceIdentifier(
+        requested: String?,
+        availableVoices: [SpeechVoice]
+    ) -> String? {
+        guard let requested else { return nil }
+        return availableVoices.first { $0.identifier == requested }?.identifier
+            ?? availableVoices.first?.identifier
     }
 
     private static func baseLanguage(_ language: String) -> String {

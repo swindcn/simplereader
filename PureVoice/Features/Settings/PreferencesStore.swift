@@ -11,11 +11,16 @@ final class PreferencesStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if let data = defaults.data(forKey: Self.storageKey),
-           let payload = try? JSONDecoder().decode(Payload.self, from: data),
-           payload.version == Payload.currentVersion {
-            global = payload.global.sanitized()
-            overrides = payload.overrides.mapValues { $0.sanitized() }
+        if let data = defaults.data(forKey: Self.storageKey) {
+            if let header = try? JSONDecoder().decode(PayloadHeader.self, from: data),
+               header.version == Payload.currentVersion,
+               let payload = try? JSONDecoder().decode(Payload.self, from: data) {
+                global = payload.global.sanitized()
+                overrides = payload.overrides.mapValues { $0.sanitized() }
+            } else {
+                global = .defaults
+                overrides = [:]
+            }
         } else {
             var migrated = ReaderPreferences.defaults
             if let rate = defaults.object(forKey: "speech.rateMultiplier") as? Double {
@@ -37,12 +42,9 @@ final class PreferencesStore: ObservableObject {
             }
             global = migrated.sanitized()
             overrides = [:]
-            persist()
-        }
-        defaults.removeObject(forKey: "speech.rateMultiplier")
-        defaults.removeObject(forKey: "speech.voiceIdentifier")
-        for key in ["fontSize", "lineHeight", "scroll", "theme"] {
-            defaults.removeObject(forKey: "reader.epub.preferences.\(key)")
+            if persist() {
+                clearLegacyPreferences()
+            }
         }
     }
 
@@ -84,15 +86,28 @@ final class PreferencesStore: ObservableObject {
         persist()
     }
 
-    private func persist() {
+    @discardableResult
+    private func persist() -> Bool {
         let payload = Payload(
             version: Payload.currentVersion,
             global: global,
             overrides: overrides
         )
-        if let data = try? JSONEncoder().encode(payload) {
-            defaults.set(data, forKey: Self.storageKey)
+        guard let data = try? JSONEncoder().encode(payload) else { return false }
+        defaults.set(data, forKey: Self.storageKey)
+        return defaults.data(forKey: Self.storageKey) == data
+    }
+
+    private func clearLegacyPreferences() {
+        defaults.removeObject(forKey: "speech.rateMultiplier")
+        defaults.removeObject(forKey: "speech.voiceIdentifier")
+        for key in ["fontSize", "lineHeight", "scroll", "theme"] {
+            defaults.removeObject(forKey: "reader.epub.preferences.\(key)")
         }
+    }
+
+    private struct PayloadHeader: Decodable {
+        let version: Int
     }
 
     private struct Payload: Codable {

@@ -147,6 +147,43 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(fallbackService.selectedVoiceIdentifier, "zh-female")
     }
 
+    func testSystemDefaultVoiceRemainsNilInViewModelAndService() {
+        let voices = [
+            SpeechVoice(identifier: "zh-female", name: "Mei", language: "zh-CN", gender: .female, quality: .high)
+        ]
+        let service = FakeSpeechService(voices: voices)
+
+        let viewModel = makeViewModel(service: service)
+
+        XCTAssertNil(viewModel.selectedVoiceIdentifier)
+        XCTAssertNil(service.selectedVoiceIdentifier)
+    }
+
+    func testInvalidNonNilVoiceFallsBackToFirstCompatibleVoice() {
+        let voices = [
+            SpeechVoice(identifier: "zh-female", name: "Mei", language: "zh-CN", gender: .female, quality: .high)
+        ]
+        let store = PreferencesStore(defaults: defaults)
+        var preferences = store.global
+        preferences.voiceIdentifier = "missing"
+        store.setGlobal(preferences)
+        let service = FakeSpeechService(voices: voices)
+
+        let viewModel = ListeningViewModel(
+            book: .fixture(),
+            publication: nil,
+            initialLocator: nil,
+            repository: InMemoryBookRepository(),
+            service: service,
+            preferencesStore: store,
+            announce: { _ in },
+            observesAudioSession: false
+        )
+
+        XCTAssertEqual(viewModel.selectedVoiceIdentifier, "zh-female")
+        XCTAssertEqual(service.selectedVoiceIdentifier, "zh-female")
+    }
+
     func testUnifiedPreferencesStoreChangesUpdateCurrentSpeechSession() {
         let voices = [
             SpeechVoice(identifier: "first", name: "First", language: "zh-CN", gender: .female, quality: .high),
@@ -176,8 +213,59 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(service.selectedVoiceIdentifier, "second")
 
         store.resetDefaults()
-        XCTAssertEqual(viewModel.selectedVoiceIdentifier, "first")
-        XCTAssertEqual(service.selectedVoiceIdentifier, "first")
+        XCTAssertNil(viewModel.selectedVoiceIdentifier)
+        XCTAssertNil(service.selectedVoiceIdentifier)
+    }
+
+    func testUserSettingsFlowThroughStoreAndApplyToServiceExactlyOnce() {
+        let voices = [SpeechVoice(identifier: "voice", name: "Mei", language: "zh-CN", gender: .female, quality: .high)]
+        let service = FakeSpeechService(voices: voices)
+        var announcements: [String] = []
+        let viewModel = makeViewModel(service: service, announcements: { announcements.append($0) })
+        let initialRateWrites = service.rateWriteCount
+        let initialVoiceWrites = service.voiceWriteCount
+
+        viewModel.setRate(1.5)
+        viewModel.selectVoice(identifier: "voice")
+
+        XCTAssertEqual(service.rateWriteCount, initialRateWrites + 1)
+        XCTAssertEqual(service.voiceWriteCount, initialVoiceWrites + 1)
+        XCTAssertEqual(announcements, ["语速 \(ListeningViewModel.rateLabel(1.5))", "已选择Mei，女声"])
+    }
+
+    func testExternalPreferenceChangeUpdatesNowPlayingOnlyForRealSpeechChanges() {
+        let service = FakeSpeechService()
+        let store = PreferencesStore(defaults: defaults)
+        let viewModel = ListeningViewModel(
+            book: .fixture(),
+            publication: nil,
+            initialLocator: nil,
+            repository: InMemoryBookRepository(),
+            service: service,
+            preferencesStore: store,
+            announce: { _ in },
+            observesAudioSession: false
+        )
+        var nowPlayingChanges = 0
+        viewModel.onNowPlayingChange = { nowPlayingChanges += 1 }
+
+        store.setGlobal(store.global)
+        XCTAssertEqual(nowPlayingChanges, 0)
+
+        var changed = store.global
+        changed.speechRate = 1.5
+        store.setGlobal(changed)
+        XCTAssertEqual(nowPlayingChanges, 1)
+    }
+
+    func testReadiumVoiceResolutionPreservesNilAndFallsBackOnlyForInvalidIdentifier() {
+        let voices = [SpeechVoice(identifier: "voice", name: "Mei", language: "zh-CN", gender: .female, quality: .high)]
+
+        XCTAssertNil(ReadiumSpeechService.resolvedVoiceIdentifier(requested: nil, availableVoices: voices))
+        XCTAssertEqual(
+            ReadiumSpeechService.resolvedVoiceIdentifier(requested: "missing", availableVoices: voices),
+            "voice"
+        )
     }
 
     func testInterruptionOnlyResumesAfterAudioSessionActivationSucceeds() async {
@@ -471,8 +559,10 @@ private final class FakeSpeechService: SpeechService {
     var state: SpeechPlaybackState = .stopped
     var onStateChange: ((SpeechPlaybackState) -> Void)?
     let voices: [SpeechVoice]
-    var rate: Double = 1
-    var selectedVoiceIdentifier: String?
+    var rate: Double = 1 { didSet { rateWriteCount += 1 } }
+    var selectedVoiceIdentifier: String? { didSet { voiceWriteCount += 1 } }
+    private(set) var rateWriteCount = 0
+    private(set) var voiceWriteCount = 0
 
     private(set) var startedLocators: [Locator?] = []
     private(set) var pauseCount = 0

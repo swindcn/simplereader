@@ -103,12 +103,39 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(PreferencesStore(defaults: defaults).global, .defaults)
     }
 
-    func testCorruptOrUnsupportedPayloadFallsBackWithoutCrashing() {
-        defaults.set(Data("not-json".utf8), forKey: PreferencesStore.storageKey)
-        XCTAssertEqual(PreferencesStore(defaults: defaults).global, .defaults)
+    func testFuturePayloadFallsBackWithoutMutatingPayloadOrLegacyKeys() {
+        let payload = try! JSONEncoder().encode(["version": 999, "futureField": 42])
+        defaults.set(payload, forKey: PreferencesStore.storageKey)
+        defaults.set(1.75, forKey: "speech.rateMultiplier")
 
-        defaults.set(try! JSONEncoder().encode(["version": 999]), forKey: PreferencesStore.storageKey)
-        XCTAssertEqual(PreferencesStore(defaults: defaults).global, .defaults)
+        let store = PreferencesStore(defaults: defaults)
+
+        XCTAssertEqual(store.global, .defaults)
+        XCTAssertEqual(defaults.data(forKey: PreferencesStore.storageKey), payload)
+        XCTAssertEqual(defaults.double(forKey: "speech.rateMultiplier"), 1.75)
+    }
+
+    func testCorruptCurrentPayloadFallsBackWithoutMutatingPayload() {
+        let payload = Data(#"{"version":1,"global":{"fontFamily":"system"}}"#.utf8)
+        defaults.set(payload, forKey: PreferencesStore.storageKey)
+
+        let store = PreferencesStore(defaults: defaults)
+
+        XCTAssertEqual(store.global, .defaults)
+        XCTAssertEqual(defaults.data(forKey: PreferencesStore.storageKey), payload)
+    }
+
+    func testExplicitChangeReplacesUnsupportedPayloadWithCurrentPayload() {
+        let futurePayload = try! JSONEncoder().encode(["version": 999])
+        defaults.set(futurePayload, forKey: PreferencesStore.storageKey)
+        let store = PreferencesStore(defaults: defaults)
+
+        var changed = store.global
+        changed.fontScale = 1.4
+        store.setGlobal(changed)
+
+        XCTAssertNotEqual(defaults.data(forKey: PreferencesStore.storageKey), futurePayload)
+        XCTAssertEqual(PreferencesStore(defaults: defaults).global.fontScale, 1.4)
     }
 
     func testDynamicTypeMultipliesUserScaleWithUsableCap() {
@@ -144,5 +171,26 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(store.global.layout, .scroll)
         XCTAssertEqual(store.global.theme, .sepia)
         XCTAssertNil(defaults.object(forKey: "reader.epub.preferences.fontSize"))
+        XCTAssertNotNil(defaults.data(forKey: PreferencesStore.storageKey))
+    }
+
+
+    func testPreferenceSubmissionDecisionSkipsLocationAndOrdinaryUpdatesAndSubmitsOneRealChange() {
+        var decision = PreferenceSubmissionDecision(initialValue: "initial")
+        var submissions: [String] = []
+
+        func update(preferences: String, location: Int) {
+            _ = location
+            if decision.shouldSubmit(preferences) {
+                submissions.append(preferences)
+            }
+        }
+
+        update(preferences: "initial", location: 1)
+        update(preferences: "initial", location: 2)
+        update(preferences: "changed", location: 2)
+        update(preferences: "changed", location: 2)
+
+        XCTAssertEqual(submissions, ["changed"])
     }
 }

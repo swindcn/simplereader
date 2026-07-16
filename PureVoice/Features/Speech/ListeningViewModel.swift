@@ -80,10 +80,12 @@ final class ListeningViewModel: NSObject, ObservableObject {
         rate = restoredRate
         service.rate = restoredRate
 
-        let savedVoice = preferencesStore.global.voiceIdentifier
-        let restoredVoice = voices.first { $0.identifier == savedVoice } ?? voices.first
-        selectedVoiceIdentifier = restoredVoice?.identifier
-        service.selectedVoiceIdentifier = restoredVoice?.identifier
+        let restoredVoiceIdentifier = Self.resolvedVoiceIdentifier(
+            requested: preferencesStore.global.voiceIdentifier,
+            voices: voices
+        )
+        selectedVoiceIdentifier = restoredVoiceIdentifier
+        service.selectedVoiceIdentifier = restoredVoiceIdentifier
 
         super.init()
         preferencesCancellable = preferencesStore.$global
@@ -169,24 +171,23 @@ final class ListeningViewModel: NSObject, ObservableObject {
 
     func setRate(_ newValue: Double, announces: Bool = true) {
         let clamped = Self.clampedRate(newValue)
-        rate = clamped
-        service.rate = clamped
         var preferences = preferencesStore.global
         preferences.speechRate = clamped
         preferencesStore.setGlobal(preferences)
         if announces { announce("语速 \(Self.rateLabel(clamped))") }
-        onNowPlayingChange?()
     }
 
-    func selectVoice(identifier: String, announces: Bool = true) {
-        guard voices.contains(where: { $0.identifier == identifier }) else { return }
-        selectedVoiceIdentifier = identifier
-        service.selectedVoiceIdentifier = identifier
+    func selectVoice(identifier: String?, announces: Bool = true) {
+        guard identifier == nil || voices.contains(where: { $0.identifier == identifier }) else { return }
         var preferences = preferencesStore.global
         preferences.voiceIdentifier = identifier
         preferencesStore.setGlobal(preferences)
-        if announces, let voice = voices.first(where: { $0.identifier == identifier }) {
-            announce("已选择\(voice.displayName)")
+        if announces {
+            if let voice = voices.first(where: { $0.identifier == identifier }) {
+                announce("已选择\(voice.displayName)")
+            } else {
+                announce("已选择系统默认")
+            }
         }
     }
 
@@ -327,11 +328,27 @@ final class ListeningViewModel: NSObject, ObservableObject {
     }
 
     private func apply(_ preferences: ReaderPreferences) {
-        rate = preferences.speechRate
-        service.rate = preferences.speechRate
-        let voice = voices.first { $0.identifier == preferences.voiceIdentifier } ?? voices.first
-        selectedVoiceIdentifier = voice?.identifier
-        service.selectedVoiceIdentifier = voice?.identifier
+        var changed = false
+        if rate != preferences.speechRate {
+            rate = preferences.speechRate
+            service.rate = preferences.speechRate
+            changed = true
+        }
+        let voiceIdentifier = Self.resolvedVoiceIdentifier(
+            requested: preferences.voiceIdentifier,
+            voices: voices
+        )
+        if selectedVoiceIdentifier != voiceIdentifier {
+            selectedVoiceIdentifier = voiceIdentifier
+            service.selectedVoiceIdentifier = voiceIdentifier
+            changed = true
+        }
+        if changed { onNowPlayingChange?() }
+    }
+
+    private static func resolvedVoiceIdentifier(requested: String?, voices: [SpeechVoice]) -> String? {
+        guard let requested else { return nil }
+        return voices.first { $0.identifier == requested }?.identifier ?? voices.first?.identifier
     }
 
     private func canCompleteInterruptionRecovery(generation: Int) -> Bool {

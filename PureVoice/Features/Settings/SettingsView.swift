@@ -8,29 +8,20 @@ struct SettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var confirmsReset = false
-    @State private var usesGlobalForBook: Bool
 
     init(store: PreferencesStore, bookID: UUID? = nil, showsCloseButton: Bool = false) {
         self.store = store
         self.bookID = bookID
         self.showsCloseButton = showsCloseButton
-        _usesGlobalForBook = State(initialValue: bookID.map { !store.hasOverride(for: $0) } ?? false)
     }
 
     var body: some View {
         Form {
             if let bookID {
                 Section {
-                    Toggle("使用全局设置", isOn: $usesGlobalForBook)
+                    Toggle("使用全局设置", isOn: usesGlobalForBookBinding(bookID: bookID))
                         .toggleStyle(.switch)
                         .accessibilityIdentifier("settings.useGlobal")
-                        .onChange(of: usesGlobalForBook) { usesGlobal in
-                            if usesGlobal {
-                                store.clearOverride(for: bookID)
-                            } else {
-                                store.setOverride(.init(), for: bookID)
-                            }
-                        }
                 }
             }
 
@@ -152,7 +143,6 @@ struct SettingsView: View {
             get: { resolved[keyPath: globalKeyPath] },
             set: { value in
                 if let bookID {
-                    usesGlobalForBook = false
                     var override = store.override(for: bookID) ?? .init()
                     override[keyPath: overrideKeyPath] = value
                     store.setOverride(override, for: bookID)
@@ -160,6 +150,19 @@ struct SettingsView: View {
                     var global = store.global
                     global[keyPath: globalKeyPath] = value
                     store.setGlobal(global)
+                }
+            }
+        )
+    }
+
+    private func usesGlobalForBookBinding(bookID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { !store.hasOverride(for: bookID) },
+            set: { usesGlobal in
+                if usesGlobal {
+                    store.clearOverride(for: bookID)
+                } else {
+                    store.setOverride(.init(), for: bookID)
                 }
             }
         )

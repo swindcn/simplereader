@@ -53,7 +53,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["settings.reset"].exists)
     }
 
-    func testReaderSettingsCreatesEditableBookOverride() {
+    func testReaderSettingsDirectEditsCreatePersistentBookOverrideAndToggleCanClearIt() {
         let fixture = Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub")!
         let app = launch(
             suite: "ReaderSettingsAccessibility-\(UUID().uuidString)",
@@ -67,15 +67,18 @@ final class SettingsAccessibilityUITests: XCTestCase {
         let usesGlobal = app.switches["settings.useGlobal"]
         XCTAssertTrue(usesGlobal.waitForExistence(timeout: 3))
         XCTAssertEqual(usesGlobal.value as? String, "1")
-        tapSwitch(usesGlobal)
+        let fontScale = app.sliders["settings.fontScale"]
+        fontScale.adjust(toNormalizedSliderPosition: 0.75)
+        let savedFontScale = fontScale.value as? String
+        app.buttons["滚动"].tap()
         expectation(for: NSPredicate(format: "value == '0'"), evaluatedWith: usesGlobal)
         waitForExpectations(timeout: 3)
-        app.buttons["滚动"].tap()
         app.buttons["settings.done"].tap()
         XCTAssertTrue(app.buttons["reader.settings"].waitForExistence(timeout: 3))
         app.buttons["reader.settings"].tap()
         XCTAssertEqual(app.switches["settings.useGlobal"].value as? String, "0")
         XCTAssertTrue(app.buttons["滚动"].isSelected)
+        XCTAssertEqual(app.sliders["settings.fontScale"].value as? String, savedFontScale)
         tapSwitch(app.switches["settings.useGlobal"])
         expectation(
             for: NSPredicate(format: "value == '1'"),
@@ -85,6 +88,13 @@ final class SettingsAccessibilityUITests: XCTestCase {
         app.buttons["settings.done"].tap()
         app.buttons["reader.settings"].tap()
         XCTAssertEqual(app.switches["settings.useGlobal"].value as? String, "1")
+
+        tapSwitch(app.switches["settings.useGlobal"])
+        expectation(
+            for: NSPredicate(format: "value == '0'"),
+            evaluatedWith: app.switches["settings.useGlobal"]
+        )
+        waitForExpectations(timeout: 3)
     }
 
     private func launch(
