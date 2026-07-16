@@ -33,6 +33,7 @@ final class ReaderViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     var isReady: Bool { openedPublication != nil && !isLoading }
+    var bookID: UUID { book.id }
 
     private let repository: any BookRepository
     private let publicationService: PublicationService

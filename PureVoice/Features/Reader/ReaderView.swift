@@ -5,8 +5,12 @@ import UIKit
 struct ReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var viewModel: ReaderViewModel
     @StateObject private var commands = EPUBNavigatorCommands()
+    @ObservedObject private var preferencesStore: PreferencesStore
+    @State private var isSettingsPresented = false
 
     private let onListen: (OpenedPublication, Locator?) -> Void
     private let onSettings: () -> Void
@@ -15,11 +19,13 @@ struct ReaderView: View {
     init(
         book: Book,
         repository: any BookRepository,
+        preferencesStore: PreferencesStore? = nil,
         onListen: @escaping (OpenedPublication, Locator?) -> Void = { _, _ in },
         onSettings: @escaping () -> Void = {},
         listeningReturnLocator: Locator? = nil
     ) {
         _viewModel = StateObject(wrappedValue: ReaderViewModel(book: book, repository: repository))
+        self.preferencesStore = preferencesStore ?? PreferencesStore()
         self.onListen = onListen
         self.onSettings = onSettings
         self.listeningReturnLocator = listeningReturnLocator
@@ -52,6 +58,12 @@ struct ReaderView: View {
         .sheet(isPresented: $viewModel.isTableOfContentsPresented) {
             tableOfContents
         }
+        .sheet(isPresented: $isSettingsPresented) {
+            NavigationView {
+                SettingsView(store: preferencesStore, bookID: viewModel.bookID, showsCloseButton: true)
+            }
+            .navigationViewStyle(.stack)
+        }
         .alert("阅读器提示", isPresented: nonfatalErrorPresented) {
             Button("好", role: .cancel) { viewModel.dismissError() }
         } message: {
@@ -78,6 +90,10 @@ struct ReaderView: View {
                 EPUBNavigatorController(
                     publication: publication,
                     initialLocation: viewModel.initialLocator,
+                    preferences: preferencesStore.resolved(for: viewModel.bookID).epubPreferences(
+                        dynamicTypeCategory: dynamicTypeSize.readerCategory,
+                        usesDarkSystemTheme: colorScheme == .dark
+                    ),
                     navigationRequest: viewModel.navigationRequest,
                     commands: commands,
                     onLocationChange: viewModel.receive(locator:),
@@ -103,7 +119,10 @@ struct ReaderView: View {
                 onPreviousPage: commands.previousPage,
                 onNextPage: commands.nextPage,
                 onListen: { onListen(publication, viewModel.currentLocator) },
-                onSettings: onSettings
+                onSettings: {
+                    isSettingsPresented = true
+                    onSettings()
+                }
             )
         }
     }
@@ -176,6 +195,26 @@ struct ReaderView: View {
         return "\(locator.href.string)|\(progression)"
     }
 #endif
+}
+
+private extension DynamicTypeSize {
+    var readerCategory: ReaderDynamicTypeCategory {
+        switch self {
+        case .xSmall: .extraSmall
+        case .small: .small
+        case .medium: .medium
+        case .large: .large
+        case .xLarge: .extraLarge
+        case .xxLarge: .extraExtraLarge
+        case .xxxLarge: .extraExtraExtraLarge
+        case .accessibility1: .accessibilityMedium
+        case .accessibility2: .accessibilityLarge
+        case .accessibility3: .accessibilityExtraLarge
+        case .accessibility4: .accessibilityExtraExtraLarge
+        case .accessibility5: .accessibilityExtraExtraExtraLarge
+        @unknown default: .large
+        }
+    }
 }
 
 private struct AccessibilityChapterHeading: UIViewRepresentable {

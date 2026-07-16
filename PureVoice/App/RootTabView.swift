@@ -4,12 +4,31 @@ import SwiftUI
 struct RootTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerBook: Book?
+    @StateObject private var preferencesStore: PreferencesStore
     @StateObject private var speechSession: SpeechSessionCoordinator
     private let repository: any BookRepository
 
     init(repository: any BookRepository = InMemoryBookRepository()) {
         self.repository = repository
-        _speechSession = StateObject(wrappedValue: SpeechSessionCoordinator(repository: repository))
+        let preferencesStore = PreferencesStore(defaults: Self.preferencesDefaults())
+        _preferencesStore = StateObject(wrappedValue: preferencesStore)
+        _speechSession = StateObject(wrappedValue: SpeechSessionCoordinator(
+            repository: repository,
+            preferencesStore: preferencesStore
+        ))
+    }
+
+    private static func preferencesDefaults() -> UserDefaults {
+#if DEBUG
+        if let suite = ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_SETTINGS_SUITE"],
+           let defaults = UserDefaults(suiteName: suite) {
+            if ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_SETTINGS_RESET"] == "1" {
+                defaults.removePersistentDomain(forName: suite)
+            }
+            return defaults
+        }
+#endif
+        return .standard
     }
 
     var body: some View {
@@ -25,7 +44,8 @@ struct RootTabView: View {
             ReaderListeningHost(
                 book: book,
                 repository: repository,
-                speechSession: speechSession
+                speechSession: speechSession,
+                preferencesStore: preferencesStore
             )
         }
         .fullScreenCover(isPresented: rootListeningPresented) {
@@ -72,8 +92,13 @@ struct RootTabView: View {
         switch tab {
         case .library:
             LibraryView(repository: repository, onOpenBook: { readerBook = $0 })
-        case .importBooks, .settings:
+        case .importBooks:
             Text(tab.title)
+        case .settings:
+            NavigationView {
+                SettingsView(store: preferencesStore)
+            }
+            .navigationViewStyle(.stack)
         }
     }
 
@@ -97,11 +122,13 @@ private struct ReaderListeningHost: View {
     let book: Book
     let repository: any BookRepository
     @ObservedObject var speechSession: SpeechSessionCoordinator
+    @ObservedObject var preferencesStore: PreferencesStore
 
     var body: some View {
         ReaderView(
             book: book,
             repository: repository,
+            preferencesStore: preferencesStore,
             onListen: { publication, locator in
                 speechSession.begin(book: book, publication: publication, locator: locator)
             },

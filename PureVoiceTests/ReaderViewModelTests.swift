@@ -305,19 +305,20 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(entries.map(\.href), ["same.xhtml", "same.xhtml"])
     }
 
-    func testEPUBPreferencesRoundTripThroughUserDefaultsStore() throws {
-        let suiteName = "ReaderEPUBPreferencesStoreTests-\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-        let store = ReaderEPUBPreferencesStore(defaults: defaults)
+    func testUnifiedPreferencesMapToReadiumPreferences() {
+        let preferences = ReaderPreferences(
+            fontFamily: .serif,
+            fontScale: 1.25,
+            lineHeight: 1.7,
+            theme: .sepia,
+            layout: .scroll
+        ).epubPreferences(dynamicTypeCategory: .large, usesDarkSystemTheme: false)
 
-        store.save(EPUBPreferences(fontSize: 1.25, lineHeight: 1.7, scroll: true, theme: .sepia))
-        let restored = store.load()
-
-        XCTAssertEqual(restored.fontSize, 1.25)
-        XCTAssertEqual(restored.lineHeight, 1.7)
-        XCTAssertEqual(restored.scroll, true)
-        XCTAssertEqual(restored.theme, .sepia)
+        XCTAssertEqual(preferences.fontFamily, .serif)
+        XCTAssertEqual(preferences.fontSize, 1.25)
+        XCTAssertEqual(preferences.lineHeight, 1.7)
+        XCTAssertEqual(preferences.scroll, true)
+        XCTAssertEqual(preferences.theme, .sepia)
     }
 
     private func makeLocator(href: String, progression: Double) -> Locator {

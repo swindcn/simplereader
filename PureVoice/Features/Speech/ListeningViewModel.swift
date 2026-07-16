@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import Foundation
 import UIKit
 @preconcurrency import ReadiumShared
@@ -26,13 +27,11 @@ final class ListeningViewModel: NSObject, ObservableObject {
         }
     }
 
-    private static let rateKey = "speech.rateMultiplier"
-    private static let voiceKey = "speech.voiceIdentifier"
     private let publication: OpenedPublication?
     private let initialLocator: Locator?
     private let repository: any BookRepository
     private let service: any SpeechService
-    private let defaults: UserDefaults
+    private let preferencesStore: PreferencesStore
     private let announce: (String) -> Void
     private let persistenceDelay: TimeInterval
     private let audioSession: any AudioSessionActivating
@@ -44,6 +43,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private var wasPlayingBeforeInterruption = false
     private var interruptionGeneration = 0
     private var hasStarted = false
+    private var preferencesCancellable: AnyCancellable?
 
     init(
         book: Book,
@@ -52,6 +52,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
         repository: any BookRepository,
         service: any SpeechService,
         defaults: UserDefaults = .standard,
+        preferencesStore: PreferencesStore? = nil,
         announce: @escaping (String) -> Void = { message in
             UIAccessibility.post(notification: .announcement, argument: message)
         },
@@ -67,25 +68,29 @@ final class ListeningViewModel: NSObject, ObservableObject {
         self.initialLocator = initialLocator
         self.repository = repository
         self.service = service
-        self.defaults = defaults
+        let preferencesStore = preferencesStore ?? PreferencesStore(defaults: defaults)
+        self.preferencesStore = preferencesStore
         self.announce = announce
         self.persistenceDelay = persistenceDelay
         self.audioSession = audioSession
         lastKnownLocator = initialLocator
         voices = service.voices
 
-        let persistedRate = defaults.object(forKey: Self.rateKey) as? Double ?? 1
-        let restoredRate = Self.clampedRate(persistedRate)
+        let restoredRate = preferencesStore.global.speechRate
         rate = restoredRate
         service.rate = restoredRate
 
-        let savedVoice = defaults.string(forKey: Self.voiceKey)
+        let savedVoice = preferencesStore.global.voiceIdentifier
         let restoredVoice = voices.first { $0.identifier == savedVoice } ?? voices.first
         selectedVoiceIdentifier = restoredVoice?.identifier
         service.selectedVoiceIdentifier = restoredVoice?.identifier
-        if let restoredVoice { defaults.set(restoredVoice.identifier, forKey: Self.voiceKey) }
 
         super.init()
+        preferencesCancellable = preferencesStore.$global
+            .dropFirst()
+            .sink { [weak self] preferences in
+                self?.apply(preferences)
+            }
         service.onStateChange = { [weak self] state in
             self?.receive(state)
         }
@@ -166,7 +171,9 @@ final class ListeningViewModel: NSObject, ObservableObject {
         let clamped = Self.clampedRate(newValue)
         rate = clamped
         service.rate = clamped
-        defaults.set(clamped, forKey: Self.rateKey)
+        var preferences = preferencesStore.global
+        preferences.speechRate = clamped
+        preferencesStore.setGlobal(preferences)
         if announces { announce("语速 \(Self.rateLabel(clamped))") }
         onNowPlayingChange?()
     }
@@ -175,7 +182,9 @@ final class ListeningViewModel: NSObject, ObservableObject {
         guard voices.contains(where: { $0.identifier == identifier }) else { return }
         selectedVoiceIdentifier = identifier
         service.selectedVoiceIdentifier = identifier
-        defaults.set(identifier, forKey: Self.voiceKey)
+        var preferences = preferencesStore.global
+        preferences.voiceIdentifier = identifier
+        preferencesStore.setGlobal(preferences)
         if announces, let voice = voices.first(where: { $0.identifier == identifier }) {
             announce("已选择\(voice.displayName)")
         }
@@ -315,6 +324,14 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private static func clampedRate(_ rate: Double) -> Double {
         guard rate.isFinite else { return 1 }
         return min(max(rate, 0.5), 2)
+    }
+
+    private func apply(_ preferences: ReaderPreferences) {
+        rate = preferences.speechRate
+        service.rate = preferences.speechRate
+        let voice = voices.first { $0.identifier == preferences.voiceIdentifier } ?? voices.first
+        selectedVoiceIdentifier = voice?.identifier
+        service.selectedVoiceIdentifier = voice?.identifier
     }
 
     private func canCompleteInterruptionRecovery(generation: Int) -> Bool {

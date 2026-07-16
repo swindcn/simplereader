@@ -19,6 +19,7 @@ final class EPUBNavigatorCommands: ObservableObject {
 struct EPUBNavigatorController: UIViewControllerRepresentable {
     let publication: OpenedPublication
     let initialLocation: Locator?
+    let preferences: EPUBPreferences
     let navigationRequest: ReaderNavigationRequest?
     let commands: EPUBNavigatorCommands
     let onLocationChange: (Locator) -> Void
@@ -38,7 +39,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
             let navigator = try EPUBNavigatorViewController(
                 publication: publication.readiumPublication,
                 initialLocation: initialLocation,
-                config: .init(preferences: ReaderEPUBPreferencesStore().load())
+                config: .init(preferences: preferences)
             )
             navigator.delegate = context.coordinator
             context.coordinator.navigator = navigator
@@ -51,6 +52,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        context.coordinator.navigator?.submitPreferences(preferences)
         guard let request = navigationRequest,
               request.id != context.coordinator.lastNavigationRequestID,
               let navigator = context.coordinator.navigator
@@ -106,43 +108,32 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
     }
 }
 
-struct ReaderEPUBPreferencesStore {
-    private let defaults: UserDefaults
-    private let prefix = "reader.epub.preferences."
-
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    func load() -> EPUBPreferences {
-        let fontSize = defaults.object(forKey: prefix + "fontSize") as? Double ?? 1.0
-        let lineHeight = defaults.object(forKey: prefix + "lineHeight") as? Double ?? 1.5
-        let scroll = defaults.object(forKey: prefix + "scroll") as? Bool ?? false
-        let theme = defaults.string(forKey: prefix + "theme").flatMap(Theme.init(rawValue:)) ?? .light
+extension ReaderPreferences {
+    func epubPreferences(
+        dynamicTypeCategory: ReaderDynamicTypeCategory,
+        usesDarkSystemTheme: Bool
+    ) -> EPUBPreferences {
+        let readiumFont: FontFamily? = switch fontFamily {
+        case .system: nil
+        case .serif: .serif
+        case .sans: .sansSerif
+        }
+        let readiumTheme: Theme = switch theme {
+        case .system: usesDarkSystemTheme ? .dark : .light
+        case .light: .light
+        case .sepia: .sepia
+        case .dark: .dark
+        }
         return EPUBPreferences(
             columnCount: .one,
-            fontSize: fontSize,
+            fontFamily: readiumFont,
+            fontSize: effectiveFontScale(for: dynamicTypeCategory),
             lineHeight: lineHeight,
             publisherStyles: false,
-            scroll: scroll,
+            scroll: layout == .scroll,
             spread: .never,
             textNormalization: true,
-            theme: theme
+            theme: readiumTheme
         )
-    }
-
-    func save(_ preferences: EPUBPreferences) {
-        set(preferences.fontSize, forKey: "fontSize")
-        set(preferences.lineHeight, forKey: "lineHeight")
-        set(preferences.scroll, forKey: "scroll")
-        set(preferences.theme?.rawValue, forKey: "theme")
-    }
-
-    private func set(_ value: Any?, forKey key: String) {
-        if let value {
-            defaults.set(value, forKey: prefix + key)
-        } else {
-            defaults.removeObject(forKey: prefix + key)
-        }
     }
 }

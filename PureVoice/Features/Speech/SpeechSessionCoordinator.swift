@@ -8,6 +8,7 @@ final class SpeechSessionCoordinator: ObservableObject {
     @Published var errorMessage: String?
 
     private let repository: any BookRepository
+    private let preferencesStore: PreferencesStore
     private let serviceFactory: @MainActor (OpenedPublication) -> (any SpeechService)?
     private let audioSessionFactory: @MainActor () -> any AudioSessionActivating
     private let finalizations = ProgressFinalizationQueue()
@@ -17,10 +18,12 @@ final class SpeechSessionCoordinator: ObservableObject {
 
     init(
         repository: any BookRepository,
+        preferencesStore: PreferencesStore? = nil,
         serviceFactory: @MainActor @escaping (OpenedPublication) -> (any SpeechService)? = SpeechSessionCoordinator.makeService,
         audioSessionFactory: @MainActor @escaping () -> any AudioSessionActivating = { SystemAudioSessionActivator() }
     ) {
         self.repository = repository
+        self.preferencesStore = preferencesStore ?? PreferencesStore()
         self.serviceFactory = serviceFactory
         self.audioSessionFactory = audioSessionFactory
         finalizations.onFailure = { [weak self] in
@@ -51,6 +54,7 @@ final class SpeechSessionCoordinator: ObservableObject {
             initialLocator: locator,
             repository: repository,
             service: service,
+            preferencesStore: preferencesStore,
             audioSession: audioSessionFactory()
         )
         let remoteCommands = RemoteCommandController { [weak viewModel] command in

@@ -147,6 +147,39 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(fallbackService.selectedVoiceIdentifier, "zh-female")
     }
 
+    func testUnifiedPreferencesStoreChangesUpdateCurrentSpeechSession() {
+        let voices = [
+            SpeechVoice(identifier: "first", name: "First", language: "zh-CN", gender: .female, quality: .high),
+            SpeechVoice(identifier: "second", name: "Second", language: "zh-CN", gender: .male, quality: .high)
+        ]
+        let store = PreferencesStore(defaults: defaults)
+        let service = FakeSpeechService(voices: voices)
+        let viewModel = ListeningViewModel(
+            book: .fixture(),
+            publication: nil,
+            initialLocator: nil,
+            repository: InMemoryBookRepository(),
+            service: service,
+            preferencesStore: store,
+            announce: { _ in },
+            observesAudioSession: false
+        )
+
+        var changed = store.global
+        changed.speechRate = 1.75
+        changed.voiceIdentifier = "second"
+        store.setGlobal(changed)
+
+        XCTAssertEqual(viewModel.rate, 1.75)
+        XCTAssertEqual(service.rate, 1.75)
+        XCTAssertEqual(viewModel.selectedVoiceIdentifier, "second")
+        XCTAssertEqual(service.selectedVoiceIdentifier, "second")
+
+        store.resetDefaults()
+        XCTAssertEqual(viewModel.selectedVoiceIdentifier, "first")
+        XCTAssertEqual(service.selectedVoiceIdentifier, "first")
+    }
+
     func testInterruptionOnlyResumesAfterAudioSessionActivationSucceeds() async {
         var events: [String] = []
         let service = FakeSpeechService(onResume: { events.append("resume") })
