@@ -3,7 +3,6 @@ import SwiftUI
 struct ImportView: View {
     @ObservedObject var coordinator: ImportCoordinator
     @State private var isPickingDocument = false
-    @State private var retryURL: URL?
 
     var body: some View {
         NavigationView {
@@ -21,7 +20,7 @@ struct ImportView: View {
                 .accessibilityLabel("选择要导入的书籍文件")
                 .accessibilityHint("支持 TXT 和 EPUB")
 
-                if case .failed = coordinator.state, let retryURL {
+                if case .failed = coordinator.state, let retryURL = coordinator.retrySourceURL {
                     Button("重试") {
                         Task { try? await coordinator.importBook(from: retryURL) }
                     }
@@ -34,7 +33,6 @@ struct ImportView: View {
         .navigationViewStyle(.stack)
         .sheet(isPresented: $isPickingDocument) {
             DocumentPicker { url in
-                retryURL = url
                 isPickingDocument = false
                 Task { try? await coordinator.importBook(from: url) }
             } onCancel: {
@@ -60,9 +58,15 @@ struct ImportView: View {
             Label("导入完成", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
         case let .failed(failure):
-            Text(failure.userMessage)
-                .foregroundStyle(.red)
-                .multilineTextAlignment(.center)
+            let userError = UserFacingError(importFailure: failure)
+            VStack(spacing: 8) {
+                Text(userError.message)
+                    .foregroundStyle(.red)
+                Text(userError.recoveryAction)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
         }
     }
 

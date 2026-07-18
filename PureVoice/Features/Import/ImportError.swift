@@ -6,6 +6,7 @@ enum ImportCoordinatorError: Error, Equatable, Sendable {
 
 enum ImportFailure: Equatable, Sendable {
     case cancelled
+    case interrupted
     case unsupported
     case mobiPendingLegalApproval
     case tooLarge

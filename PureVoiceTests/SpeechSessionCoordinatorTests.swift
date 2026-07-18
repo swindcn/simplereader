@@ -67,6 +67,34 @@ final class SpeechSessionCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.viewModel)
         XCTAssertEqual(service.resumeCount, 0)
     }
+
+    @MainActor
+    func testRestorePausedSessionRecreatesListeningWithoutAutoplay() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let book = Book.fixture(canonicalFileURL: fixture)
+        let position = ReadingPosition(href: "EPUB/chapter.xhtml", progression: 0.2)
+        let service = CoordinatorSpeechService()
+        let coordinator = SpeechSessionCoordinator(
+            repository: InMemoryBookRepository(books: [book]),
+            serviceFactory: { _ in service },
+            audioSessionFactory: { CoordinatorControlledAudioSessionActivator() }
+        )
+
+        await coordinator.restorePausedSession(book: book, position: position)
+
+        let viewModel = try XCTUnwrap(coordinator.viewModel)
+        XCTAssertTrue(coordinator.isListeningPresented)
+        XCTAssertEqual(viewModel.bookID, book.id)
+        XCTAssertEqual(viewModel.currentLocator?.href.string, "EPUB/chapter-1.xhtml")
+        XCTAssertEqual(service.startCount, 0)
+
+        viewModel.ensureStarted()
+        XCTAssertEqual(service.startCount, 0)
+
+        viewModel.togglePlayback(announces: false)
+        XCTAssertEqual(service.startCount, 1)
+        XCTAssertEqual(service.startedLocator?.href.string, "EPUB/chapter-1.xhtml")
+    }
 }
 
 @MainActor
@@ -77,6 +105,8 @@ private final class CoordinatorSpeechService: SpeechService {
     var rate: Double = 1
     var selectedVoiceIdentifier: String?
     private(set) var resumeCount = 0
+    private(set) var startCount = 0
+    private(set) var startedLocator: Locator?
 
     let utterance = SpeechUtterance(
         text: "测试",
@@ -87,7 +117,10 @@ private final class CoordinatorSpeechService: SpeechService {
         )
     )
 
-    func start(from locator: Locator?) {}
+    func start(from locator: Locator?) {
+        startCount += 1
+        startedLocator = locator
+    }
     func pause() {}
     func resume() { resumeCount += 1 }
     func stop() { send(.stopped) }

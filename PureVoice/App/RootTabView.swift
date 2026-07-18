@@ -95,7 +95,7 @@ struct RootTabView: View {
         .alert("恢复提示", isPresented: restorationNoticePresented) {
             Button("好", role: .cancel) { restorationNotice = nil }
         } message: {
-            Text(restorationNotice?.message ?? "已恢复到可继续阅读的状态。")
+            Text(restorationNoticeMessage)
         }
         .task {
             await restoreLaunchStateIfNeeded()
@@ -154,17 +154,30 @@ struct RootTabView: View {
         )
     }
 
+    private var restorationNoticeMessage: String {
+        guard let restorationNotice else { return "已恢复到可继续阅读的状态。" }
+        return "\(restorationNotice.message)\n\(restorationNotice.recoveryAction)"
+    }
+
     private func restoreLaunchStateIfNeeded() async {
         guard !hasRestoredLaunchState else { return }
         hasRestoredLaunchState = true
         guard let plan = appStateRestorer?.restoreLaunchState() else { return }
 
         switch plan {
-        case let .markImportFailed(_, _, error):
+        case let .markImportFailed(bookID, originalFileURL, error):
+            importCoordinator?.restoreInterruptedImport(bookID: bookID, originalFileURL: originalFileURL)
             restorationNotice = error
             libraryRefresh.refresh()
-        case let .reopenReader(bookID, _), let .reopenListening(bookID, _, _):
+        case let .reopenReader(bookID, _):
             readerBook = try? await repository.book(id: bookID)
+        case let .reopenListening(bookID, position, _):
+            guard let book = try? await repository.book(id: bookID) else { return }
+            await speechSession.restorePausedSession(
+                book: book,
+                position: position,
+                presentsListening: true
+            )
         }
     }
 }

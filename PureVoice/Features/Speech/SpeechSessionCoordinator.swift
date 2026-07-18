@@ -10,6 +10,7 @@ final class SpeechSessionCoordinator: ObservableObject {
     private let repository: any BookRepository
     private let preferencesStore: PreferencesStore
     private let appStateRestorer: AppStateRestorer?
+    private let publicationService: PublicationService
     private let serviceFactory: @MainActor (OpenedPublication) -> (any SpeechService)?
     private let audioSessionFactory: @MainActor () -> any AudioSessionActivating
     private let finalizations = ProgressFinalizationQueue()
@@ -21,12 +22,14 @@ final class SpeechSessionCoordinator: ObservableObject {
         repository: any BookRepository,
         preferencesStore: PreferencesStore? = nil,
         appStateRestorer: AppStateRestorer? = nil,
+        publicationService: PublicationService = PublicationService(),
         serviceFactory: @MainActor @escaping (OpenedPublication) -> (any SpeechService)? = SpeechSessionCoordinator.makeService,
         audioSessionFactory: @MainActor @escaping () -> any AudioSessionActivating = { SystemAudioSessionActivator() }
     ) {
         self.repository = repository
         self.preferencesStore = preferencesStore ?? PreferencesStore()
         self.appStateRestorer = appStateRestorer
+        self.publicationService = publicationService
         self.serviceFactory = serviceFactory
         self.audioSessionFactory = audioSessionFactory
         finalizations.onFailure = { [weak self] in
@@ -61,6 +64,39 @@ final class SpeechSessionCoordinator: ObservableObject {
             appStateRestorer: appStateRestorer,
             audioSession: audioSessionFactory()
         )
+        install(viewModel)
+        isListeningPresented = true
+    }
+
+    func restorePausedSession(book: Book, position: ReadingPosition, presentsListening: Bool = true) async {
+        endSession()
+
+        do {
+            let publication = try await publicationService.open(at: book.canonicalFileURL)
+            guard let service = serviceFactory(publication) else {
+                errorMessage = "这本书暂不支持听书。"
+                return
+            }
+            let locator = try await publication.locator(from: position)
+            let viewModel = ListeningViewModel(
+                book: book,
+                publication: publication,
+                initialLocator: locator,
+                repository: repository,
+                service: service,
+                preferencesStore: preferencesStore,
+                appStateRestorer: appStateRestorer,
+                audioSession: audioSessionFactory()
+            )
+            install(viewModel)
+            viewModel.restorePaused(at: locator)
+            isListeningPresented = presentsListening
+        } catch {
+            errorMessage = UserFacingError.readerOpenFailure(error).message
+        }
+    }
+
+    private func install(_ viewModel: ListeningViewModel) {
         let remoteCommands = RemoteCommandController { [weak viewModel] command in
             guard let viewModel else { return }
             switch command {
@@ -85,7 +121,6 @@ final class SpeechSessionCoordinator: ObservableObject {
         }
         self.remoteCommands = remoteCommands
         self.viewModel = viewModel
-        isListeningPresented = true
     }
 
     func dismissListening(flushesProgress: Bool = true) {

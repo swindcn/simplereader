@@ -57,6 +57,7 @@ protocol PublicationOpening: Sendable {
 @MainActor
 final class ImportCoordinator: ObservableObject {
     @Published private(set) var state: ImportState = .idle
+    @Published private(set) var retrySourceURL: URL?
 
     private let importIO: ImportIO
     private let converter: any CanonicalPublicationConverting
@@ -92,6 +93,7 @@ final class ImportCoordinator: ObservableObject {
         guard !isImporting else { throw ImportCoordinatorError.importInProgress }
         isImporting = true
         defer { isImporting = false }
+        retrySourceURL = nil
 
         let bookID = UUID()
         let suggestedTitle = sourceURL.deletingPathExtension().lastPathComponent
@@ -155,8 +157,21 @@ final class ImportCoordinator: ObservableObject {
         }
     }
 
+    func restoreInterruptedImport(bookID: Book.ID, originalFileURL: URL) {
+        retrySourceURL = originalFileURL
+        transition(to: .failed(.interrupted), bookID: bookID, originalFileURL: originalFileURL)
+    }
+
     private func transition(to newState: ImportState, bookID: Book.ID? = nil, originalFileURL: URL? = nil) {
         state = newState
+        switch newState {
+        case .failed:
+            retrySourceURL = originalFileURL
+        case .completed, .idle:
+            retrySourceURL = nil
+        case .copying, .detecting, .converting, .openingPublication:
+            break
+        }
         stateObserver(newState)
         if let bookID {
             importRecoveryRecorder(bookID, originalFileURL, newState)

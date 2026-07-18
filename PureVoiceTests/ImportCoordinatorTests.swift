@@ -141,6 +141,29 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertNotNil(records.last?.1)
     }
 
+    func testRestoredInterruptedImportExposesFailedStateAndRetryURL() {
+        let bookID = UUID()
+        let originalURL = temporaryDirectory
+            .appendingPathComponent(bookID.uuidString, isDirectory: true)
+            .appendingPathComponent("original.txt")
+        var states: [ImportState] = []
+        let coordinator = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository(),
+            stateObserver: { states.append($0) },
+            announce: { _ in }
+        )
+
+        coordinator.restoreInterruptedImport(bookID: bookID, originalFileURL: originalURL)
+
+        XCTAssertEqual(coordinator.state, .failed(.interrupted))
+        XCTAssertEqual(coordinator.retrySourceURL, originalURL)
+        XCTAssertEqual(states, [.failed(.interrupted)])
+    }
+
     func testConversionFailurePreservesOriginalCleansCanonicalAndDoesNotSave() async throws {
         let source = try write(Data("text".utf8), named: "source.txt")
         let repository = RecordingRepository()

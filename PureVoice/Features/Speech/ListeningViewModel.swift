@@ -44,6 +44,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private var wasPlayingBeforeInterruption = false
     private var interruptionGeneration = 0
     private var hasStarted = false
+    private var isRestoredPausedSession = false
     private var globalPreferencesCancellable: AnyCancellable?
     private var overridePreferencesCancellable: AnyCancellable?
 
@@ -130,6 +131,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
 
     func ensureStarted() {
         guard !hasStarted else { return }
+        guard !isRestoredPausedSession else { return }
         startPlayback(from: initialLocator, announces: true)
     }
 
@@ -141,6 +143,10 @@ final class ListeningViewModel: NSObject, ObservableObject {
 
     func resume(announces: Bool = true) {
         invalidateInterruptionRecovery()
+        if isRestoredPausedSession {
+            startPlayback(from: pendingLocator ?? currentLocator, announces: announces)
+            return
+        }
         service.resume()
         if announces { announce("继续播放") }
     }
@@ -150,7 +156,11 @@ final class ListeningViewModel: NSObject, ObservableObject {
         case .playing:
             pause(announces: announces)
         case .paused:
-            resume(announces: announces)
+            if isRestoredPausedSession {
+                startPlayback(from: pendingLocator ?? currentLocator, announces: announces)
+            } else {
+                resume(announces: announces)
+            }
         case .stopped, .failed:
             hasStarted = false
             startPlayback(from: pendingLocator ?? initialLocator, announces: announces)
@@ -216,6 +226,15 @@ final class ListeningViewModel: NSObject, ObservableObject {
     }
 
     func dismissError() { errorMessage = nil }
+
+    func restorePaused(at locator: Locator) {
+        isRestoredPausedSession = true
+        hasStarted = false
+        lastKnownLocator = locator
+        pendingLocator = locator
+        state = .paused(.init(text: "已恢复到上次听书位置", locator: locator))
+        onNowPlayingChange?()
+    }
 
     func handleInterruptionBegan() {
         invalidateInterruptionRecovery()
@@ -332,6 +351,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
         guard !hasStarted else { return }
         invalidateInterruptionRecovery()
         hasStarted = true
+        isRestoredPausedSession = false
         state = .loading
         service.start(from: locator)
         if announces { announce("开始播放") }

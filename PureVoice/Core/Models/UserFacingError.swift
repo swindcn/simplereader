@@ -21,6 +21,8 @@ struct UserFacingError: Equatable, Codable, Sendable {
                 message: "导入已取消，原文件没有被删除。",
                 recoveryAction: "重新导入"
             )
+        case .interrupted:
+            self = .importInterrupted
         case .unsupported:
             self = .unsupportedFormat
         case .mobiPendingLegalApproval:
