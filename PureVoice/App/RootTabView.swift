@@ -7,9 +7,17 @@ struct RootTabView: View {
     @StateObject private var preferencesStore: PreferencesStore
     @StateObject private var speechSession: SpeechSessionCoordinator
     private let repository: any BookRepository
+    private let importCoordinator: ImportCoordinator?
+    private let libraryRefresh: LibraryRefreshSignal
 
-    init(repository: any BookRepository = InMemoryBookRepository()) {
+    init(
+        repository: any BookRepository = InMemoryBookRepository(),
+        importCoordinator: ImportCoordinator? = nil,
+        libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal()
+    ) {
         self.repository = repository
+        self.importCoordinator = importCoordinator
+        self.libraryRefresh = libraryRefresh
         let preferencesStore = PreferencesStore(defaults: Self.preferencesDefaults())
         _preferencesStore = StateObject(wrappedValue: preferencesStore)
         _speechSession = StateObject(wrappedValue: SpeechSessionCoordinator(
@@ -91,9 +99,17 @@ struct RootTabView: View {
     private func tabContent(for tab: AppTab) -> some View {
         switch tab {
         case .library:
-            LibraryView(repository: repository, onOpenBook: { readerBook = $0 })
+            LibraryView(
+                repository: repository,
+                libraryRefresh: libraryRefresh,
+                onOpenBook: { readerBook = $0 }
+            )
         case .importBooks:
-            Text(tab.title)
+            if let importCoordinator {
+                ImportView(coordinator: importCoordinator)
+            } else {
+                Text("导入功能暂不可用")
+            }
         case .settings:
             NavigationView {
                 SettingsView(store: preferencesStore)

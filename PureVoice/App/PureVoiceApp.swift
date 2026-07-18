@@ -2,20 +2,18 @@ import SwiftUI
 
 @main
 struct PureVoiceApp: App {
-    private let repository: any BookRepository
-
     init() {
         LibraryNavigationBarStyle.apply()
-        repository = Self.makeRepository()
     }
 
     var body: some Scene {
         WindowGroup {
-            RootTabView(repository: repository)
+            AppBootstrapView()
         }
     }
 
-    private static func makeRepository() -> any BookRepository {
+    @MainActor
+    fileprivate static func makeDebugDependenciesIfRequested() -> AppDependencies? {
 #if DEBUG
         if let readerPath = ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_READER_EPUB"] {
             let fileURL = URL(fileURLWithPath: readerPath)
@@ -27,16 +25,33 @@ struct PureVoiceApp: App {
                 500,
                 canonicalFileURL: fileURL
             )
-            return InMemoryBookRepository(books: [book])
+            return makeDebugDependencies(books: [book])
         }
         if ProcessInfo.processInfo.environment["PUREVOICE_UI_TEST_LIBRARY_SEED"] == "1" {
-            return InMemoryBookRepository(books: uiTestBooks)
+            return makeDebugDependencies(books: uiTestBooks)
         }
 #endif
-        return InMemoryBookRepository()
+        return nil
     }
 
 #if DEBUG
+    @MainActor
+    private static func makeDebugDependencies(books: [Book]) -> AppDependencies? {
+        do {
+            return AppDependencies.make(
+                repository: InMemoryBookRepository(books: books),
+                fileStore: try BookFileStore()
+            )
+        } catch {
+            let fallbackRoot = FileManager.default.temporaryDirectory
+                .appendingPathComponent("PureVoice-Debug", isDirectory: true)
+            guard let fileStore = try? BookFileStore(applicationSupportRoot: fallbackRoot) else {
+                return nil
+            }
+            return AppDependencies.make(repository: InMemoryBookRepository(books: books), fileStore: fileStore)
+        }
+    }
+
     private static let uiTestBooks: [Book] = [
         seededBook("11111111-1111-1111-1111-111111111111", "活着", "余华", 0.35, 400),
         seededBook("22222222-2222-2222-2222-222222222222", "许三观卖血记", "余华", 0.62, 300),
@@ -67,4 +82,59 @@ struct PureVoiceApp: App {
         )
     }
 #endif
+}
+
+private struct AppBootstrapView: View {
+    @State private var dependencies: AppDependencies?
+    @State private var startupError: Error?
+
+    var body: some View {
+        Group {
+            if let dependencies {
+                RootTabView(
+                    repository: dependencies.repository,
+                    importCoordinator: dependencies.importCoordinator,
+                    libraryRefresh: dependencies.libraryRefresh
+                )
+            } else if let startupError {
+                FatalStartupView(error: startupError)
+            } else {
+                ProgressView("正在启动 PureVoice")
+            }
+        }
+        .task {
+            guard dependencies == nil, startupError == nil else { return }
+            if let debugDependencies = PureVoiceApp.makeDebugDependenciesIfRequested() {
+                dependencies = debugDependencies
+                return
+            }
+            do {
+                dependencies = try await AppDependencies.makeProduction()
+            } catch {
+                startupError = error
+            }
+        }
+    }
+}
+
+private struct FatalStartupView: View {
+    let error: Error
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            Text("无法启动 PureVoice")
+                .font(.title3.bold())
+            Text("本地书库初始化失败，请稍后重试。")
+                .multilineTextAlignment(.center)
+            Text(error.localizedDescription)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+    }
 }

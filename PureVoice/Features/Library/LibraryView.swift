@@ -2,11 +2,17 @@ import SwiftUI
 
 struct LibraryView: View {
     @StateObject private var viewModel: LibraryViewModel
+    @ObservedObject private var libraryRefresh: LibraryRefreshSignal
     @State private var renameTarget: Book?
     @State private var renameTitle = ""
     @State private var deleteTarget: Book?
 
-    init(repository: any BookRepository, onOpenBook: @escaping (Book) -> Void = { _ in }) {
+    init(
+        repository: any BookRepository,
+        libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal(),
+        onOpenBook: @escaping (Book) -> Void = { _ in }
+    ) {
+        self.libraryRefresh = libraryRefresh
         _viewModel = StateObject(
             wrappedValue: LibraryViewModel(repository: repository, onOpenBook: onOpenBook)
         )
@@ -29,6 +35,9 @@ struct LibraryView: View {
         }
         .navigationViewStyle(.stack)
         .task { await viewModel.load() }
+        .onChange(of: libraryRefresh.generation) { _ in
+            Task { await viewModel.load() }
+        }
         .alert("重命名", isPresented: renamePresented, presenting: renameTarget) { book in
             TextField("书名", text: $renameTitle)
             Button("取消", role: .cancel) {}
