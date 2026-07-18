@@ -19,7 +19,7 @@ struct ImportView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(isBusy)
                 .accessibilityLabel("选择要导入的书籍文件")
-                .accessibilityHint("支持 TXT、EPUB、MOBI、AZW 和 AZW3")
+                .accessibilityHint("支持 TXT 和 EPUB")
 
                 if case .failed = coordinator.state, let retryURL {
                     Button("重试") {

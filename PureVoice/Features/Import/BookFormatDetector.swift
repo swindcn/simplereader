@@ -8,6 +8,11 @@ struct BookFormatDetector: Sendable {
     }
 
     func detect(at copiedFileURL: URL) throws -> BookFormat {
+        let fileExtension = copiedFileURL.pathExtension.lowercased()
+        if isMOBIPendingApprovalExtension(fileExtension) {
+            throw BookFormatDetectionError.mobiPendingLegalApproval
+        }
+
         let header: Data
         do {
             let handle = try FileHandle(forReadingFrom: copiedFileURL)
@@ -22,20 +27,23 @@ struct BookFormatDetector: Sendable {
         }
         if header.count >= 68,
            header.subdata(in: 60..<68) == Data("BOOKMOBI".utf8) {
-            return .mobi
+            throw BookFormatDetectionError.mobiPendingLegalApproval
         }
 
-        let fileExtension = copiedFileURL.pathExtension.lowercased()
         switch fileExtension {
         case "txt":
             return .txt
         case "epub":
             return .epub
         case "mobi", "azw", "azw3":
-            return .mobi
+            throw BookFormatDetectionError.mobiPendingLegalApproval
         default:
             throw BookFormatDetectionError.unsupportedExtension(fileExtension)
         }
+    }
+
+    private func isMOBIPendingApprovalExtension(_ fileExtension: String) -> Bool {
+        fileExtension == "mobi" || fileExtension == "azw" || fileExtension == "azw3"
     }
 
     private func hasZIPSignature(_ data: Data) -> Bool {

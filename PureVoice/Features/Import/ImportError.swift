@@ -7,6 +7,7 @@ enum ImportCoordinatorError: Error, Equatable, Sendable {
 enum ImportFailure: Equatable, Sendable {
     case cancelled
     case unsupported
+    case mobiPendingLegalApproval
     case tooLarge
     case outOfSpace
     case copyFailed(String)
@@ -22,6 +23,8 @@ enum ImportFailure: Equatable, Sendable {
             return "已取消导入"
         case .unsupported:
             return "不支持该文件格式"
+        case .mobiPendingLegalApproval:
+            return "MOBI、AZW 和 AZW3 导入正在等待许可证审批，当前版本仅支持 TXT 和 EPUB。"
         case .tooLarge:
             return "文件超过 250 MB 限制"
         case .outOfSpace:
@@ -44,6 +47,7 @@ enum ImportFailure: Equatable, Sendable {
 
 enum BookFormatDetectionError: Error, Equatable, Sendable {
     case unsupportedExtension(String)
+    case mobiPendingLegalApproval
     case unreadableFile(String)
 }
 
@@ -53,6 +57,8 @@ extension BookFormatDetectionError: LocalizedError {
         case let .unsupportedExtension(fileExtension):
             let displayExtension = fileExtension.isEmpty ? "无扩展名" : fileExtension
             return "不支持的文件格式：\(displayExtension)"
+        case .mobiPendingLegalApproval:
+            return "MOBI、AZW 和 AZW3 导入正在等待许可证审批，当前版本仅支持 TXT 和 EPUB。"
         case let .unreadableFile(path):
             return "无法读取文件：\(path)"
         }

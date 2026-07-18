@@ -218,6 +218,9 @@ final class ImportCoordinator: ObservableObject {
         if case BookFormatDetectionError.unsupportedExtension = error {
             return .unsupported
         }
+        if case BookFormatDetectionError.mobiPendingLegalApproval = error {
+            return .mobiPendingLegalApproval
+        }
         let message = (error as NSError).localizedDescription
         switch phase {
         case .copy:

@@ -2,6 +2,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DocumentPicker: UIViewControllerRepresentable {
+    static let supportedContentTypes: [UTType] = [.plainText, .epub]
+
     let onSelect: (URL) -> Void
     var onCancel: () -> Void = {}
 
@@ -10,11 +12,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let extensions = ["mobi", "azw", "azw3"].compactMap {
-            UTType(filenameExtension: $0)
-        }
         let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [.plainText, .epub] + extensions,
+            forOpeningContentTypes: Self.supportedContentTypes,
             asCopy: true
         )
         picker.allowsMultipleSelection = false

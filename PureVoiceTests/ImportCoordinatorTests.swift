@@ -159,6 +159,28 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertEqual(failedSaveCount, 1)
     }
 
+    func testMOBIPendingApprovalStopsBeforeConversionWithClearMessage() async throws {
+        let source = try write(Data("mobi".utf8), named: "source.mobi")
+        let converter = RecordingConverter()
+        let repository = RecordingRepository()
+        let coordinator = makeCoordinator(repository: repository, converter: converter)
+
+        try await coordinator.importBook(from: source)
+
+        guard case let .failed(failure) = coordinator.state else {
+            return XCTFail("Unexpected final state: \(coordinator.state)")
+        }
+        XCTAssertEqual(failure, .mobiPendingLegalApproval)
+        XCTAssertEqual(
+            failure.userMessage,
+            "MOBI、AZW 和 AZW3 导入正在等待许可证审批，当前版本仅支持 TXT 和 EPUB。"
+        )
+        let convertCount = await converter.count()
+        let saveCount = await repository.count()
+        XCTAssertEqual(convertCount, 0)
+        XCTAssertEqual(saveCount, 0)
+    }
+
     func testCopyErrorsMapToTooLargeAndOutOfSpaceWithoutStartingLaterStages() async {
         for (error, expected) in [
             (BookFileError.tooLarge(actualBytes: 251, maximumBytes: 250), ImportFailure.tooLarge),

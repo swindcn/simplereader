@@ -17,13 +17,10 @@ final class BookFormatDetectorTests: XCTestCase {
         temporaryDirectory = nil
     }
 
-    func testExtensionsAreCaseInsensitiveAndAZWVariantsMapToMOBI() throws {
+    func testExtensionsAreCaseInsensitiveForEnabledFormats() throws {
         let cases: [(String, BookFormat)] = [
             ("book.TXT", .txt),
-            ("book.EpUb", .epub),
-            ("book.MOBI", .mobi),
-            ("book.AzW", .mobi),
-            ("book.aZw3", .mobi)
+            ("book.EpUb", .epub)
         ]
 
         for (name, expected) in cases {
@@ -45,12 +42,34 @@ final class BookFormatDetectorTests: XCTestCase {
         }
     }
 
-    func testPalmDBSignatureOverridesMisleadingExtension() throws {
+    func testMOBISignatureIsRejectedPendingLegalApproval() throws {
         var bytes = [UInt8](repeating: 0, count: 68)
         bytes.replaceSubrange(60...67, with: Array("BOOKMOBI".utf8))
         let url = try write(Data(bytes), named: "misleading.epub")
 
-        XCTAssertEqual(try BookFormatDetector().detect(at: url), .mobi)
+        XCTAssertThrowsError(try BookFormatDetector().detect(at: url)) { error in
+            XCTAssertEqual(error as? BookFormatDetectionError, .mobiPendingLegalApproval)
+        }
+    }
+
+    func testMOBIAndAZWExtensionsAreRejectedPendingLegalApproval() throws {
+        for name in ["book.MOBI", "book.AzW", "book.aZw3"] {
+            let url = try write(Data("ordinary content".utf8), named: name)
+
+            XCTAssertThrowsError(try BookFormatDetector().detect(at: url), name) { error in
+                XCTAssertEqual(error as? BookFormatDetectionError, .mobiPendingLegalApproval)
+            }
+        }
+    }
+
+    func testMOBIAndAZWExtensionsAreRejectedEvenWhenContentLooksLikeZIP() throws {
+        for name in ["book.mobi", "book.azw", "book.azw3"] {
+            let url = try write(Data([0x50, 0x4B, 0x03, 0x04, 0, 1, 2]), named: name)
+
+            XCTAssertThrowsError(try BookFormatDetector().detect(at: url), name) { error in
+                XCTAssertEqual(error as? BookFormatDetectionError, .mobiPendingLegalApproval)
+            }
+        }
     }
 
     func testUnsignedPlainTextUsesExtension() throws {
@@ -69,10 +88,10 @@ final class BookFormatDetectorTests: XCTestCase {
 
     func testShortAndEmptyFilesAreSafe() throws {
         let oneByte = try write(Data([0x50]), named: "short.txt")
-        let empty = try write(Data(), named: "empty.azw3")
+        let empty = try write(Data(), named: "empty.epub")
 
         XCTAssertEqual(try BookFormatDetector().detect(at: oneByte), .txt)
-        XCTAssertEqual(try BookFormatDetector().detect(at: empty), .mobi)
+        XCTAssertEqual(try BookFormatDetector().detect(at: empty), .epub)
     }
 
     func testReadsOnlyBoundedHeaderFromCopiedFile() throws {
@@ -107,6 +126,10 @@ final class BookFormatDetectorTests: XCTestCase {
         XCTAssertEqual(
             BookFormatDetectionError.unreadableFile("/tmp/missing.txt").errorDescription,
             "无法读取文件：/tmp/missing.txt"
+        )
+        XCTAssertEqual(
+            BookFormatDetectionError.mobiPendingLegalApproval.errorDescription,
+            "MOBI、AZW 和 AZW3 导入正在等待许可证审批，当前版本仅支持 TXT 和 EPUB。"
         )
     }
 
