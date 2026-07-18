@@ -125,24 +125,35 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
 }
 
 struct ReaderPreferencesOverride: Codable, Equatable, Sendable {
+    enum Voice: Codable, Equatable, Sendable {
+        case systemDefault
+        case identifier(String)
+    }
+
     var fontFamily: ReaderFontFamily?
     var fontScale: Double?
     var lineHeight: Double?
     var theme: ReaderTheme?
     var layout: ReaderLayout?
+    var voice: Voice?
+    var speechRate: Double?
 
     init(
         fontFamily: ReaderFontFamily? = nil,
         fontScale: Double? = nil,
         lineHeight: Double? = nil,
         theme: ReaderTheme? = nil,
-        layout: ReaderLayout? = nil
+        layout: ReaderLayout? = nil,
+        voice: Voice? = nil,
+        speechRate: Double? = nil
     ) {
         self.fontFamily = fontFamily
         self.fontScale = fontScale
         self.lineHeight = lineHeight
         self.theme = theme
         self.layout = layout
+        self.voice = voice
+        self.speechRate = speechRate
     }
 
     func resolving(_ global: ReaderPreferences) -> ReaderPreferences {
@@ -152,9 +163,21 @@ struct ReaderPreferencesOverride: Codable, Equatable, Sendable {
             lineHeight: lineHeight ?? global.lineHeight,
             theme: theme ?? global.theme,
             layout: layout ?? global.layout,
-            voiceIdentifier: global.voiceIdentifier,
-            speechRate: global.speechRate
+            voiceIdentifier: resolvedVoiceIdentifier(inheriting: global.voiceIdentifier),
+            speechRate: speechRate ?? global.speechRate
         ).sanitized()
+    }
+
+    static func freezing(_ preferences: ReaderPreferences) -> ReaderPreferencesOverride {
+        ReaderPreferencesOverride(
+            fontFamily: preferences.fontFamily,
+            fontScale: preferences.fontScale,
+            lineHeight: preferences.lineHeight,
+            theme: preferences.theme,
+            layout: preferences.layout,
+            voice: preferences.voiceIdentifier.map(Voice.identifier) ?? .systemDefault,
+            speechRate: preferences.speechRate
+        )
     }
 
     func sanitized() -> ReaderPreferencesOverride {
@@ -164,7 +187,20 @@ struct ReaderPreferencesOverride: Codable, Equatable, Sendable {
             fontScale: fontScale == nil ? nil : resolved.fontScale,
             lineHeight: lineHeight == nil ? nil : resolved.lineHeight,
             theme: theme,
-            layout: layout
+            layout: layout,
+            voice: voice,
+            speechRate: speechRate == nil ? nil : resolved.speechRate
         )
+    }
+
+    private func resolvedVoiceIdentifier(inheriting global: String?) -> String? {
+        switch voice {
+        case .none:
+            global
+        case .systemDefault:
+            nil
+        case let .identifier(identifier):
+            identifier
+        }
     }
 }

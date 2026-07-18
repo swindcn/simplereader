@@ -85,6 +85,43 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(PreferencesStore(defaults: defaults).resolved(for: bookID), resolved)
     }
 
+    func testDisablingGlobalPreferencesFreezesAllEffectiveBookPreferences() {
+        let bookID = UUID()
+        let store = PreferencesStore(defaults: defaults)
+        let initial = ReaderPreferences(
+            fontFamily: .serif,
+            fontScale: 1.3,
+            lineHeight: 1.8,
+            theme: .sepia,
+            layout: .scroll,
+            voiceIdentifier: nil,
+            speechRate: 1.5
+        )
+        store.setGlobal(initial)
+
+        store.setUsesGlobal(false, for: bookID)
+        store.setGlobal(
+            ReaderPreferences(
+                fontFamily: .sans,
+                fontScale: 1.8,
+                lineHeight: 2.1,
+                theme: .dark,
+                layout: .paginated,
+                voiceIdentifier: "voice.changed",
+                speechRate: 0.5
+            )
+        )
+
+        XCTAssertTrue(store.hasOverride(for: bookID))
+        XCTAssertEqual(store.resolved(for: bookID), initial)
+        XCTAssertEqual(PreferencesStore(defaults: defaults).resolved(for: bookID), initial)
+
+        store.setUsesGlobal(true, for: bookID)
+
+        XCTAssertFalse(store.hasOverride(for: bookID))
+        XCTAssertEqual(store.resolved(for: bookID).voiceIdentifier, "voice.changed")
+    }
+
     func testClearOverrideAndResetDefaults() {
         let bookID = UUID()
         let store = PreferencesStore(defaults: defaults)

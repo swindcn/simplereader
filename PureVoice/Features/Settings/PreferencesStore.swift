@@ -80,6 +80,14 @@ final class PreferencesStore: ObservableObject {
         persist()
     }
 
+    func setUsesGlobal(_ usesGlobal: Bool, for bookID: UUID) {
+        if usesGlobal {
+            clearOverride(for: bookID)
+        } else if !hasOverride(for: bookID) {
+            setOverride(.freezing(resolved(for: bookID)), for: bookID)
+        }
+    }
+
     func resetDefaults() {
         global = .defaults
         overrides = [:]

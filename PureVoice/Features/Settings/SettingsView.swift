@@ -159,11 +159,7 @@ struct SettingsView: View {
         Binding(
             get: { !store.hasOverride(for: bookID) },
             set: { usesGlobal in
-                if usesGlobal {
-                    store.clearOverride(for: bookID)
-                } else {
-                    store.setOverride(.init(), for: bookID)
-                }
+                store.setUsesGlobal(usesGlobal, for: bookID)
             }
         )
     }
