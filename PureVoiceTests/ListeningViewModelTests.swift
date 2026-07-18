@@ -217,6 +217,72 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertNil(service.selectedVoiceIdentifier)
     }
 
+    func testBookOverrideBindsListeningSessionAndGlobalChangesDoNotLeakIn() {
+        let book = Book.fixture(title: "按书偏好", author: "测试作者")
+        let voices = [
+            SpeechVoice(identifier: "global", name: "Global", language: "zh-CN", gender: .female, quality: .high),
+            SpeechVoice(identifier: "book", name: "Book", language: "zh-CN", gender: .male, quality: .high)
+        ]
+        let store = PreferencesStore(defaults: defaults)
+        var frozen = store.global
+        frozen.speechRate = 1.4
+        frozen.voiceIdentifier = "book"
+        store.setOverride(.freezing(frozen), for: book.id)
+        let service = FakeSpeechService(voices: voices)
+        let viewModel = makeViewModel(service: service, book: book, preferencesStore: store)
+
+        XCTAssertEqual(viewModel.rate, 1.4)
+        XCTAssertEqual(viewModel.selectedVoiceIdentifier, "book")
+
+        var global = store.global
+        global.speechRate = 1.8
+        global.voiceIdentifier = "global"
+        store.setGlobal(global)
+
+        XCTAssertEqual(viewModel.rate, 1.4)
+        XCTAssertEqual(viewModel.selectedVoiceIdentifier, "book")
+        XCTAssertEqual(service.rate, 1.4)
+        XCTAssertEqual(service.selectedVoiceIdentifier, "book")
+    }
+
+    func testBookListeningControlsOnlyUpdateOverrideWhenInheritanceIsDisabled() {
+        let book = Book.fixture()
+        let store = PreferencesStore(defaults: defaults)
+        var global = store.global
+        global.speechRate = 1.1
+        global.voiceIdentifier = nil
+        store.setGlobal(global)
+        store.setUsesGlobal(false, for: book.id)
+        let service = FakeSpeechService(voices: [
+            SpeechVoice(identifier: "voice", name: "Voice", language: "zh-CN", gender: .female, quality: .high)
+        ])
+        let viewModel = makeViewModel(service: service, book: book, preferencesStore: store)
+
+        viewModel.setRate(1.6, announces: false)
+        viewModel.selectVoice(identifier: "voice", announces: false)
+
+        XCTAssertEqual(store.global.speechRate, 1.1)
+        XCTAssertNil(store.global.voiceIdentifier)
+        XCTAssertEqual(store.resolved(for: book.id).speechRate, 1.6)
+        XCTAssertEqual(store.resolved(for: book.id).voiceIdentifier, "voice")
+    }
+
+    func testBookListeningControlsUpdateGlobalWhileUsingGlobalPreferences() {
+        let book = Book.fixture()
+        let store = PreferencesStore(defaults: defaults)
+        let service = FakeSpeechService(voices: [
+            SpeechVoice(identifier: "voice", name: "Voice", language: "zh-CN", gender: .female, quality: .high)
+        ])
+        let viewModel = makeViewModel(service: service, book: book, preferencesStore: store)
+
+        viewModel.setRate(1.7, announces: false)
+        viewModel.selectVoice(identifier: "voice", announces: false)
+
+        XCTAssertFalse(store.hasOverride(for: book.id))
+        XCTAssertEqual(store.global.speechRate, 1.7)
+        XCTAssertEqual(store.global.voiceIdentifier, "voice")
+    }
+
     func testUserSettingsFlowThroughStoreAndApplyToServiceExactlyOnce() {
         let voices = [SpeechVoice(identifier: "voice", name: "Mei", language: "zh-CN", gender: .female, quality: .high)]
         let service = FakeSpeechService(voices: voices)
@@ -525,19 +591,22 @@ final class ListeningViewModelTests: XCTestCase {
 
     private func makeViewModel(
         service: FakeSpeechService,
+        book: Book = .fixture(title: "测试书", author: "测试作者"),
         locator: Locator? = nil,
         repository: any BookRepository = InMemoryBookRepository(),
         announcements: @escaping (String) -> Void = { _ in },
         persistenceDelay: TimeInterval = 60,
-        audioSession: any AudioSessionActivating = FakeAudioSessionActivator()
+        audioSession: any AudioSessionActivating = FakeAudioSessionActivator(),
+        preferencesStore: PreferencesStore? = nil
     ) -> ListeningViewModel {
         ListeningViewModel(
-            book: .fixture(title: "测试书", author: "测试作者"),
+            book: book,
             publication: nil,
             initialLocator: locator,
             repository: repository,
             service: service,
             defaults: defaults,
+            preferencesStore: preferencesStore,
             announce: announcements,
             observesAudioSession: false,
             persistenceDelay: persistenceDelay,

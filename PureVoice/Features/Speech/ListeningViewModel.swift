@@ -43,7 +43,8 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private var wasPlayingBeforeInterruption = false
     private var interruptionGeneration = 0
     private var hasStarted = false
-    private var preferencesCancellable: AnyCancellable?
+    private var globalPreferencesCancellable: AnyCancellable?
+    private var overridePreferencesCancellable: AnyCancellable?
 
     init(
         book: Book,
@@ -76,22 +77,30 @@ final class ListeningViewModel: NSObject, ObservableObject {
         lastKnownLocator = initialLocator
         voices = service.voices
 
-        let restoredRate = preferencesStore.global.speechRate
+        let restoredPreferences = preferencesStore.resolved(for: bookID)
+        let restoredRate = restoredPreferences.speechRate
         rate = restoredRate
         service.rate = restoredRate
 
         let restoredVoiceIdentifier = Self.resolvedVoiceIdentifier(
-            requested: preferencesStore.global.voiceIdentifier,
+            requested: restoredPreferences.voiceIdentifier,
             voices: voices
         )
         selectedVoiceIdentifier = restoredVoiceIdentifier
         service.selectedVoiceIdentifier = restoredVoiceIdentifier
 
         super.init()
-        preferencesCancellable = preferencesStore.$global
+        globalPreferencesCancellable = preferencesStore.$global
             .dropFirst()
             .sink { [weak self] preferences in
-                self?.apply(preferences)
+                guard let self else { return }
+                self.apply(self.resolved(global: preferences, overrides: self.preferencesStore.overrides))
+            }
+        overridePreferencesCancellable = preferencesStore.$overrides
+            .dropFirst()
+            .sink { [weak self] overrides in
+                guard let self else { return }
+                self.apply(self.resolved(global: self.preferencesStore.global, overrides: overrides))
             }
         service.onStateChange = { [weak self] state in
             self?.receive(state)
@@ -171,17 +180,29 @@ final class ListeningViewModel: NSObject, ObservableObject {
 
     func setRate(_ newValue: Double, announces: Bool = true) {
         let clamped = Self.clampedRate(newValue)
-        var preferences = preferencesStore.global
-        preferences.speechRate = clamped
-        preferencesStore.setGlobal(preferences)
+        if var override = preferencesStore.override(for: bookID) {
+            override.speechRate = clamped
+            preferencesStore.setOverride(override, for: bookID)
+        } else {
+            var preferences = preferencesStore.global
+            preferences.speechRate = clamped
+            preferencesStore.setGlobal(preferences)
+        }
+        apply(preferencesStore.resolved(for: bookID))
         if announces { announce("语速 \(Self.rateLabel(clamped))") }
     }
 
     func selectVoice(identifier: String?, announces: Bool = true) {
         guard identifier == nil || voices.contains(where: { $0.identifier == identifier }) else { return }
-        var preferences = preferencesStore.global
-        preferences.voiceIdentifier = identifier
-        preferencesStore.setGlobal(preferences)
+        if var override = preferencesStore.override(for: bookID) {
+            override.voice = identifier.map(ReaderPreferencesOverride.Voice.identifier) ?? .systemDefault
+            preferencesStore.setOverride(override, for: bookID)
+        } else {
+            var preferences = preferencesStore.global
+            preferences.voiceIdentifier = identifier
+            preferencesStore.setGlobal(preferences)
+        }
+        apply(preferencesStore.resolved(for: bookID))
         if announces {
             if let voice = voices.first(where: { $0.identifier == identifier }) {
                 announce("已选择\(voice.displayName)")
@@ -344,6 +365,13 @@ final class ListeningViewModel: NSObject, ObservableObject {
             changed = true
         }
         if changed { onNowPlayingChange?() }
+    }
+
+    private func resolved(
+        global: ReaderPreferences,
+        overrides: [UUID: ReaderPreferencesOverride]
+    ) -> ReaderPreferences {
+        overrides[bookID]?.resolving(global) ?? global
     }
 
     private static func resolvedVoiceIdentifier(requested: String?, voices: [SpeechVoice]) -> String? {
