@@ -71,6 +71,76 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertEqual(deleteCount, 0)
     }
 
+    func testImportPostsOneTerminalAnnouncementOnly() async throws {
+        let source = try write(Data("text".utf8), named: "announcement.txt")
+        var announcements: [String] = []
+        let success = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository(),
+            announce: { announcements.append($0) }
+        )
+
+        try await success.importBook(from: source)
+
+        XCTAssertEqual(announcements, ["导入完成"])
+
+        let failingSource = try write(Data("text".utf8), named: "announcement-failure.txt")
+        let failure = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter { _, _, _, _ in throw TestError.conversion },
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository(),
+            announce: { announcements.append($0) }
+        )
+
+        try await failure.importBook(from: failingSource)
+
+        XCTAssertEqual(announcements, ["导入完成", UserFacingError(importFailure: .convertFailed("")).accessibilityAnnouncement])
+    }
+
+    func testImportRecordsResumableStateAndClearsOnTerminalStates() async throws {
+        let source = try write(Data("text".utf8), named: "recovery.txt")
+        var records: [(Book.ID, URL?, ImportState)] = []
+        let success = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository(),
+            importRecoveryRecorder: { records.append(($0, $1, $2)) },
+            announce: { _ in }
+        )
+
+        try await success.importBook(from: source)
+
+        let successBookID = try XCTUnwrap(records.last?.0)
+        XCTAssertTrue(records.contains { $0.0 == successBookID && $0.1 != nil && $0.2 == .detecting })
+        XCTAssertTrue(records.contains { $0.0 == successBookID && $0.1 != nil && $0.2 == .converting(.txt) })
+        XCTAssertEqual(records.last?.2, .completed(successBookID))
+
+        let failingSource = try write(Data("text".utf8), named: "recovery-failure.txt")
+        let failure = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter { _, _, _, _ in throw TestError.conversion },
+            publicationOpener: RecordingPublicationOpener(),
+            repository: RecordingRepository(),
+            importRecoveryRecorder: { records.append(($0, $1, $2)) },
+            announce: { _ in }
+        )
+
+        try await failure.importBook(from: failingSource)
+
+        guard case .failed(.convertFailed) = records.last?.2 else {
+            return XCTFail("Expected failed conversion to clear resumable import state")
+        }
+        XCTAssertNotNil(records.last?.1)
+    }
+
     func testConversionFailurePreservesOriginalCleansCanonicalAndDoesNotSave() async throws {
         let source = try write(Data("text".utf8), named: "source.txt")
         let repository = RecordingRepository()

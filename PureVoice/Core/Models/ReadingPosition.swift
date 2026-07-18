@@ -1,4 +1,4 @@
-struct ReadingPosition: Equatable, Sendable {
+struct ReadingPosition: Codable, Equatable, Sendable {
     let href: String
     let locationsJSON: String?
     let progression: Double

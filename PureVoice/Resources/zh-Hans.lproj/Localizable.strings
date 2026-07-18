@@ -1,0 +1,4 @@
+"import.completed" = "导入完成";
+"import.failed" = "导入失败";
+"reader.open.failed" = "无法打开这本书";
+"listening.interruption.failed" = "播放被中断";

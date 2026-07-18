@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 protocol ImportFileStoring: Sendable {
     func importOriginal(from sourceURL: URL, bookID: UUID) throws -> URL
@@ -62,6 +63,8 @@ final class ImportCoordinator: ObservableObject {
     private let publicationOpener: any PublicationOpening
     private let repository: any BookRepository
     private let stateObserver: @MainActor (ImportState) -> Void
+    private let importRecoveryRecorder: @MainActor (Book.ID, URL?, ImportState) -> Void
+    private let announce: @MainActor (String) -> Void
     private var isImporting = false
 
     init(
@@ -70,13 +73,19 @@ final class ImportCoordinator: ObservableObject {
         converter: any CanonicalPublicationConverting,
         publicationOpener: any PublicationOpening,
         repository: any BookRepository,
-        stateObserver: @escaping @MainActor (ImportState) -> Void = { _ in }
+        stateObserver: @escaping @MainActor (ImportState) -> Void = { _ in },
+        importRecoveryRecorder: @escaping @MainActor (Book.ID, URL?, ImportState) -> Void = { _, _, _ in },
+        announce: @escaping @MainActor (String) -> Void = { message in
+            UIAccessibility.post(notification: .announcement, argument: message)
+        }
     ) {
         importIO = ImportIO(fileStore: fileStore, detector: detector)
         self.converter = converter
         self.publicationOpener = publicationOpener
         self.repository = repository
         self.stateObserver = stateObserver
+        self.importRecoveryRecorder = importRecoveryRecorder
+        self.announce = announce
     }
 
     func importBook(from sourceURL: URL) async throws {
@@ -91,18 +100,18 @@ final class ImportCoordinator: ObservableObject {
 
         do {
             try Task.checkCancellation()
-            transition(to: .copying)
+            transition(to: .copying, bookID: bookID, originalFileURL: copiedOriginalURL)
             let originalURL = try await importIO.copyOriginal(from: sourceURL, bookID: bookID)
             copiedOriginalURL = originalURL
 
             try Task.checkCancellation()
             phase = .detect
-            transition(to: .detecting)
+            transition(to: .detecting, bookID: bookID, originalFileURL: copiedOriginalURL)
             let format = try await importIO.detect(at: originalURL)
 
             try Task.checkCancellation()
             phase = .convert
-            transition(to: .converting(format))
+            transition(to: .converting(format), bookID: bookID, originalFileURL: copiedOriginalURL)
             let canonicalURL = await importIO.canonicalURL(for: bookID)
             try await converter.convert(
                 originalURL: originalURL,
@@ -113,7 +122,7 @@ final class ImportCoordinator: ObservableObject {
             try Task.checkCancellation()
 
             phase = .open
-            transition(to: .openingPublication)
+            transition(to: .openingPublication, bookID: bookID, originalFileURL: copiedOriginalURL)
             let metadata = try await publicationOpener.openPublication(at: canonicalURL)
             try Task.checkCancellation()
 
@@ -134,7 +143,7 @@ final class ImportCoordinator: ObservableObject {
             )
             try await repository.save(book)
             try Task.checkCancellation()
-            transition(to: .completed(bookID))
+            transition(to: .completed(bookID), bookID: bookID, originalFileURL: copiedOriginalURL)
         } catch {
             let failure = await handleFailure(
                 error,
@@ -142,13 +151,24 @@ final class ImportCoordinator: ObservableObject {
                 bookID: bookID,
                 hasCopiedOriginal: copiedOriginalURL != nil
             )
-            transition(to: .failed(failure))
+            transition(to: .failed(failure), bookID: bookID, originalFileURL: copiedOriginalURL)
         }
     }
 
-    private func transition(to newState: ImportState) {
+    private func transition(to newState: ImportState, bookID: Book.ID? = nil, originalFileURL: URL? = nil) {
         state = newState
         stateObserver(newState)
+        if let bookID {
+            importRecoveryRecorder(bookID, originalFileURL, newState)
+        }
+        switch newState {
+        case .completed:
+            announce("导入完成")
+        case let .failed(failure):
+            announce(UserFacingError(importFailure: failure).accessibilityAnnouncement)
+        case .idle, .copying, .detecting, .converting, .openingPublication:
+            break
+        }
     }
 
     private func handleFailure(

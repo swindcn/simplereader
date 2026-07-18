@@ -4,25 +4,31 @@ import SwiftUI
 struct RootTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var readerBook: Book?
+    @State private var hasRestoredLaunchState = false
+    @State private var restorationNotice: UserFacingError?
     @StateObject private var preferencesStore: PreferencesStore
     @StateObject private var speechSession: SpeechSessionCoordinator
     private let repository: any BookRepository
     private let importCoordinator: ImportCoordinator?
     private let libraryRefresh: LibraryRefreshSignal
+    private let appStateRestorer: AppStateRestorer?
 
     init(
         repository: any BookRepository = InMemoryBookRepository(),
         importCoordinator: ImportCoordinator? = nil,
-        libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal()
+        libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal(),
+        appStateRestorer: AppStateRestorer? = nil
     ) {
         self.repository = repository
         self.importCoordinator = importCoordinator
         self.libraryRefresh = libraryRefresh
+        self.appStateRestorer = appStateRestorer
         let preferencesStore = PreferencesStore(defaults: Self.preferencesDefaults())
         _preferencesStore = StateObject(wrappedValue: preferencesStore)
         _speechSession = StateObject(wrappedValue: SpeechSessionCoordinator(
             repository: repository,
-            preferencesStore: preferencesStore
+            preferencesStore: preferencesStore,
+            appStateRestorer: appStateRestorer
         ))
     }
 
@@ -53,7 +59,8 @@ struct RootTabView: View {
                 book: book,
                 repository: repository,
                 speechSession: speechSession,
-                preferencesStore: preferencesStore
+                preferencesStore: preferencesStore,
+                appStateRestorer: appStateRestorer
             )
         }
         .fullScreenCover(isPresented: rootListeningPresented) {
@@ -84,6 +91,14 @@ struct RootTabView: View {
             Button("好", role: .cancel) { speechSession.dismissError() }
         } message: {
             Text(speechSession.errorMessage ?? "发生未知错误")
+        }
+        .alert("恢复提示", isPresented: restorationNoticePresented) {
+            Button("好", role: .cancel) { restorationNotice = nil }
+        } message: {
+            Text(restorationNotice?.message ?? "已恢复到可继续阅读的状态。")
+        }
+        .task {
+            await restoreLaunchStateIfNeeded()
         }
 #if DEBUG
         .task {
@@ -131,6 +146,27 @@ struct RootTabView: View {
             set: { if !$0 { speechSession.dismissError() } }
         )
     }
+
+    private var restorationNoticePresented: Binding<Bool> {
+        Binding(
+            get: { restorationNotice != nil },
+            set: { if !$0 { restorationNotice = nil } }
+        )
+    }
+
+    private func restoreLaunchStateIfNeeded() async {
+        guard !hasRestoredLaunchState else { return }
+        hasRestoredLaunchState = true
+        guard let plan = appStateRestorer?.restoreLaunchState() else { return }
+
+        switch plan {
+        case let .markImportFailed(_, _, error):
+            restorationNotice = error
+            libraryRefresh.refresh()
+        case let .reopenReader(bookID, _), let .reopenListening(bookID, _, _):
+            readerBook = try? await repository.book(id: bookID)
+        }
+    }
 }
 
 private struct ReaderListeningHost: View {
@@ -139,12 +175,14 @@ private struct ReaderListeningHost: View {
     let repository: any BookRepository
     @ObservedObject var speechSession: SpeechSessionCoordinator
     @ObservedObject var preferencesStore: PreferencesStore
+    let appStateRestorer: AppStateRestorer?
 
     var body: some View {
         ReaderView(
             book: book,
             repository: repository,
             preferencesStore: preferencesStore,
+            appStateRestorer: appStateRestorer,
             onListen: { publication, locator in
                 speechSession.begin(book: book, publication: publication, locator: locator)
             },

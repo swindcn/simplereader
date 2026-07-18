@@ -14,6 +14,7 @@ struct AppDependencies {
     let repository: any BookRepository
     let importCoordinator: ImportCoordinator
     let libraryRefresh: LibraryRefreshSignal
+    let appStateRestorer: AppStateRestorer
 
     static func makeProduction() async throws -> AppDependencies {
         let persistence = try await PersistenceController()
@@ -32,7 +33,8 @@ struct AppDependencies {
         repository: any BookRepository,
         fileStore: BookFileStore,
         converter: any CanonicalPublicationConverting = ImportPipelineConverter(),
-        publicationOpener: any PublicationOpening = PublicationService()
+        publicationOpener: any PublicationOpening = PublicationService(),
+        appStateRestorer: AppStateRestorer = AppStateRestorer()
     ) -> AppDependencies {
         let libraryRefresh = LibraryRefreshSignal()
         let coordinator = ImportCoordinator(
@@ -45,12 +47,16 @@ struct AppDependencies {
                 if case .completed = state {
                     libraryRefresh.refresh()
                 }
+            },
+            importRecoveryRecorder: { bookID, originalFileURL, state in
+                appStateRestorer.recordImport(bookID: bookID, originalFileURL: originalFileURL, state: state)
             }
         )
         return AppDependencies(
             repository: repository,
             importCoordinator: coordinator,
-            libraryRefresh: libraryRefresh
+            libraryRefresh: libraryRefresh,
+            appStateRestorer: appStateRestorer
         )
     }
 }

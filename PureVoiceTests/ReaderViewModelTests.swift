@@ -103,6 +103,33 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(saved.position?.progression, 0.8)
     }
 
+    func testSuccessfulProgressFlushRecordsRestorableReadingPosition() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let suiteName = "ReaderViewModelTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let restorer = AppStateRestorer(defaults: defaults)
+        let viewModel = ReaderViewModel(
+            book: book,
+            repository: RecordingBookRepository(book: book),
+            appStateRestorer: restorer,
+            persistenceDelay: 60
+        )
+        await viewModel.open()
+
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-2.xhtml", progression: 0.8))
+        let didFlush = await viewModel.flushProgress()
+        XCTAssertTrue(didFlush)
+
+        guard case let .reopenReader(bookID, position) = restorer.restoreLaunchState() else {
+            return XCTFail("Expected restorable reader state")
+        }
+        XCTAssertEqual(bookID, book.id)
+        XCTAssertEqual(position.href, "EPUB/chapter-2.xhtml")
+        XCTAssertEqual(position.progression, 0.8)
+    }
+
     func testLatestProgressIsPersistedAutomaticallyAfterDebounceDelay() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)

@@ -689,23 +689,23 @@ git commit -m "feat: add approved non-DRM MOBI conversion"
 - Test: `PureVoiceTests/UserFacingErrorTests.swift`
 - Test: `PureVoiceTests/AppStateRestorerTests.swift`
 
-- [ ] **Step 1: Write failing mapping and restoration tests**
+- [x] **Step 1: Write failing mapping and restoration tests**
 
 Cover protected file, corrupt file, unsupported format, encoding failure, out of space, cancellation, Readium opening failure, audio interruption, and process termination during import or playback.
 
-- [ ] **Step 2: Verify failures**
+- [x] **Step 2: Verify failures**
 
 Expected: FAIL because centralized mapping/restoration is absent.
 
-- [ ] **Step 3: Implement one Chinese message and recovery action per error**
+- [x] **Step 3: Implement one Chinese message and recovery action per error**
 
 Errors must never expose raw framework text. Persist resumable app state after state transitions, resume safe work on launch, and mark non-resumable conversions as failed while preserving originals. Post one accessible announcement for completion or failure; do not narrate every import percentage.
 
-- [ ] **Step 4: Run tests and force-quit scenarios**
+- [x] **Step 4: Run tests and force-quit scenarios**
 
 Expected: tests PASS; force quitting during import, reading, and listening never loses an existing book or saved position.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add PureVoice/Resources PureVoice/Core PureVoice/App PureVoice/Features PureVoiceTests

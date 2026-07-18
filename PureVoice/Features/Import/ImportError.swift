@@ -18,30 +18,7 @@ enum ImportFailure: Equatable, Sendable {
     case cleanupFailed(String)
 
     var userMessage: String {
-        switch self {
-        case .cancelled:
-            return "已取消导入"
-        case .unsupported:
-            return "不支持该文件格式"
-        case .mobiPendingLegalApproval:
-            return "MOBI、AZW 和 AZW3 导入正在等待许可证审批，当前版本仅支持 TXT 和 EPUB。"
-        case .tooLarge:
-            return "文件超过 250 MB 限制"
-        case .outOfSpace:
-            return "存储空间不足"
-        case let .copyFailed(message):
-            return "复制文件失败：\(message)"
-        case let .detectFailed(message):
-            return "识别文件格式失败：\(message)"
-        case let .convertFailed(message):
-            return "转换书籍失败：\(message)"
-        case let .openFailed(message):
-            return "打开书籍失败：\(message)"
-        case let .saveFailed(message):
-            return "保存书籍失败：\(message)"
-        case let .cleanupFailed(message):
-            return "清理导入文件失败：\(message)"
-        }
+        UserFacingError(importFailure: self).message
     }
 }
 

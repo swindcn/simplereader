@@ -33,6 +33,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private let service: any SpeechService
     private let preferencesStore: PreferencesStore
     private let announce: (String) -> Void
+    private let appStateRestorer: AppStateRestorer?
     private let persistenceDelay: TimeInterval
     private let audioSession: any AudioSessionActivating
     private var lastKnownLocator: Locator?
@@ -57,6 +58,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
         announce: @escaping (String) -> Void = { message in
             UIAccessibility.post(notification: .announcement, argument: message)
         },
+        appStateRestorer: AppStateRestorer? = nil,
         observesAudioSession: Bool = true,
         persistenceDelay: TimeInterval = 1,
         audioSession: any AudioSessionActivating = SystemAudioSessionActivator()
@@ -72,6 +74,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
         let preferencesStore = preferencesStore ?? PreferencesStore(defaults: defaults)
         self.preferencesStore = preferencesStore
         self.announce = announce
+        self.appStateRestorer = appStateRestorer
         self.persistenceDelay = persistenceDelay
         self.audioSession = audioSession
         lastKnownLocator = initialLocator
@@ -234,7 +237,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
             try await audioSession.activate()
         } catch {
             guard canCompleteInterruptionRecovery(generation: generation) else { return }
-            errorMessage = "无法恢复播放，请点击播放重试。"
+            errorMessage = UserFacingError.audioInterruptionRecoveryFailed.message
             invalidateInterruptionRecovery()
             return
         }
@@ -313,6 +316,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
             do {
                 let position = try readingPosition(from: locator)
                 try await repository.updatePosition(id: bookID, position: position)
+                appStateRestorer?.recordListening(bookID: bookID, position: position, wasPlaying: state.isPlaying)
             } catch {
                 if pendingLocator == nil {
                     pendingLocator = locator

@@ -37,6 +37,7 @@ final class ReaderViewModel: ObservableObject {
 
     private let repository: any BookRepository
     private let publicationService: PublicationService
+    private let appStateRestorer: AppStateRestorer?
     private let persistenceDelay: TimeInterval
     private var book: Book
     private var pendingPosition: ReadingPosition?
@@ -49,11 +50,13 @@ final class ReaderViewModel: ObservableObject {
         book: Book,
         repository: any BookRepository,
         publicationService: PublicationService = PublicationService(),
+        appStateRestorer: AppStateRestorer? = nil,
         persistenceDelay: TimeInterval = 1
     ) {
         self.book = book
         self.repository = repository
         self.publicationService = publicationService
+        self.appStateRestorer = appStateRestorer
         self.persistenceDelay = persistenceDelay
     }
 
@@ -67,7 +70,7 @@ final class ReaderViewModel: ObservableObject {
         do {
             publication = try await publicationService.open(at: book.canonicalFileURL)
         } catch {
-            errorMessage = Self.message(for: error)
+            errorMessage = UserFacingError.readerOpenFailure(error).message
             isLoading = false
             return
         }
@@ -184,6 +187,7 @@ final class ReaderViewModel: ObservableObject {
             do {
                 try await repository.updatePosition(id: book.id, position: position)
                 book.position = position
+                appStateRestorer?.recordReading(bookID: book.id, position: position)
             } catch {
                 if pendingPosition == nil {
                     pendingPosition = position
@@ -242,13 +246,5 @@ final class ReaderViewModel: ObservableObject {
         updateChapter(for: initialLocator?.href.string ?? publication.tableOfContents.first?.href)
         errorMessage = warning
         isLoading = false
-    }
-
-    private static func message(for error: Error) -> String {
-        if let localized = error as? LocalizedError,
-           let description = localized.errorDescription {
-            return description
-        }
-        return "无法打开这本书。"
     }
 }

@@ -94,7 +94,8 @@ private struct AppBootstrapView: View {
                 RootTabView(
                     repository: dependencies.repository,
                     importCoordinator: dependencies.importCoordinator,
-                    libraryRefresh: dependencies.libraryRefresh
+                    libraryRefresh: dependencies.libraryRefresh,
+                    appStateRestorer: dependencies.appStateRestorer
                 )
             } else if let startupError {
                 FatalStartupView(error: startupError)

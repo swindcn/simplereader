@@ -20,11 +20,16 @@ struct ReaderView: View {
         book: Book,
         repository: any BookRepository,
         preferencesStore: PreferencesStore? = nil,
+        appStateRestorer: AppStateRestorer? = nil,
         onListen: @escaping (OpenedPublication, Locator?) -> Void = { _, _ in },
         onSettings: @escaping () -> Void = {},
         listeningReturnLocator: Locator? = nil
     ) {
-        _viewModel = StateObject(wrappedValue: ReaderViewModel(book: book, repository: repository))
+        _viewModel = StateObject(wrappedValue: ReaderViewModel(
+            book: book,
+            repository: repository,
+            appStateRestorer: appStateRestorer
+        ))
         self.preferencesStore = preferencesStore ?? PreferencesStore()
         self.onListen = onListen
         self.onSettings = onSettings

@@ -373,7 +373,7 @@ final class ListeningViewModelTests: XCTestCase {
 
         XCTAssertEqual(audioSession.activationCount, 1)
         XCTAssertEqual(service.resumeCount, 0)
-        XCTAssertEqual(viewModel.errorMessage, "无法恢复播放，请点击播放重试。")
+        XCTAssertEqual(viewModel.errorMessage, UserFacingError.audioInterruptionRecoveryFailed.message)
     }
 
     func testStoppingWhileInterruptionActivationIsPendingDoesNotResume() async {
@@ -430,6 +430,32 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(update.position?.href, locator.href.string)
         XCTAssertEqual(update.position?.progression, 0.63)
         XCTAssertEqual(snapshot.fullSaveCount, 0)
+    }
+
+    func testSuccessfulProgressFlushRecordsRestorableListeningPositionWithoutAutoplay() async throws {
+        let repository = RecordingPositionRepository()
+        let locator = makeLocator(progression: 0.63)
+        let service = FakeSpeechService()
+        let book = Book.fixture(title: "听书恢复", author: "测试作者")
+        let restorer = AppStateRestorer(defaults: defaults)
+        let viewModel = makeViewModel(
+            service: service,
+            book: book,
+            repository: repository,
+            appStateRestorer: restorer
+        )
+        service.send(.playing(.init(text: "保存这一句", locator: locator)))
+
+        let didFlush = await viewModel.flushProgress()
+        XCTAssertTrue(didFlush)
+
+        guard case let .reopenListening(bookID, position, shouldAutoplay) = restorer.restoreLaunchState() else {
+            return XCTFail("Expected restorable listening state")
+        }
+        XCTAssertEqual(bookID, book.id)
+        XCTAssertEqual(position.href, locator.href.string)
+        XCTAssertEqual(position.progression, 0.63)
+        XCTAssertFalse(shouldAutoplay)
     }
 
     func testSavedLocatorRemainsAvailableForReaderAfterStoppedOrFailed() async {
@@ -597,7 +623,8 @@ final class ListeningViewModelTests: XCTestCase {
         announcements: @escaping (String) -> Void = { _ in },
         persistenceDelay: TimeInterval = 60,
         audioSession: any AudioSessionActivating = FakeAudioSessionActivator(),
-        preferencesStore: PreferencesStore? = nil
+        preferencesStore: PreferencesStore? = nil,
+        appStateRestorer: AppStateRestorer? = nil
     ) -> ListeningViewModel {
         ListeningViewModel(
             book: book,
@@ -608,6 +635,7 @@ final class ListeningViewModelTests: XCTestCase {
             defaults: defaults,
             preferencesStore: preferencesStore,
             announce: announcements,
+            appStateRestorer: appStateRestorer,
             observesAudioSession: false,
             persistenceDelay: persistenceDelay,
             audioSession: audioSession

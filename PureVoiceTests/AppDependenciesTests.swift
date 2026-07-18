@@ -54,6 +54,39 @@ final class AppDependenciesTests: XCTestCase {
         XCTAssertEqual(saveCount, 1)
     }
 
+    func testImportDependenciesPersistAndClearRestorableImportState() async throws {
+        let suiteName = "AppDependenciesTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let restorer = AppStateRestorer(defaults: defaults)
+        let source = temporaryDirectory.appendingPathComponent("restorable.txt")
+        try Data("正文".utf8).write(to: source)
+        let repository = RecordingAppRepository()
+        let converter = WaitingAppConverter()
+        let dependencies = await AppDependencies.make(
+            repository: repository,
+            fileStore: try BookFileStore(applicationSupportRoot: temporaryDirectory),
+            converter: converter,
+            publicationOpener: StaticAppPublicationOpener(),
+            appStateRestorer: restorer
+        )
+
+        let importTask = Task { try await dependencies.importCoordinator.importBook(from: source) }
+        await converter.waitUntilConversionStarts()
+
+        let interruptedPlan = restorer.restoreLaunchState()
+
+        await converter.finish()
+        try await importTask.value
+
+        guard case let .markImportFailed(_, originalFileURL, error) = interruptedPlan else {
+            return XCTFail("Expected an in-flight import to be restorable as a failed import")
+        }
+        XCTAssertEqual(originalFileURL.lastPathComponent, "original.txt")
+        XCTAssertEqual(error, .importInterrupted)
+        XCTAssertNil(restorer.restoreLaunchState())
+    }
+
     private static func inMemoryStoreDescription() -> NSPersistentStoreDescription {
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
@@ -89,6 +122,39 @@ private struct WritingAppConverter: CanonicalPublicationConverting {
         destinationURL: URL
     ) async throws {
         try Data("epub".utf8).write(to: destinationURL)
+    }
+}
+
+private actor WaitingAppConverter: CanonicalPublicationConverting {
+    private var startedContinuation: CheckedContinuation<Void, Never>?
+    private var finishContinuation: CheckedContinuation<Void, Never>?
+    private var didStart = false
+
+    func convert(
+        originalURL: URL,
+        format: BookFormat,
+        suggestedTitle: String,
+        destinationURL: URL
+    ) async throws {
+        didStart = true
+        startedContinuation?.resume()
+        startedContinuation = nil
+        await withCheckedContinuation { continuation in
+            finishContinuation = continuation
+        }
+        try Data("epub".utf8).write(to: destinationURL)
+    }
+
+    func waitUntilConversionStarts() async {
+        if didStart { return }
+        await withCheckedContinuation { continuation in
+            startedContinuation = continuation
+        }
+    }
+
+    func finish() {
+        finishContinuation?.resume()
+        finishContinuation = nil
     }
 }
 
