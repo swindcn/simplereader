@@ -13,6 +13,8 @@ import {
   UPLOAD_SESSION_TTL_SECONDS,
   UPLOAD_TTL_HOURS,
   validateUploadSize,
+  verificationPenaltySeconds,
+  WEB_TRANSFER_DAILY_UPLOAD_LIMIT,
 } from "../_shared/transfer.ts";
 import { webTransferPageHtml } from "../transfer-web/html.ts";
 
@@ -67,6 +69,28 @@ function expiresIn(seconds: number): string {
 
 function expiresInHours(hours: number): string {
   return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+}
+
+function secondsUntil(isoValue: string): number {
+  return Math.max(
+    1,
+    Math.ceil((new Date(isoValue).getTime() - Date.now()) / 1000),
+  );
+}
+
+function utcDayStartISO(): string {
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+  return now.toISOString();
+}
+
+async function requestClientKeyHash(request: Request): Promise<string> {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]
+    ?.trim();
+  const clientIP = request.headers.get("cf-connecting-ip") ?? forwarded ??
+    "unknown";
+  const userAgent = request.headers.get("user-agent") ?? "unknown";
+  return await sha256Hex(`${clientIP}|${userAgent}`);
 }
 
 function generateCode(): string {
@@ -130,9 +154,111 @@ async function createPairingCode(request: Request): Promise<Response> {
   return json({ code });
 }
 
+async function enforceResolveRateLimit(
+  supabase: ReturnType<typeof serviceClient>,
+  request: Request,
+): Promise<void> {
+  const clientKeyHash = await requestClientKeyHash(request);
+  const now = new Date();
+  const { data: existing, error: readError } = await supabase
+    .from("transfer_verification_limits")
+    .select(
+      "client_key_hash, minute_attempt_count, minute_window_started_at, hour_attempt_count, hour_window_started_at, penalty_until",
+    )
+    .eq("client_key_hash", clientKeyHash)
+    .maybeSingle();
+  if (readError) {
+    console.error("transfer_rate_limit_read_failed", readError);
+    throw jsonError(500, "rate_limit_failed", "验证服务暂不可用。");
+  }
+
+  if (
+    existing?.penalty_until &&
+    new Date(existing.penalty_until).getTime() > now.getTime()
+  ) {
+    const retryAfter = secondsUntil(existing.penalty_until);
+    throw jsonError(
+      429,
+      "verification_locked",
+      `验证过于频繁，请 ${retryAfter} 秒后再试。`,
+      { "retry-after": String(retryAfter) },
+    );
+  }
+
+  const minuteWindowStartedAt = existing?.minute_window_started_at
+    ? new Date(existing.minute_window_started_at)
+    : now;
+  const hourWindowStartedAt = existing?.hour_window_started_at
+    ? new Date(existing.hour_window_started_at)
+    : now;
+  const resetsMinute =
+    now.getTime() - minuteWindowStartedAt.getTime() > 60 * 1000;
+  const resetsHour =
+    now.getTime() - hourWindowStartedAt.getTime() > 60 * 60 * 1000;
+  const minuteAttemptCount = resetsMinute
+    ? 1
+    : Number(existing?.minute_attempt_count ?? 0) + 1;
+  const hourAttemptCount = resetsHour
+    ? 1
+    : Number(existing?.hour_attempt_count ?? 0) + 1;
+  const penaltySeconds = hourAttemptCount >= 5
+    ? verificationPenaltySeconds(5)
+    : verificationPenaltySeconds(minuteAttemptCount);
+  const penaltyUntil = penaltySeconds > 0
+    ? new Date(now.getTime() + penaltySeconds * 1000).toISOString()
+    : null;
+
+  const { error: writeError } = await supabase
+    .from("transfer_verification_limits")
+    .upsert({
+      client_key_hash: clientKeyHash,
+      minute_attempt_count: minuteAttemptCount,
+      minute_window_started_at: resetsMinute
+        ? now.toISOString()
+        : existing?.minute_window_started_at ?? now.toISOString(),
+      hour_attempt_count: hourAttemptCount,
+      hour_window_started_at: resetsHour
+        ? now.toISOString()
+        : existing?.hour_window_started_at ?? now.toISOString(),
+      last_attempt_at: now.toISOString(),
+      penalty_until: penaltyUntil,
+    });
+  if (writeError) {
+    console.error("transfer_rate_limit_write_failed", writeError);
+    throw jsonError(500, "rate_limit_failed", "验证服务暂不可用。");
+  }
+
+  if (penaltySeconds > 0) {
+    throw jsonError(
+      429,
+      "verification_locked",
+      `验证过于频繁，请 ${penaltySeconds} 秒后再试。`,
+      { "retry-after": String(penaltySeconds) },
+    );
+  }
+}
+
+async function countUploadsToday(
+  supabase: ReturnType<typeof serviceClient>,
+  deviceId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("transfer_uploads")
+    .select("id", { count: "exact", head: true })
+    .eq("device_id", deviceId)
+    .neq("status", "failed")
+    .gte("created_at", utcDayStartISO());
+  if (error) {
+    console.error("transfer_daily_count_failed", error);
+    throw jsonError(500, "daily_limit_failed", "读取今日上传额度失败。");
+  }
+  return count ?? 0;
+}
+
 async function resolveCode(request: Request): Promise<Response> {
   const { code } = await request.json();
   const supabase = serviceClient();
+  await enforceResolveRateLimit(supabase, request);
   const codeHash = await sha256Hex(String(code ?? "").trim());
   const { data, error } = await supabase
     .from("transfer_pairing_codes")
@@ -157,7 +283,16 @@ async function resolveCode(request: Request): Promise<Response> {
   if (sessionError) {
     return jsonError(500, "session_failed", "创建上传会话失败。");
   }
-  return json({ uploadSessionId: session.id, expiresAt: session.expires_at });
+  const uploadedToday = await countUploadsToday(supabase, data.device_id);
+  return json({
+    uploadSessionId: session.id,
+    expiresAt: session.expires_at,
+    dailyUploadLimit: WEB_TRANSFER_DAILY_UPLOAD_LIMIT,
+    dailyUploadRemaining: Math.max(
+      0,
+      WEB_TRANSFER_DAILY_UPLOAD_LIMIT - uploadedToday,
+    ),
+  });
 }
 
 async function webUpload(request: Request): Promise<Response> {
@@ -184,6 +319,15 @@ async function webUpload(request: Request): Promise<Response> {
   if (sessionError || !session || hasExpired(session.expires_at)) {
     return jsonError(401, "upload_session_expired", "上传会话已过期。");
   }
+  const uploadedToday = await countUploadsToday(supabase, session.device_id);
+  if (uploadedToday >= WEB_TRANSFER_DAILY_UPLOAD_LIMIT) {
+    return jsonError(
+      429,
+      "daily_upload_limit_reached",
+      "今天已上传 3 本书，请明天再试。",
+      { "retry-after": String(24 * 60 * 60) },
+    );
+  }
   const uploadId = crypto.randomUUID();
   const storagePath = `${session.device_id}/${uploadId}/${filename}`;
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -195,7 +339,20 @@ async function webUpload(request: Request): Promise<Response> {
       upsert: false,
     },
   );
-  if (storage.error) return jsonError(500, "upload_failed", "文件上传失败。");
+  if (storage.error) {
+    console.error("transfer_storage_upload_failed", {
+      statusCode: storage.error.statusCode,
+      message: storage.error.message,
+      filename,
+      byteSize: file.size,
+      contentType: file.type || "application/octet-stream",
+    });
+    return jsonError(
+      500,
+      "upload_failed",
+      "文件上传失败，请稍后重试或换用更小的文件。",
+    );
+  }
   const expiresAt = expiresInHours(UPLOAD_TTL_HOURS);
   const { error } = await supabase.from("transfer_uploads").insert({
     id: uploadId,

@@ -4,107 +4,1013 @@ export const webTransferPageHtml = String.raw`<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>简声网站传书</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: light;
-      --background: #f7f7fb;
+      --background: #f8f9fa;
       --surface: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-      --border: #cfd3dc;
-      --primary: #0a84ff;
-      --disabled: #9ca3af;
+      --surface-low: #f3f4f5;
+      --surface-high: #e7e8e9;
+      --text: #191c1d;
+      --muted: #464652;
+      --muted-soft: #646575;
+      --outline: #c7c5d4;
+      --outline-soft: rgba(119, 118, 131, 0.18);
+      --primary: #15157d;
+      --primary-hover: #2e3192;
+      --primary-soft: #e1e0ff;
+      --accent: #f19160;
+      --success: #127a39;
+      --success-bg: #dff6e8;
+      --warning: #8a3d08;
+      --warning-bg: #ffdbcb;
+      --error: #ba1a1a;
+      --error-bg: #ffdad6;
+      --shadow: 0 18px 42px -24px rgba(15, 23, 42, 0.35);
+      --focus: 0 0 0 4px rgba(79, 84, 180, 0.22);
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      font-family: "Atkinson Hyperlegible Next", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
       background: var(--background);
       color: var(--text);
     }
 
-    main {
-      max-width: 520px;
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      min-height: 48px;
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--outline-soft);
+      background: rgba(248, 249, 250, 0.82);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+    }
+
+    .topbar-inner,
+    .page,
+    .footer-inner {
+      width: min(100%, 1280px);
       margin: 0 auto;
-      padding: 32px 20px;
+      padding-inline: 48px;
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--primary);
+      font-family: Inter, sans-serif;
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 12px 24px -16px var(--primary);
+    }
+
+    .cloud-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #ffffff;
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .state-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #4ade80;
+      box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.18);
+    }
+
+    .page {
+      padding-block: 48px;
+    }
+
+    .hero {
+      max-width: 720px;
+      margin-bottom: 64px;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: Inter, sans-serif;
+      letter-spacing: 0;
     }
 
     h1 {
-      font-size: 32px;
-      line-height: 1.2;
-      margin: 0 0 24px;
+      margin: 0 0 18px;
+      color: var(--primary);
+      font-size: clamp(34px, 4vw, 54px);
+      line-height: 1.08;
+      font-weight: 800;
     }
 
-    form {
-      background: var(--surface);
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 19px;
+      line-height: 1.65;
+    }
+
+    .portal-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 0.96fr);
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 64px;
+    }
+
+    .panel,
+    .insight-card,
+    .activity-card {
+      border: 1px solid var(--outline-soft);
       border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 32px;
+    }
+
+    .step {
+      margin-bottom: 48px;
+    }
+
+    .step:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .step-number {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--primary);
+      color: #ffffff;
+      font-family: Inter, sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .step-title h2 {
+      margin: 0;
+      color: var(--primary);
+      font-size: 27px;
+      line-height: 1.2;
+    }
+
+    .verify-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 176px;
+      gap: 16px;
+      align-items: end;
     }
 
     label {
       display: block;
-      font-size: 18px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-family: Inter, sans-serif;
+      font-size: 14px;
       font-weight: 700;
-      margin: 18px 0 8px;
     }
 
-    label:first-child {
-      margin-top: 0;
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
     }
 
-    input,
-    button {
+    .label-row label {
+      margin-bottom: 0;
+    }
+
+    .inline-status {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+      text-align: right;
+    }
+
+    .inline-status.success {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .inline-status.error {
+      color: var(--error);
+      font-weight: 700;
+    }
+
+    input[type="text"] {
       width: 100%;
-      box-sizing: border-box;
+      min-height: 56px;
+      border: 2px solid var(--outline);
+      border-radius: 8px;
+      padding: 0 16px;
+      background: #ffffff;
+      color: var(--text);
       font-size: 20px;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary);
+      box-shadow: var(--focus);
+      outline: 0;
+    }
+
+    .primary-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
       min-height: 56px;
       border-radius: 8px;
-    }
-
-    input {
-      border: 1px solid var(--border);
-      padding: 12px;
-      background: white;
-    }
-
-    button {
-      border: 0;
       background: var(--primary);
-      color: white;
-      font-weight: 700;
-      margin-top: 20px;
+      color: #ffffff;
+      font-family: Inter, sans-serif;
+      font-size: 17px;
+      font-weight: 800;
+      transition: transform 160ms ease, background 160ms ease;
     }
 
-    button:disabled {
-      background: var(--disabled);
+    .primary-button:hover:not(:disabled) {
+      background: var(--primary-hover);
     }
 
-    #status {
-      margin-top: 20px;
-      font-size: 18px;
-      line-height: 1.5;
+    .primary-button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .primary-button:focus-visible,
+    .dropzone:focus-within,
+    .icon-button:focus-visible {
+      box-shadow: var(--focus);
+      outline: 0;
+    }
+
+    .hint {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 12px 0 0;
       color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .hint svg {
+      flex: 0 0 auto;
+      margin-top: 2px;
+      color: var(--primary);
+    }
+
+    .dropzone {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 228px;
+      border: 2px dashed var(--outline);
+      border-radius: 8px;
+      background: var(--surface-low);
+      color: var(--text);
+      text-align: center;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .dropzone.is-active,
+    .dropzone:hover {
+      border-color: var(--primary);
+      background: #f1f1ff;
+      transform: translateY(-1px);
+    }
+
+    .dropzone.is-disabled {
+      opacity: 0.62;
+      transform: none;
+    }
+
+    .file-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-input:disabled {
+      cursor: not-allowed;
+    }
+
+    .drop-content {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      padding: 28px;
+      pointer-events: none;
+    }
+
+    .upload-icon {
+      width: 52px;
+      height: 52px;
+      color: var(--primary);
+    }
+
+    .drop-heading {
+      margin: 0;
+      color: var(--text);
+      font-family: Inter, sans-serif;
+      font-size: 26px;
+      line-height: 1.2;
+      font-weight: 800;
+    }
+
+    .drop-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.5;
+    }
+
+    .drop-copy strong {
+      color: var(--primary);
+      font-family: Inter, sans-serif;
+    }
+
+    .status {
+      min-height: 30px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.5;
+    }
+
+    .status.success {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .status.error {
+      color: var(--error);
+      font-weight: 700;
+    }
+
+    .insight-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 100%;
+      padding: 32px;
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .insight-card h3 {
+      margin: 0 0 28px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .benefits {
+      display: grid;
+      gap: 26px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .benefit {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 14px;
+    }
+
+    .benefit svg {
+      color: var(--accent);
+    }
+
+    .benefit h4 {
+      margin: 0 0 6px;
+      font-size: 17px;
+      line-height: 1.3;
+    }
+
+    .benefit p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .security-note {
+      margin-top: 34px;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .device-ready {
+      padding: 16px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .device-ready small {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255, 255, 255, 0.72);
+      font-style: italic;
+    }
+
+    .device-ready strong {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: Inter, sans-serif;
+      font-size: 15px;
+    }
+
+    .privacy {
+      display: flex;
+      gap: 10px;
+      margin: 18px 0 0;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 13px;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .activity-card {
+      overflow: hidden;
+      margin-bottom: 48px;
+    }
+
+    .activity-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px;
+      border-bottom: 1px solid var(--outline-soft);
+    }
+
+    .activity-header h3 {
+      margin: 0;
+      color: var(--primary);
+      font-size: 26px;
+    }
+
+    .clear-button {
+      min-height: 44px;
+      border-radius: 8px;
+      padding: 0 14px;
+      background: var(--surface-low);
+      color: var(--primary);
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      padding: 16px 24px;
+      background: var(--surface-low);
+      color: var(--muted);
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    td {
+      padding: 18px 24px;
+      border-top: 1px solid rgba(199, 197, 212, 0.24);
+      color: var(--muted);
+      font-size: 15px;
+      vertical-align: middle;
+    }
+
+    .file-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 260px;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .file-cell svg {
+      flex: 0 0 auto;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0 12px;
+      font-family: Inter, sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .badge.success {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge.processing {
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+
+    .badge.error {
+      background: var(--error-bg);
+      color: var(--error);
+    }
+
+    .icon-button {
+      display: inline-grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--primary);
+    }
+
+    .empty-row {
+      padding: 28px 24px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .footer {
+      margin-top: auto;
+      border-top: 1px solid var(--outline-soft);
+      background: var(--surface-high);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 96px;
+      color: var(--muted);
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .footer-brand {
+      color: var(--primary);
+      font-size: 25px;
+      font-weight: 800;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 900px) {
+      .topbar-inner,
+      .page,
+      .footer-inner {
+        padding-inline: 20px;
+      }
+
+      .page {
+        padding-block: 34px;
+      }
+
+      .hero {
+        margin-bottom: 36px;
+      }
+
+      .portal-grid {
+        grid-template-columns: 1fr;
+        margin-bottom: 40px;
+      }
+
+      .panel,
+      .insight-card {
+        padding: 24px;
+      }
+
+      .verify-row {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-inner {
+        align-items: flex-start;
+        flex-direction: column;
+        padding-block: 28px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .cloud-state {
+        display: none;
+      }
+
+      .brand {
+        font-size: 22px;
+      }
+
+      .step-title h2 {
+        font-size: 24px;
+      }
+
+      .dropzone {
+        min-height: 210px;
+      }
+
+      .activity-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      th,
+      td {
+        padding-inline: 18px;
+      }
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>简声网站传书</h1>
-    <form id="form">
-      <label for="code">传书码</label>
-      <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required>
-      <label for="file">选择书籍文件</label>
-      <input id="file" name="file" type="file" accept=".txt,.epub,text/plain,application/epub+zip" required>
-      <button id="submit" type="submit">上传到 App</button>
-    </form>
-    <p id="status" role="status" aria-live="polite"></p>
+  <nav class="topbar" aria-label="主导航">
+    <div class="topbar-inner">
+      <a class="brand" href="./" aria-label="简声网站传书首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M6 4.75h8.25A3.75 3.75 0 0 1 18 8.5v10.75H8.5A2.5 2.5 0 0 1 6 16.75v-12Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M10 9h4M10 13h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        简声
+      </a>
+      <a class="cloud-state" href="#upload-panel">
+        <span class="state-dot" aria-hidden="true"></span>
+        云端传书就绪
+      </a>
+    </div>
+  </nav>
+
+  <main class="page">
+    <header class="hero">
+      <h1>把书传到家人的简声 App</h1>
+      <p>输入 App 中显示的 8 位传书码，选择 TXT 或 EPUB 文件，即可安全发送到对应设备。文件会在云端暂存 72 小时，App 接收后自动清理。</p>
+    </header>
+
+    <div class="portal-grid">
+      <form class="panel" id="upload-panel">
+        <section class="step" aria-labelledby="verify-title">
+          <div class="step-title">
+            <span class="step-number">1</span>
+            <h2 id="verify-title">验证设备</h2>
+          </div>
+
+          <div class="verify-row">
+            <div>
+              <div class="label-row">
+                <label for="code">传书码</label>
+                <span class="inline-status" id="verify-status" role="status" aria-live="polite"></span>
+              </div>
+              <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{8}" placeholder="例如 12345678" required>
+            </div>
+            <button class="primary-button" id="verify" type="button">验证设备</button>
+          </div>
+
+          <p class="hint">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 10.75v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 7.5h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            这个代码在简声 App 的“网站传书”页面中查看，长期有效。
+          </p>
+        </section>
+
+        <section class="step" aria-labelledby="upload-title">
+          <div class="step-title">
+            <span class="step-number">2</span>
+            <h2 id="upload-title">上传书籍</h2>
+          </div>
+
+          <div class="dropzone is-disabled" id="dropzone">
+            <input class="file-input" id="file" name="file" type="file" accept=".txt,.epub,text/plain,application/epub+zip" disabled required aria-describedby="drop-copy">
+            <div class="drop-content">
+              <svg class="upload-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                <path d="M15 39h18a5 5 0 0 0 5-5V17.5L28.5 8H15a5 5 0 0 0-5 5v21a5 5 0 0 0 5 5Z" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+                <path d="M28 8v10h10" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+                <path d="M24 32V21M19.5 25.5 24 21l4.5 4.5" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <p class="drop-heading" id="drop-heading">先验证设备</p>
+              <p class="drop-copy" id="drop-copy">验证后可拖入或选择 <strong>TXT</strong>、<strong>EPUB</strong> 文件，单个文件最大 250MB。</p>
+            </div>
+          </div>
+
+          <button class="primary-button" id="submit" type="submit" disabled>上传到 App</button>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </section>
+      </form>
+
+      <aside class="insight-card" aria-labelledby="why-title">
+        <div>
+          <h3 id="why-title">为什么用简声传书？</h3>
+          <ul class="benefits">
+            <li class="benefit">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m5 19 9.5-9.5M13 4l1.4 3.2L18 8.5l-3.2 1.4L13 13l-1.4-3.1L8.5 8.5l3.1-1.3L13 4ZM18.5 15l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8.8-1.7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div>
+                <h4>少操作</h4>
+                <p>家人只需输入传书码并选择文件，App 端刷新后即可接收。</p>
+              </div>
+            </li>
+            <li class="benefit">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+              <div>
+                <h4>适合小说文件</h4>
+                <p>当前支持 TXT 与 EPUB，文件大小限制和格式错误会在网页中明确提示。</p>
+              </div>
+            </li>
+            <li class="benefit">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3 19 6v5c0 4.7-2.8 8.2-7 10-4.2-1.8-7-5.3-7-10V6l7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <div>
+                <h4>隐私可控</h4>
+                <p>上传内容通过 HTTPS 传输，未接收文件会在 72 小时后清理。</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="security-note">
+          <div class="device-ready">
+            <small>服务状态</small>
+            <strong><span class="state-dot" aria-hidden="true"></span>Supabase 云端已连接</strong>
+          </div>
+          <p class="privacy">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7 10V8a5 5 0 0 1 10 0v2M6.5 10h11A1.5 1.5 0 0 1 19 11.5v7A1.5 1.5 0 0 1 17.5 20h-11A1.5 1.5 0 0 1 5 18.5v-7A1.5 1.5 0 0 1 6.5 10Z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            为了隐私，云端文件只用于 App 接收，不作为公开下载链接展示。
+          </p>
+        </div>
+      </aside>
+    </div>
+
+    <section class="activity-card" aria-labelledby="activity-title">
+      <div class="activity-header">
+        <h3 id="activity-title">最近上传记录</h3>
+        <button class="clear-button" id="clear-history" type="button">清空记录</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">文件名</th>
+              <th scope="col">状态</th>
+              <th scope="col">时间</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody id="activity-body">
+            <tr>
+              <td class="empty-row" colspan="4">暂无上传记录。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">简声</div>
+      <div>© 2026 简声网站传书</div>
+      <nav class="footer-links" aria-label="页脚链接">
+        <a href="#upload-panel">上传</a>
+        <a href="#activity-title">记录</a>
+        <a href="https://github.com/swindcn/simplereader">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+
   <script>
-    const form = document.getElementById("form");
+    const apiBase = "https://nzksxspznpkquybprqms.supabase.co/functions/v1/transfer";
+    const maxUploadBytes = 262144000;
+    const historyKey = "purevoice.webTransfer.history";
+    const verifyThrottleKey = "purevoice.webTransfer.verifyThrottle";
+    const verifyThrottleWindowMs = 60 * 1000;
+    const verifyThrottleLongWindowMs = 60 * 60 * 1000;
+
+    const form = document.getElementById("upload-panel");
+    const codeInput = document.getElementById("code");
+    const verifyButton = document.getElementById("verify");
+    const verifyStatus = document.getElementById("verify-status");
+    const fileInput = document.getElementById("file");
+    const submitButton = document.getElementById("submit");
+    const dropzone = document.getElementById("dropzone");
+    const dropHeading = document.getElementById("drop-heading");
     const status = document.getElementById("status");
-    const submit = document.getElementById("submit");
-    const functionBase = location.pathname.replace(/\/web\/?$/, "").replace(/\/$/, "");
+    const activityBody = document.getElementById("activity-body");
+    const clearHistoryButton = document.getElementById("clear-history");
+
+    let uploadSessionId = "";
+    let verifiedCode = "";
+    let dailyUploadRemaining = null;
+    let isVerifying = false;
+    let verifyLockTimer = 0;
+
+    function setStatus(message, kind = "") {
+      status.textContent = message;
+      status.className = kind ? \`status \${kind}\` : "status";
+    }
+
+    function setVerifyStatus(message, kind = "") {
+      verifyStatus.textContent = message;
+      verifyStatus.className = kind ? \`inline-status \${kind}\` : "inline-status";
+    }
+
+    function formatBytes(bytes) {
+      if (bytes >= 1024 * 1024) return \`\${(bytes / 1024 / 1024).toFixed(1)} MB\`;
+      if (bytes >= 1024) return \`\${(bytes / 1024).toFixed(1)} KB\`;
+      return \`\${bytes} B\`;
+    }
+
+    function getHistory() {
+      try {
+        return JSON.parse(localStorage.getItem(historyKey) || "[]");
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function saveHistory(items) {
+      localStorage.setItem(historyKey, JSON.stringify(items.slice(0, 8)));
+    }
+
+    function addHistory(item) {
+      const items = getHistory();
+      items.unshift(item);
+      saveHistory(items);
+      renderHistory();
+    }
+
+    function fileIcon(format) {
+      const isEpub = format === "epub";
+      return isEpub
+        ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H11v16H6.5A2.5 2.5 0 0 1 4 17.5v-11ZM13 4h4.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H13V4Z" stroke="currentColor" stroke-width="2"/></svg>'
+        : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2"/><path d="M14 3.5v5h4M8 13h8M8 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    }
+
+    function renderHistory() {
+      const items = getHistory();
+      if (items.length === 0) {
+        activityBody.innerHTML = '<tr><td class="empty-row" colspan="4">暂无上传记录。</td></tr>';
+        return;
+      }
+
+      activityBody.innerHTML = items.map((item) => {
+        const safeName = item.filename.replace(/[&<>"']/g, (value) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&#39;",
+        })[value]);
+        const badgeClass = item.status === "uploaded" ? "success" : item.status === "failed" ? "error" : "processing";
+        const badgeText = item.status === "uploaded" ? "已上传" : item.status === "failed" ? "失败" : "处理中";
+        return \`
+          <tr>
+            <td>
+              <div class="file-cell">\${fileIcon(item.format)}<span>\${safeName}</span></div>
+            </td>
+            <td><span class="badge \${badgeClass}">\${badgeText}</span></td>
+            <td>\${item.time}</td>
+            <td>
+              <button class="icon-button" type="button" aria-label="本条记录为网页本地记录，无需操作">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        \`;
+      }).join("");
+    }
 
     async function postJson(url, body) {
       const response = await fetch(url, {
@@ -113,32 +1019,286 @@ export const webTransferPageHtml = String.raw`<!doctype html>
         body: JSON.stringify(body),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message || "请求失败");
+      if (!response.ok) {
+        const error = new Error(payload.error?.message || "请求失败");
+        error.retryAfter = Number(response.headers.get("retry-after") || 0);
+        throw error;
+      }
       return payload;
     }
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      submit.disabled = true;
-      status.textContent = "正在验证传书码";
+    function validateFile(file) {
+      if (!file) throw new Error("请选择要上传的书籍文件。");
+      const name = file.name.toLowerCase();
+      if (!name.endsWith(".txt") && !name.endsWith(".epub")) {
+        throw new Error("当前网站传书只支持 TXT 和 EPUB。");
+      }
+      if (file.size > maxUploadBytes) {
+        throw new Error("文件超过 250 MB，无法上传。");
+      }
+    }
+
+    function enableUpload() {
+      if (dailyUploadRemaining !== null && dailyUploadRemaining <= 0) {
+        fileInput.disabled = true;
+        submitButton.disabled = true;
+        dropzone.classList.add("is-disabled");
+        dropHeading.textContent = "今日上传已达上限";
+        setStatus("今天已上传 3 本书，请明天再试。", "error");
+        return;
+      }
+      fileInput.disabled = false;
+      submitButton.disabled = false;
+      dropzone.classList.remove("is-disabled");
+      dropHeading.textContent = "把书拖到这里";
+    }
+
+    function getThrottleState() {
       try {
-        const code = document.getElementById("code").value.trim();
-        const file = document.getElementById("file").files[0];
-        const session = await postJson(\`\${functionBase}/web/resolve-code\`, { code });
-        const data = new FormData();
-        data.append("uploadSessionId", session.uploadSessionId);
-        data.append("file", file);
-        status.textContent = "正在上传文件";
-        const upload = await fetch(\`\${functionBase}/web/upload\`, { method: "POST", body: data });
-        const payload = await upload.json();
-        if (!upload.ok) throw new Error(payload.error?.message || "上传失败");
-        status.textContent = \`上传成功：\${payload.filename}。请回到简声 App 刷新接收。\`;
+        return JSON.parse(localStorage.getItem(verifyThrottleKey) || "{}");
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveThrottleState(state) {
+      localStorage.setItem(verifyThrottleKey, JSON.stringify(state));
+    }
+
+    function remainingLockSeconds() {
+      const lockedUntil = Number(getThrottleState().lockedUntil || 0);
+      return Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+    }
+
+    function applyVerifyLock(seconds) {
+      const state = getThrottleState();
+      saveThrottleState({ ...state, lockedUntil: Date.now() + seconds * 1000 });
+      updateVerifyLockUI();
+    }
+
+    function updateVerifyLockUI() {
+      window.clearTimeout(verifyLockTimer);
+      const seconds = remainingLockSeconds();
+      if (seconds <= 0) {
+        verifyButton.disabled = isVerifying;
+        verifyButton.textContent = "验证设备";
+        return;
+      }
+      verifyButton.disabled = true;
+      verifyButton.textContent = \`\${seconds} 秒后重试\`;
+      setVerifyStatus("验证过于频繁", "error");
+      verifyLockTimer = window.setTimeout(updateVerifyLockUI, 1000);
+    }
+
+    function recordVerifyAttempt() {
+      const now = Date.now();
+      const state = getThrottleState();
+      const previousWindowStartedAt = Number(state.windowStartedAt || 0);
+      const previousTotalWindowStartedAt = Number(state.totalWindowStartedAt || 0);
+      const resetsMinute = now - previousWindowStartedAt > verifyThrottleWindowMs;
+      const resetsTotal = now - previousTotalWindowStartedAt > verifyThrottleLongWindowMs;
+      const windowStartedAt = resetsMinute ? now : previousWindowStartedAt;
+      const totalWindowStartedAt = resetsTotal ? now : previousTotalWindowStartedAt;
+      const attemptsInMinute = resetsMinute ? 1 : Number(state.attemptsInMinute || 0) + 1;
+      const totalAttempts = resetsTotal ? 1 : Number(state.totalAttempts || 0) + 1;
+      saveThrottleState({
+        windowStartedAt,
+        attemptsInMinute,
+        totalWindowStartedAt,
+        totalAttempts,
+        lockedUntil: state.lockedUntil || 0,
+      });
+
+      if (totalAttempts >= 5) {
+        applyVerifyLock(60 * 60);
+        throw new Error("验证过于频繁，请 60 分钟后再试。");
+      }
+      if (attemptsInMinute >= 3) {
+        applyVerifyLock(60);
+        throw new Error("验证过于频繁，请 60 秒后再试。");
+      }
+    }
+
+    function resetVerifyAttempts() {
+      localStorage.removeItem(verifyThrottleKey);
+      updateVerifyLockUI();
+    }
+
+    async function verifyCode() {
+      if (isVerifying) return;
+      const lockedSeconds = remainingLockSeconds();
+      if (lockedSeconds > 0) {
+        throw new Error(\`验证过于频繁，请 \${lockedSeconds} 秒后再试。\`);
+      }
+      const code = codeInput.value.trim();
+      if (!/^[0-9]{8}$/.test(code)) {
+        throw new Error("请输入 8 位数字传书码。");
+      }
+      recordVerifyAttempt();
+      isVerifying = true;
+      verifyButton.disabled = true;
+      setVerifyStatus("正在验证");
+      const session = await postJson(\`\${apiBase}/web/resolve-code\`, { code });
+      uploadSessionId = session.uploadSessionId;
+      verifiedCode = code;
+      dailyUploadRemaining = Number(session.dailyUploadRemaining ?? 3);
+      enableUpload();
+      resetVerifyAttempts();
+      setVerifyStatus("验证成功", "success");
+      setStatus(
+        dailyUploadRemaining > 0
+          ? \`设备已验证，今日还可上传 \${dailyUploadRemaining} 本。\`
+          : "设备已验证，但今日上传已达上限。",
+        dailyUploadRemaining > 0 ? "success" : "error",
+      );
+      return session;
+    }
+
+    async function ensureVerified() {
+      if (uploadSessionId && verifiedCode === codeInput.value.trim()) return;
+      await verifyCode();
+    }
+
+    async function uploadSelectedFile() {
+      await ensureVerified();
+      const file = fileInput.files[0];
+      validateFile(file);
+
+      submitButton.disabled = true;
+      setStatus(\`正在上传 \${file.name}，大小 \${formatBytes(file.size)}\`);
+      const data = new FormData();
+      data.append("uploadSessionId", uploadSessionId);
+      data.append("file", file);
+
+      const response = await fetch(\`\${apiBase}/web/upload\`, {
+        method: "POST",
+        body: data,
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error?.message || "上传失败");
+
+      const format = payload.format || file.name.split(".").pop().toLowerCase();
+      addHistory({
+        filename: payload.filename || file.name,
+        format,
+        status: "uploaded",
+        time: new Intl.DateTimeFormat("zh-CN", {
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date()),
+      });
+      dailyUploadRemaining = Math.max(0, (dailyUploadRemaining ?? 1) - 1);
+      setStatus(\`上传成功：\${payload.filename}。请回到简声 App 刷新接收。\`, "success");
+      form.reset();
+      uploadSessionId = "";
+      verifiedCode = "";
+      setVerifyStatus("");
+      fileInput.disabled = true;
+      submitButton.disabled = true;
+      dropzone.classList.add("is-disabled");
+      dropHeading.textContent = "先验证设备";
+    }
+
+    verifyButton.addEventListener("click", async () => {
+      try {
+        await verifyCode();
       } catch (error) {
-        status.textContent = error.message;
+        if (error.retryAfter > 0) applyVerifyLock(error.retryAfter);
+        setVerifyStatus(error.message, "error");
       } finally {
-        submit.disabled = false;
+        isVerifying = false;
+        updateVerifyLockUI();
       }
     });
+
+    codeInput.addEventListener("input", () => {
+      if (codeInput.value.trim() !== verifiedCode) {
+        uploadSessionId = "";
+        verifiedCode = "";
+        dailyUploadRemaining = null;
+        fileInput.disabled = true;
+        submitButton.disabled = true;
+        dropzone.classList.add("is-disabled");
+        dropHeading.textContent = "先验证设备";
+        setVerifyStatus("");
+      }
+    });
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      try {
+        validateFile(file);
+        dropHeading.textContent = file.name;
+        setStatus(\`已选择 \${file.name}，大小 \${formatBytes(file.size)}。\`);
+      } catch (error) {
+        setStatus(error.message, "error");
+      }
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        if (!fileInput.disabled) dropzone.classList.add("is-active");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove("is-active");
+      });
+    });
+
+    dropzone.addEventListener("drop", (event) => {
+      if (fileInput.disabled) {
+        setStatus("请先验证设备。", "error");
+        return;
+      }
+      const file = event.dataTransfer.files[0];
+      if (!file) return;
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      fileInput.files = transfer.files;
+      fileInput.dispatchEvent(new Event("change"));
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await uploadSelectedFile();
+      } catch (error) {
+        const file = fileInput.files[0];
+        if (file) {
+          addHistory({
+            filename: file.name,
+            format: file.name.split(".").pop().toLowerCase(),
+            status: "failed",
+            time: new Intl.DateTimeFormat("zh-CN", {
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date()),
+          });
+        }
+        setStatus(error.message, "error");
+      } finally {
+        submitButton.disabled = !uploadSessionId;
+        isVerifying = false;
+        updateVerifyLockUI();
+      }
+    });
+
+    clearHistoryButton.addEventListener("click", () => {
+      localStorage.removeItem(historyKey);
+      renderHistory();
+    });
+
+    renderHistory();
+    updateVerifyLockUI();
   </script>
 </body>
 </html>

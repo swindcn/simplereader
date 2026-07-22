@@ -241,6 +241,36 @@
       font-weight: 700;
     }
 
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .label-row label {
+      margin-bottom: 0;
+    }
+
+    .inline-status {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+      text-align: right;
+    }
+
+    .inline-status.success {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .inline-status.error {
+      color: var(--error);
+      font-weight: 700;
+    }
+
     input[type="text"] {
       width: 100%;
       min-height: 56px;
@@ -748,7 +778,10 @@
 
           <div class="verify-row">
             <div>
-              <label for="code">传书码</label>
+              <div class="label-row">
+                <label for="code">传书码</label>
+                <span class="inline-status" id="verify-status" role="status" aria-live="polite"></span>
+              </div>
               <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{8}" placeholder="例如 12345678" required>
             </div>
             <button class="primary-button" id="verify" type="button">验证设备</button>
@@ -879,10 +912,14 @@
     const apiBase = "https://nzksxspznpkquybprqms.supabase.co/functions/v1/transfer";
     const maxUploadBytes = 262144000;
     const historyKey = "purevoice.webTransfer.history";
+    const verifyThrottleKey = "purevoice.webTransfer.verifyThrottle";
+    const verifyThrottleWindowMs = 60 * 1000;
+    const verifyThrottleLongWindowMs = 60 * 60 * 1000;
 
     const form = document.getElementById("upload-panel");
     const codeInput = document.getElementById("code");
     const verifyButton = document.getElementById("verify");
+    const verifyStatus = document.getElementById("verify-status");
     const fileInput = document.getElementById("file");
     const submitButton = document.getElementById("submit");
     const dropzone = document.getElementById("dropzone");
@@ -893,10 +930,18 @@
 
     let uploadSessionId = "";
     let verifiedCode = "";
+    let dailyUploadRemaining = null;
+    let isVerifying = false;
+    let verifyLockTimer = 0;
 
     function setStatus(message, kind = "") {
       status.textContent = message;
       status.className = kind ? `status ${kind}` : "status";
+    }
+
+    function setVerifyStatus(message, kind = "") {
+      verifyStatus.textContent = message;
+      verifyStatus.className = kind ? `inline-status ${kind}` : "inline-status";
     }
 
     function formatBytes(bytes) {
@@ -974,7 +1019,11 @@
         body: JSON.stringify(body),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message || "请求失败");
+      if (!response.ok) {
+        const error = new Error(payload.error?.message || "请求失败");
+        error.retryAfter = Number(response.headers.get("retry-after") || 0);
+        throw error;
+      }
       return payload;
     }
 
@@ -990,24 +1039,118 @@
     }
 
     function enableUpload() {
+      if (dailyUploadRemaining !== null && dailyUploadRemaining <= 0) {
+        fileInput.disabled = true;
+        submitButton.disabled = true;
+        dropzone.classList.add("is-disabled");
+        dropHeading.textContent = "今日上传已达上限";
+        setStatus("今天已上传 3 本书，请明天再试。", "error");
+        return;
+      }
       fileInput.disabled = false;
       submitButton.disabled = false;
       dropzone.classList.remove("is-disabled");
       dropHeading.textContent = "把书拖到这里";
     }
 
+    function getThrottleState() {
+      try {
+        return JSON.parse(localStorage.getItem(verifyThrottleKey) || "{}");
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveThrottleState(state) {
+      localStorage.setItem(verifyThrottleKey, JSON.stringify(state));
+    }
+
+    function remainingLockSeconds() {
+      const lockedUntil = Number(getThrottleState().lockedUntil || 0);
+      return Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
+    }
+
+    function applyVerifyLock(seconds) {
+      const state = getThrottleState();
+      saveThrottleState({ ...state, lockedUntil: Date.now() + seconds * 1000 });
+      updateVerifyLockUI();
+    }
+
+    function updateVerifyLockUI() {
+      window.clearTimeout(verifyLockTimer);
+      const seconds = remainingLockSeconds();
+      if (seconds <= 0) {
+        verifyButton.disabled = isVerifying;
+        verifyButton.textContent = "验证设备";
+        return;
+      }
+      verifyButton.disabled = true;
+      verifyButton.textContent = `${seconds} 秒后重试`;
+      setVerifyStatus("验证过于频繁", "error");
+      verifyLockTimer = window.setTimeout(updateVerifyLockUI, 1000);
+    }
+
+    function recordVerifyAttempt() {
+      const now = Date.now();
+      const state = getThrottleState();
+      const previousWindowStartedAt = Number(state.windowStartedAt || 0);
+      const previousTotalWindowStartedAt = Number(state.totalWindowStartedAt || 0);
+      const resetsMinute = now - previousWindowStartedAt > verifyThrottleWindowMs;
+      const resetsTotal = now - previousTotalWindowStartedAt > verifyThrottleLongWindowMs;
+      const windowStartedAt = resetsMinute ? now : previousWindowStartedAt;
+      const totalWindowStartedAt = resetsTotal ? now : previousTotalWindowStartedAt;
+      const attemptsInMinute = resetsMinute ? 1 : Number(state.attemptsInMinute || 0) + 1;
+      const totalAttempts = resetsTotal ? 1 : Number(state.totalAttempts || 0) + 1;
+      saveThrottleState({
+        windowStartedAt,
+        attemptsInMinute,
+        totalWindowStartedAt,
+        totalAttempts,
+        lockedUntil: state.lockedUntil || 0,
+      });
+
+      if (totalAttempts >= 5) {
+        applyVerifyLock(60 * 60);
+        throw new Error("验证过于频繁，请 60 分钟后再试。");
+      }
+      if (attemptsInMinute >= 3) {
+        applyVerifyLock(60);
+        throw new Error("验证过于频繁，请 60 秒后再试。");
+      }
+    }
+
+    function resetVerifyAttempts() {
+      localStorage.removeItem(verifyThrottleKey);
+      updateVerifyLockUI();
+    }
+
     async function verifyCode() {
+      if (isVerifying) return;
+      const lockedSeconds = remainingLockSeconds();
+      if (lockedSeconds > 0) {
+        throw new Error(`验证过于频繁，请 ${lockedSeconds} 秒后再试。`);
+      }
       const code = codeInput.value.trim();
       if (!/^[0-9]{8}$/.test(code)) {
         throw new Error("请输入 8 位数字传书码。");
       }
+      recordVerifyAttempt();
+      isVerifying = true;
       verifyButton.disabled = true;
-      setStatus("正在验证设备");
+      setVerifyStatus("正在验证");
       const session = await postJson(`${apiBase}/web/resolve-code`, { code });
       uploadSessionId = session.uploadSessionId;
       verifiedCode = code;
+      dailyUploadRemaining = Number(session.dailyUploadRemaining ?? 3);
       enableUpload();
-      setStatus("设备已验证，请选择或拖入书籍文件。", "success");
+      resetVerifyAttempts();
+      setVerifyStatus("验证成功", "success");
+      setStatus(
+        dailyUploadRemaining > 0
+          ? `设备已验证，今日还可上传 ${dailyUploadRemaining} 本。`
+          : "设备已验证，但今日上传已达上限。",
+        dailyUploadRemaining > 0 ? "success" : "error",
+      );
       return session;
     }
 
@@ -1046,10 +1189,12 @@
           minute: "2-digit",
         }).format(new Date()),
       });
+      dailyUploadRemaining = Math.max(0, (dailyUploadRemaining ?? 1) - 1);
       setStatus(`上传成功：${payload.filename}。请回到简声 App 刷新接收。`, "success");
       form.reset();
       uploadSessionId = "";
       verifiedCode = "";
+      setVerifyStatus("");
       fileInput.disabled = true;
       submitButton.disabled = true;
       dropzone.classList.add("is-disabled");
@@ -1060,9 +1205,11 @@
       try {
         await verifyCode();
       } catch (error) {
-        setStatus(error.message, "error");
+        if (error.retryAfter > 0) applyVerifyLock(error.retryAfter);
+        setVerifyStatus(error.message, "error");
       } finally {
-        verifyButton.disabled = false;
+        isVerifying = false;
+        updateVerifyLockUI();
       }
     });
 
@@ -1070,10 +1217,12 @@
       if (codeInput.value.trim() !== verifiedCode) {
         uploadSessionId = "";
         verifiedCode = "";
+        dailyUploadRemaining = null;
         fileInput.disabled = true;
         submitButton.disabled = true;
         dropzone.classList.add("is-disabled");
         dropHeading.textContent = "先验证设备";
+        setVerifyStatus("");
       }
     });
 
@@ -1138,7 +1287,8 @@
         setStatus(error.message, "error");
       } finally {
         submitButton.disabled = !uploadSessionId;
-        verifyButton.disabled = false;
+        isVerifying = false;
+        updateVerifyLockUI();
       }
     });
 
@@ -1148,6 +1298,7 @@
     });
 
     renderHistory();
+    updateVerifyLockUI();
   </script>
 </body>
 </html>

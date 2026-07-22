@@ -5,6 +5,8 @@ import {
   normalizeFilename,
   parseDeviceAuth,
   validateUploadSize,
+  verificationPenaltySeconds,
+  WEB_TRANSFER_DAILY_UPLOAD_LIMIT,
 } from "../_shared/transfer.ts";
 import { routeName } from "./index.ts";
 
@@ -77,6 +79,22 @@ Deno.test("jsonError returns stable payload", async () => {
   const response = jsonError(400, "bad_code", "传书码无效");
   const body = await response.json();
   if (body.error.code !== "bad_code") throw new Error(JSON.stringify(body));
+});
+
+Deno.test("verificationPenaltySeconds escalates repeated verification attempts", () => {
+  if (verificationPenaltySeconds(1) !== 0) throw new Error("first attempt");
+  if (verificationPenaltySeconds(2) !== 0) throw new Error("second attempt");
+  if (verificationPenaltySeconds(3) !== 60) throw new Error("third attempt");
+  if (verificationPenaltySeconds(4) !== 60) throw new Error("fourth attempt");
+  if (verificationPenaltySeconds(5) !== 60 * 60) {
+    throw new Error("fifth attempt");
+  }
+});
+
+Deno.test("daily upload limit defaults to three books", () => {
+  if (WEB_TRANSFER_DAILY_UPLOAD_LIMIT !== 3) {
+    throw new Error(String(WEB_TRANSFER_DAILY_UPLOAD_LIMIT));
+  }
 });
 
 Deno.test("routeName maps transfer endpoints", () => {

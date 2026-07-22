@@ -8,6 +8,7 @@ export const MAX_UPLOAD_BYTES = 262_144_000;
 export const UPLOAD_SESSION_TTL_SECONDS = 30 * 60;
 export const UPLOAD_TTL_HOURS = 72;
 export const DOWNLOAD_URL_TTL_SECONDS = 300;
+export const WEB_TRANSFER_DAILY_UPLOAD_LIMIT = 3;
 
 export type TransferFormat = "txt" | "epub";
 
@@ -33,8 +34,13 @@ export function jsonError(
   status: number,
   code: string,
   message: string,
+  headers: HeadersInit = {},
 ): Response {
-  return json({ error: { code, message } }, status);
+  const response = json({ error: { code, message } }, status);
+  Object.entries(headers).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
 }
 
 export function optionsResponse(): Response {
@@ -72,6 +78,12 @@ export function validateUploadSize(byteSize: number): void {
   if (byteSize > MAX_UPLOAD_BYTES) {
     throw jsonError(413, "file_too_large", "文件超过 250 MB，无法上传。");
   }
+}
+
+export function verificationPenaltySeconds(attemptCount: number): number {
+  if (attemptCount >= 5) return 60 * 60;
+  if (attemptCount >= 3) return 60;
+  return 0;
 }
 
 export function hasExpired(isoValue: string | null | undefined): boolean {
