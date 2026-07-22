@@ -56,10 +56,14 @@ struct AppDependencies {
         let transferBaseURLString = ProcessInfo.processInfo.environment["PUREVOICE_WEB_TRANSFER_BASE_URL"] ?? ""
         let transferBaseURL = URL(string: transferBaseURLString)
             ?? URL(string: "https://nzksxspznpkquybprqms.supabase.co/functions/v1/transfer")!
+        let transferPageURLString = ProcessInfo.processInfo.environment["PUREVOICE_WEB_TRANSFER_PAGE_URL"] ?? ""
+        let transferPageURL = URL(string: transferPageURLString)
+            ?? URL(string: "https://swindcn.github.io/simplereader/")!
         let webTransferViewModel = WebTransferViewModel(
             identityStore: KeychainTransferIdentityStore(),
             client: URLSessionWebTransferClient(baseURL: transferBaseURL),
-            importCoordinator: ImportCoordinatorTransferImporter(coordinator: coordinator)
+            importCoordinator: ImportCoordinatorTransferImporter(coordinator: coordinator),
+            webTransferPageURL: transferPageURL
         )
         return AppDependencies(
             repository: repository,

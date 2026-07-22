@@ -13,6 +13,10 @@ protocol TransferIdentityStoring: Sendable {
 final class InMemoryTransferIdentityStore: TransferIdentityStoring, @unchecked Sendable {
     private var stored: TransferIdentity?
 
+    init(stored: TransferIdentity? = nil) {
+        self.stored = stored
+    }
+
     func identity() throws -> TransferIdentity {
         if let stored { return stored }
         let identity = TransferIdentity.generate()

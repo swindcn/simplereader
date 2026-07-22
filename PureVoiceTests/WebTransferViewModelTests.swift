@@ -5,15 +5,19 @@ import XCTest
 final class WebTransferViewModelTests: XCTestCase {
     func testGenerateCodeRegistersDeviceAndPublishesCode() async throws {
         let client = RecordingWebTransferClient()
+        let identity = TransferIdentity(deviceID: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!, deviceSecret: "secret")
         let viewModel = WebTransferViewModel(
-            identityStore: InMemoryTransferIdentityStore(),
+            identityStore: InMemoryTransferIdentityStore(stored: identity),
             client: client,
-            importCoordinator: nil
+            importCoordinator: nil,
+            webTransferPageURL: URL(string: "https://swindcn.github.io/simplereader/")!
         )
 
         await viewModel.generateCode()
 
         XCTAssertEqual(viewModel.pairingCode?.code, "12345678")
+        XCTAssertEqual(viewModel.deviceTransferID, "11111111-2222-3333-4444-555555555555")
+        XCTAssertEqual(viewModel.webTransferPageURL.absoluteString, "https://swindcn.github.io/simplereader/")
         let counts = await client.counts()
         XCTAssertEqual(counts.register, 1)
         XCTAssertEqual(counts.createCode, 1)

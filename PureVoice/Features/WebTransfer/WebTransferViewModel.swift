@@ -22,7 +22,9 @@ final class WebTransferViewModel: ObservableObject {
     @Published private(set) var pairingCode: TransferPairingCode?
     @Published private(set) var inbox: [TransferInboxItem] = []
     @Published private(set) var isBusy = false
+    @Published private(set) var deviceTransferID = "不可用"
     @Published var error: UserFacingError?
+    let webTransferPageURL: URL
 
     private let identityStore: any TransferIdentityStoring
     private let client: any WebTransferClient
@@ -31,11 +33,14 @@ final class WebTransferViewModel: ObservableObject {
     init(
         identityStore: any TransferIdentityStoring,
         client: any WebTransferClient,
-        importCoordinator: (any TransferImporting)?
+        importCoordinator: (any TransferImporting)?,
+        webTransferPageURL: URL = URL(string: "https://swindcn.github.io/simplereader/")!
     ) {
         self.identityStore = identityStore
         self.client = client
         self.importCoordinator = importCoordinator
+        self.webTransferPageURL = webTransferPageURL
+        self.deviceTransferID = (try? identityStore.identity().deviceID.uuidString.uppercased()) ?? "不可用"
     }
 
     func generateCode() async {
