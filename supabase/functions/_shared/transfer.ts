@@ -71,6 +71,14 @@ export function normalizeFilename(filename: string): string {
   return cleaned.length > 0 ? cleaned.slice(0, 180) : "book";
 }
 
+export function storagePathForUpload(
+  deviceId: string,
+  uploadId: string,
+  format: TransferFormat,
+): string {
+  return `${deviceId}/${uploadId}/book.${format}`;
+}
+
 export function validateUploadSize(byteSize: number): void {
   if (!Number.isFinite(byteSize) || byteSize <= 0) {
     throw jsonError(400, "empty_file", "请选择有效的书籍文件。");

@@ -10,6 +10,7 @@ import {
   parseDeviceAuth,
   serviceClient,
   sha256Hex,
+  storagePathForUpload,
   UPLOAD_SESSION_TTL_SECONDS,
   UPLOAD_TTL_HOURS,
   validateUploadSize,
@@ -329,7 +330,7 @@ async function webUpload(request: Request): Promise<Response> {
     );
   }
   const uploadId = crypto.randomUUID();
-  const storagePath = `${session.device_id}/${uploadId}/${filename}`;
+  const storagePath = storagePathForUpload(session.device_id, uploadId, format);
   const bytes = new Uint8Array(await file.arrayBuffer());
   const storage = await supabase.storage.from("web-transfer").upload(
     storagePath,

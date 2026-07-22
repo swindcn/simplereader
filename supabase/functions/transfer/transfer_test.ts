@@ -4,6 +4,7 @@ import {
   jsonError,
   normalizeFilename,
   parseDeviceAuth,
+  storagePathForUpload,
   validateUploadSize,
   verificationPenaltySeconds,
   WEB_TRANSFER_DAILY_UPLOAD_LIMIT,
@@ -38,6 +39,19 @@ Deno.test("detectTransferFormat rejects mobi", () => {
 Deno.test("normalizeFilename strips path and control characters", () => {
   const normalized = normalizeFilename("../bad\u0000name.txt");
   if (normalized !== "badname.txt") throw new Error(normalized);
+});
+
+Deno.test("storagePathForUpload avoids user-provided filename characters", () => {
+  const path = storagePathForUpload(
+    "a58253ff-28a4-4a50-82d0-f70b6b40b8f9",
+    "8dbbbab3-c8f0-4577-aecb-97d9080a1302",
+    "epub",
+  );
+  if (
+    path !==
+      "a58253ff-28a4-4a50-82d0-f70b6b40b8f9/8dbbbab3-c8f0-4577-aecb-97d9080a1302/book.epub"
+  ) throw new Error(path);
+  if (/[^A-Za-z0-9/_\-.]/.test(path)) throw new Error(path);
 });
 
 Deno.test("validateUploadSize rejects oversized files", () => {
