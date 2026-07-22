@@ -74,7 +74,7 @@ final class WebTransferViewModel: ObservableObject {
             error = UserFacingError(transferIdentityError: identityError)
             return
         } catch {
-            error = UserFacingError(
+            self.error = UserFacingError(
                 title: "传书码不可用",
                 message: "无法读取本机传书码。",
                 recoveryAction: "稍后重试"
