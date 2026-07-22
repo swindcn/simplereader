@@ -4,6 +4,7 @@ import UIKit
 struct WebTransferView: View {
     @ObservedObject var viewModel: WebTransferViewModel
     @State private var clipboardMessage = ""
+    private let transferFieldBackground = Color(red: 0.937, green: 0.937, blue: 0.937)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -58,16 +59,19 @@ struct WebTransferView: View {
                             .minimumScaleFactor(0.55)
                             .lineLimit(1)
                             .accessibilityLabel("传书码 \(pairingCode.code.map(String.init).joined(separator: " "))")
-                        Spacer(minLength: 8)
+                        Spacer(minLength: 16)
                         iconCopyButton(value: pairingCode.code, message: "传书码已复制", label: "复制传书码")
                     }
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 74)
-                    .background(Color(.secondarySystemGroupedBackground))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity, minHeight: 82, alignment: .center)
+                    .background(transferFieldBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 } else {
                     ProgressView("正在生成传书码")
-                        .frame(maxWidth: .infinity, minHeight: 74)
+                        .frame(maxWidth: .infinity, minHeight: 82)
+                        .background(transferFieldBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
 
@@ -80,12 +84,13 @@ struct WebTransferView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.52)
                         .accessibilityLabel("传书网址 \(viewModel.webTransferPageURL.absoluteString)")
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 16)
                     iconCopyButton(value: viewModel.webTransferPageURL.absoluteString, message: "传书网址已复制", label: "复制传书网址")
                 }
                 .padding(.horizontal, 12)
-                .frame(minHeight: 74)
-                .background(Color(.secondarySystemGroupedBackground))
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity, minHeight: 82, alignment: .center)
+                .background(transferFieldBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
@@ -102,8 +107,9 @@ struct WebTransferView: View {
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 34, height: 34)
+                .frame(width: 24, height: 24)
                 .foregroundStyle(DesignTokens.onSurface)
+                .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

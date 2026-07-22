@@ -4,6 +4,7 @@ struct ImportView: View {
     @ObservedObject var coordinator: ImportCoordinator
     @ObservedObject var webTransferViewModel: WebTransferViewModel
     @State private var isPickingDocument = false
+    private let importFieldBackground = Color(red: 0.937, green: 0.937, blue: 0.937)
 
     var body: some View {
         NavigationView {
@@ -56,7 +57,7 @@ struct ImportView: View {
                 }
                 .foregroundStyle(isBusy ? .secondary : DesignTokens.primary)
                 .frame(maxWidth: .infinity, minHeight: 132)
-                .background(Color(.systemBackground))
+                .background(importFieldBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(.plain)
