@@ -153,6 +153,7 @@ struct LibraryView: View {
         let onOpen: () -> Void
         let onRename: () -> Void
         let onDelete: () -> Void
+        @ScaledMetric(relativeTo: .headline) private var titleReserveHeight: CGFloat = 46
 
         var body: some View {
             Button(action: onOpen) {
@@ -164,6 +165,7 @@ struct LibraryView: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: titleReserveHeight, alignment: .topLeading)
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(book.author)
                             .font(.subheadline)
@@ -247,24 +249,19 @@ struct LibraryView: View {
 
     private var brandTitle: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Image("BrandLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .accessibilityHidden(true)
-                Text("简声标志")
-                    .font(.caption2)
-                    .foregroundStyle(.clear)
-                    .frame(width: 1, height: 1)
-                    .accessibilityIdentifier("library.brandLogo")
-            }
-            .frame(width: 42, height: 42)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("简声")
-                    .font(.title2.bold())
-                    .foregroundStyle(DesignTokens.onSurface)
-            }
+            Image("BrandLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 30, height: 30)
+                .accessibilityHidden(true)
+                .accessibilityIdentifier("library.brandLogo")
+            Text("简声")
+                .font(.title2.bold())
+                .foregroundStyle(DesignTokens.onSurface)
         }
+        .frame(width: 128, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("简声")
     }
 
     private var emptyState: some View {

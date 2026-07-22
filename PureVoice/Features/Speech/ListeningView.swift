@@ -3,6 +3,7 @@ import SwiftUI
 struct ListeningView: View {
     @ObservedObject var viewModel: ListeningViewModel
     let onBack: () -> Void
+    @State private var isSelectingVoice = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,6 +24,17 @@ struct ListeningView: View {
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .onAppear { viewModel.ensureStarted() }
         .onDisappear { Task { await viewModel.flushProgress() } }
+        .confirmationDialog("选择声音", isPresented: $isSelectingVoice, titleVisibility: .visible) {
+            Button("系统默认") {
+                viewModel.selectVoice(identifier: nil, announces: false)
+            }
+            ForEach(viewModel.voices) { voice in
+                Button(voice.displayName) {
+                    viewModel.selectVoice(identifier: voice.identifier, announces: false)
+                }
+            }
+            Button("取消", role: .cancel) {}
+        }
         .alert("Listening 提示", isPresented: errorPresented) {
             Button("重试") {
                 viewModel.dismissError()
@@ -174,27 +186,26 @@ struct ListeningView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("声音")
-                    Spacer()
-                    Text(selectedVoiceName)
-                        .foregroundStyle(.secondary)
-                }
-                Picker(
-                    "声音",
-                    selection: Binding(
-                        get: { viewModel.selectedVoiceIdentifier },
-                        set: { viewModel.selectVoice(identifier: $0, announces: false) }
-                    )
-                ) {
-                    Text("系统默认").tag(String?.none)
-                    ForEach(viewModel.voices) { voice in
-                        Text(voice.displayName).tag(Optional(voice.identifier))
+                Button {
+                    isSelectingVoice = true
+                } label: {
+                    HStack {
+                        Text("声音")
+                            .foregroundStyle(DesignTokens.onSurface)
+                        Spacer()
+                        Text(selectedVoiceName)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
                 }
-                .pickerStyle(.wheel)
-                .frame(height: 160)
-                .clipped()
+                .buttonStyle(.plain)
+                .accessibilityLabel("声音")
                 .accessibilityValue(selectedVoiceName)
                 .accessibilityIdentifier("listening.voice")
             }

@@ -5,6 +5,7 @@ struct ImportView: View {
     @ObservedObject var webTransferViewModel: WebTransferViewModel
     @State private var isPickingDocument = false
     private let importFieldBackground = Color(red: 0.937, green: 0.937, blue: 0.937)
+    private let localImportTextColor = Color(red: 0.318, green: 0.318, blue: 0.318)
 
     var body: some View {
         NavigationView {
@@ -50,12 +51,15 @@ struct ImportView: View {
                 isPickingDocument = true
             } label: {
                 VStack(spacing: 10) {
-                    Image(systemName: "icloud.and.arrow.up.fill")
-                        .font(.system(size: 48))
+                    Image("LocalImport")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 54, height: 54)
                     Text("从本机选择")
                         .font(.title3.weight(.bold))
                 }
-                .foregroundStyle(isBusy ? .secondary : DesignTokens.primary)
+                .foregroundStyle(isBusy ? .secondary : localImportTextColor)
                 .frame(maxWidth: .infinity, minHeight: 132)
                 .background(importFieldBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))

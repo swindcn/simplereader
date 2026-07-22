@@ -24,14 +24,16 @@ final class ListeningAccessibilityUITests: XCTestCase {
         rate.adjust(toNormalizedSliderPosition: 0.5)
         XCTAssertFalse(rate.value as? String == nil)
         app.swipeUp()
-        let voice = app.pickerWheels.firstMatch
+        XCTAssertFalse(app.pickerWheels.firstMatch.exists)
+        let voice = app.buttons["listening.voice"]
         XCTAssertTrue(voice.waitForExistence(timeout: 3))
+        XCTAssertEqual(voice.label, "声音")
         XCTAssertEqual(voice.value as? String, "系统默认")
-        let initialVoice = voice.value as? String
-        let targetVoice = initialVoice == "小语，女声" ? "小宇，男声" : "小语，女声"
-        voice.adjust(toPickerWheelValue: targetVoice)
-        XCTAssertEqual(voice.value as? String, targetVoice)
-        XCTAssertNotEqual(voice.value as? String, initialVoice)
+        voice.tap()
+        XCTAssertTrue(app.sheets["选择声音"].waitForExistence(timeout: 3))
+        app.buttons["小语，女声"].tap()
+        waitForValue(of: voice, toBe: "小语，女声", timeout: 3)
+        XCTAssertEqual(voice.value as? String, "小语，女声")
 
         app.buttons["listening.back"].tap()
         XCTAssertTrue(app.otherElements["miniPlayer"].waitForExistence(timeout: 3))
@@ -68,7 +70,8 @@ final class ListeningAccessibilityUITests: XCTestCase {
         XCTAssertFalse(playPause.frame.intersects(next.frame))
         XCTAssertTrue(app.sliders["listening.rate"].exists)
         app.swipeUp()
-        XCTAssertTrue(app.pickerWheels.firstMatch.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.pickerWheels.firstMatch.exists)
+        XCTAssertTrue(app.buttons["listening.voice"].waitForExistence(timeout: 3))
     }
 
     private func launchListening(contentSizeCategory: String) -> XCUIApplication {
@@ -83,7 +86,10 @@ final class ListeningAccessibilityUITests: XCTestCase {
         let listen = app.buttons["reader.listen"]
         if !waitUntilHittable(listen, timeout: 5) {
             showReaderChrome(in: app)
-            XCTAssertTrue(waitUntilHittable(listen, timeout: 3))
+            if !waitUntilHittable(listen, timeout: 3) {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
+            }
+            XCTAssertTrue(waitUntilHittable(listen, timeout: 5))
         }
         listen.tap()
         return app
@@ -98,6 +104,16 @@ final class ListeningAccessibilityUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         return element.exists && element.isHittable
+    }
+
+    private func waitForValue(of element: XCUIElement, toBe expected: String, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists && element.value as? String == expected {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
     }
 
     private func showReaderChrome(in app: XCUIApplication) {
