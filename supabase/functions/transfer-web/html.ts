@@ -1191,14 +1191,12 @@ export const webTransferPageHtml = String.raw`<!doctype html>
       });
       dailyUploadRemaining = Math.max(0, (dailyUploadRemaining ?? 1) - 1);
       setStatus(\`上传成功：\${payload.filename}。请回到简声 App 刷新接收。\`, "success");
-      form.reset();
-      uploadSessionId = "";
-      verifiedCode = "";
-      setVerifyStatus("");
-      fileInput.disabled = true;
+      fileInput.value = "";
+      fileInput.disabled = dailyUploadRemaining <= 0;
       submitButton.disabled = true;
-      dropzone.classList.add("is-disabled");
-      dropHeading.textContent = "先验证设备";
+      dropzone.classList.toggle("is-disabled", dailyUploadRemaining <= 0);
+      dropHeading.textContent = dailyUploadRemaining > 0 ? "继续选择书籍" : "今日上传已达上限";
+      setVerifyStatus("验证成功", "success");
     }
 
     verifyButton.addEventListener("click", async () => {

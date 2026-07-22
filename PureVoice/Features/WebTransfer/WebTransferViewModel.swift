@@ -33,17 +33,21 @@ final class WebTransferViewModel: ObservableObject {
     private let identityStore: any TransferIdentityStoring
     private let client: any WebTransferClient
     private let importCoordinator: (any TransferImporting)?
+    private let pairingCodeDefaults: UserDefaults
+    private let pairingCodeKeyPrefix = "purevoice.webTransfer.pairingCode."
 
     init(
         identityStore: any TransferIdentityStoring,
         client: any WebTransferClient,
         importCoordinator: (any TransferImporting)?,
-        webTransferPageURL: URL = URL(string: "https://swindcn.github.io/simplereader/")!
+        webTransferPageURL: URL = URL(string: "https://swindcn.github.io/simplereader/")!,
+        pairingCodeDefaults: UserDefaults = .standard
     ) {
         self.identityStore = identityStore
         self.client = client
         self.importCoordinator = importCoordinator
         self.webTransferPageURL = webTransferPageURL
+        self.pairingCodeDefaults = pairingCodeDefaults
         self.deviceTransferID = (try? identityStore.identity().deviceID.uuidString.uppercased()) ?? "不可用"
     }
 
@@ -51,12 +55,32 @@ final class WebTransferViewModel: ObservableObject {
         await run { [self] in
             let identity = try self.identityStore.identity()
             try await self.client.register(identity: identity)
-            self.pairingCode = try await self.client.createPairingCode(identity: identity)
+            let generatedCode = try await self.client.createPairingCode(identity: identity)
+            self.savePairingCode(generatedCode, for: identity.deviceID)
+            self.pairingCode = generatedCode
         }
     }
 
     func prepareTransferCode() async {
         guard pairingCode == nil else { return }
+        do {
+            let identity = try identityStore.identity()
+            if let cachedCode = cachedPairingCode(for: identity.deviceID) {
+                pairingCode = cachedCode
+                try? await client.register(identity: identity)
+                return
+            }
+        } catch let identityError as TransferIdentityStoreError {
+            error = UserFacingError(transferIdentityError: identityError)
+            return
+        } catch {
+            error = UserFacingError(
+                title: "传书码不可用",
+                message: "无法读取本机传书码。",
+                recoveryAction: "稍后重试"
+            )
+            return
+        }
         await generateCode()
     }
 
@@ -143,5 +167,21 @@ final class WebTransferViewModel: ObservableObject {
                 recoveryAction: "稍后重试"
             )
         }
+    }
+
+    private func cachedPairingCode(for deviceID: UUID) -> TransferPairingCode? {
+        let key = pairingCodeKey(for: deviceID)
+        guard let code = pairingCodeDefaults.string(forKey: key),
+              code.range(of: #"^[0-9]{8}$"#, options: .regularExpression) != nil
+        else { return nil }
+        return TransferPairingCode(code: code, expiresAt: nil)
+    }
+
+    private func savePairingCode(_ pairingCode: TransferPairingCode, for deviceID: UUID) {
+        pairingCodeDefaults.set(pairingCode.code, forKey: pairingCodeKey(for: deviceID))
+    }
+
+    private func pairingCodeKey(for deviceID: UUID) -> String {
+        pairingCodeKeyPrefix + deviceID.uuidString.lowercased()
     }
 }

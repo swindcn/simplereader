@@ -32,37 +32,27 @@ struct LibraryView: View {
 
     var body: some View {
         NavigationView {
-            Group {
-                if viewModel.isLoading && viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
-                    ProgressView("正在载入书架")
-                } else if viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
-                    emptyState
-                } else {
-                    libraryContent
+            VStack(spacing: 0) {
+                libraryHeader
+                Divider()
+                    .accessibilityHidden(true)
+                Group {
+                    if viewModel.isLoading && viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
+                        ProgressView("正在载入书架")
+                    } else if viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
+                        emptyState
+                    } else {
+                        libraryContent
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    brandTitle
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await viewModel.refreshAndReceiveWebTransfers() }
-                    } label: {
-                        Image("RefreshAction")
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 28, height: 28)
-                    }
-                    .disabled(viewModel.isLoading)
-                    .accessibilityLabel("刷新书架并接收网站传书")
-                }
-            }
+            .navigationBarHidden(true)
         }
         .navigationViewStyle(.stack)
         .task { await viewModel.load() }
@@ -145,6 +135,34 @@ struct LibraryView: View {
                 .frame(height: DesignTokens.minimumTouchTarget + DesignTokens.stackGap)
                 .accessibilityHidden(true)
         }
+    }
+
+    private var libraryHeader: some View {
+        HStack {
+            brandTitle
+            Spacer(minLength: 12)
+            Button {
+                Task { await viewModel.refreshAndReceiveWebTransfers() }
+            } label: {
+                Image("RefreshAction")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(DesignTokens.onSurface)
+                    .frame(width: 54, height: 54)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isLoading)
+            .accessibilityLabel("刷新书架并接收网站传书")
+        }
+        .padding(.horizontal, DesignTokens.edgeMargin)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(Color(uiColor: .systemGroupedBackground))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("library.header")
     }
 
     private struct BookGridItem: View {

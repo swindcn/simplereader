@@ -10,7 +10,8 @@ final class WebTransferViewModelTests: XCTestCase {
             identityStore: InMemoryTransferIdentityStore(stored: identity),
             client: client,
             importCoordinator: nil,
-            webTransferPageURL: URL(string: "https://swindcn.github.io/simplereader/")!
+            webTransferPageURL: URL(string: "https://swindcn.github.io/simplereader/")!,
+            pairingCodeDefaults: isolatedDefaults()
         )
 
         await viewModel.generateCode()
@@ -28,7 +29,8 @@ final class WebTransferViewModelTests: XCTestCase {
         let viewModel = WebTransferViewModel(
             identityStore: InMemoryTransferIdentityStore(),
             client: client,
-            importCoordinator: nil
+            importCoordinator: nil,
+            pairingCodeDefaults: isolatedDefaults()
         )
 
         await viewModel.prepareTransferCode()
@@ -38,6 +40,26 @@ final class WebTransferViewModelTests: XCTestCase {
         let counts = await client.counts()
         XCTAssertEqual(counts.register, 1)
         XCTAssertEqual(counts.createCode, 1)
+    }
+
+    func testPrepareTransferCodeUsesCachedLongTermCode() async throws {
+        let client = RecordingWebTransferClient()
+        let identity = TransferIdentity(deviceID: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!, deviceSecret: "secret")
+        let defaults = isolatedDefaults()
+        defaults.set("87654321", forKey: "purevoice.webTransfer.pairingCode.\(identity.deviceID.uuidString.lowercased())")
+        let viewModel = WebTransferViewModel(
+            identityStore: InMemoryTransferIdentityStore(stored: identity),
+            client: client,
+            importCoordinator: nil,
+            pairingCodeDefaults: defaults
+        )
+
+        await viewModel.prepareTransferCode()
+
+        XCTAssertEqual(viewModel.pairingCode?.code, "87654321")
+        let counts = await client.counts()
+        XCTAssertEqual(counts.register, 1)
+        XCTAssertEqual(counts.createCode, 0)
     }
 
     func testImportSuccessClaimsUpload() async throws {
@@ -54,7 +76,8 @@ final class WebTransferViewModelTests: XCTestCase {
         let viewModel = WebTransferViewModel(
             identityStore: InMemoryTransferIdentityStore(),
             client: client,
-            importCoordinator: importer
+            importCoordinator: importer,
+            pairingCodeDefaults: isolatedDefaults()
         )
 
         await viewModel.importItem(item)
@@ -79,7 +102,8 @@ final class WebTransferViewModelTests: XCTestCase {
         let viewModel = WebTransferViewModel(
             identityStore: InMemoryTransferIdentityStore(),
             client: client,
-            importCoordinator: importer
+            importCoordinator: importer,
+            pairingCodeDefaults: isolatedDefaults()
         )
 
         await viewModel.importItem(item)
@@ -105,7 +129,8 @@ final class WebTransferViewModelTests: XCTestCase {
         let viewModel = WebTransferViewModel(
             identityStore: InMemoryTransferIdentityStore(),
             client: client,
-            importCoordinator: importer
+            importCoordinator: importer,
+            pairingCodeDefaults: isolatedDefaults()
         )
 
         await viewModel.importItem(item)
@@ -129,7 +154,8 @@ final class WebTransferViewModelTests: XCTestCase {
         let viewModel = WebTransferViewModel(
             identityStore: InMemoryTransferIdentityStore(),
             client: client,
-            importCoordinator: importer
+            importCoordinator: importer,
+            pairingCodeDefaults: isolatedDefaults()
         )
 
         let importedCount = await viewModel.receivePendingItems()
@@ -144,6 +170,13 @@ final class WebTransferViewModelTests: XCTestCase {
         XCTAssertEqual(clientCounts.claim, 1)
         XCTAssertTrue(viewModel.inbox.isEmpty)
         XCTAssertNil(viewModel.error)
+    }
+
+    private func isolatedDefaults() -> UserDefaults {
+        let suite = "PureVoiceTests.WebTransfer.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
     }
 }
 

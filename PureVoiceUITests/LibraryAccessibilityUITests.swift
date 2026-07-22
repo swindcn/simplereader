@@ -47,10 +47,10 @@ final class LibraryAccessibilityUITests: XCTestCase {
         XCTAssertFalse(app.tabBars.buttons["听书"].exists)
 
         let scrollView = app.scrollViews.firstMatch
-        let navigationBar = app.navigationBars.firstMatch
+        let header = app.otherElements["library.header"]
         let tabBar = app.tabBars.firstMatch
         XCTAssertTrue(scrollView.exists)
-        XCTAssertTrue(navigationBar.exists)
+        XCTAssertTrue(header.exists)
         XCTAssertTrue(tabBar.exists)
         if firstShelfBook.frame.insetBy(dx: 0, dy: 2).intersects(tabBar.frame) {
             let dragStart = scrollView.coordinate(
@@ -86,11 +86,11 @@ final class LibraryAccessibilityUITests: XCTestCase {
         position(
             viewportBook,
             in: scrollView,
-            between: navigationBar,
+            between: header,
             and: tabBar
         )
         let viewportBookFrame = viewportBook.frame.insetBy(dx: 0, dy: 2)
-        XCTAssertGreaterThanOrEqual(viewportBookFrame.minY, navigationBar.frame.maxY - 2)
+        XCTAssertGreaterThanOrEqual(viewportBookFrame.minY, header.frame.maxY - 2)
         XCTAssertLessThanOrEqual(viewportBookFrame.maxY, tabBar.frame.minY + 2)
 
         Thread.sleep(forTimeInterval: 1)
@@ -107,7 +107,7 @@ final class LibraryAccessibilityUITests: XCTestCase {
 
         let visibleBookFrame = lastShelfBook.frame.insetBy(dx: 0, dy: 2)
         XCTAssertGreaterThan(visibleBookFrame.width, 0)
-        XCTAssertGreaterThanOrEqual(visibleBookFrame.minY, navigationBar.frame.maxY - 2)
+        XCTAssertGreaterThanOrEqual(visibleBookFrame.minY, header.frame.maxY - 2)
         XCTAssertFalse(
             visibleBookFrame.intersects(tabBar.frame),
             "Last recent book \(visibleBookFrame) must remain above tab bar \(tabBar.frame)"

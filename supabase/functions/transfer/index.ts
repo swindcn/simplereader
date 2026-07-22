@@ -142,6 +142,36 @@ async function registerDevice(request: Request): Promise<Response> {
 async function createPairingCode(request: Request): Promise<Response> {
   const supabase = serviceClient();
   const auth = await assertDevice(supabase, request);
+  const body = await request.json().catch(() => ({}));
+  const requestedCode = String(body.code ?? "").trim();
+  if (/^[0-9]{8}$/.test(requestedCode)) {
+    const requestedCodeHash = await sha256Hex(requestedCode);
+    const { data: existingRequestedCode, error: requestedReadError } =
+      await supabase
+        .from("transfer_pairing_codes")
+        .select("device_id")
+        .eq("code_hash", requestedCodeHash)
+        .is("revoked_at", null)
+        .maybeSingle();
+    if (requestedReadError) {
+      return jsonError(500, "pairing_failed", "生成传书码失败。");
+    }
+    if (existingRequestedCode?.device_id === auth.deviceId) {
+      return json({ code: requestedCode, expiresAt: null });
+    }
+    if (!existingRequestedCode) {
+      await supabase.from("transfer_pairing_codes").update({
+        revoked_at: new Date().toISOString(),
+      }).eq("device_id", auth.deviceId).is("revoked_at", null);
+      const { error } = await supabase.from("transfer_pairing_codes").insert({
+        device_id: auth.deviceId,
+        code_hash: requestedCodeHash,
+        expires_at: null,
+      });
+      if (error) return jsonError(500, "pairing_failed", "生成传书码失败。");
+      return json({ code: requestedCode, expiresAt: null });
+    }
+  }
   await supabase.from("transfer_pairing_codes").update({
     revoked_at: new Date().toISOString(),
   }).eq("device_id", auth.deviceId).is("revoked_at", null);
