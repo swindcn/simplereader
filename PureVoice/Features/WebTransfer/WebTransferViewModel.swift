@@ -4,6 +4,10 @@ protocol TransferImporting: Sendable {
     func importBook(from sourceURL: URL) async throws -> UUID?
 }
 
+enum WebTransferImportError: Error {
+    case importDidNotComplete
+}
+
 struct ImportCoordinatorTransferImporter: TransferImporting {
     let coordinator: ImportCoordinator
 
@@ -76,7 +80,9 @@ final class WebTransferViewModel: ObservableObject {
             let identity = try self.identityStore.identity()
             let url = try await self.client.downloadURL(uploadID: item.id, identity: identity)
             let localURL = try await self.client.downloadFile(from: url, suggestedFilename: item.filename)
-            let importedBookID = try await importCoordinator.importBook(from: localURL)
+            guard let importedBookID = try await importCoordinator.importBook(from: localURL) else {
+                throw WebTransferImportError.importDidNotComplete
+            }
             try await self.client.claim(uploadID: item.id, identity: identity, importedBookID: importedBookID)
             self.inbox.removeAll { $0.id == item.id }
         }
@@ -101,7 +107,9 @@ final class WebTransferViewModel: ObservableObject {
             for item in items {
                 let url = try await self.client.downloadURL(uploadID: item.id, identity: identity)
                 let localURL = try await self.client.downloadFile(from: url, suggestedFilename: item.filename)
-                let importedBookID = try await importCoordinator.importBook(from: localURL)
+                guard let importedBookID = try await importCoordinator.importBook(from: localURL) else {
+                    throw WebTransferImportError.importDidNotComplete
+                }
                 try await self.client.claim(uploadID: item.id, identity: identity, importedBookID: importedBookID)
                 self.inbox.removeAll { $0.id == item.id }
                 importedCount += 1

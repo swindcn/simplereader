@@ -91,6 +91,30 @@ final class WebTransferViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.error)
     }
 
+    func testImportWithoutCompletedBookDoesNotClaimUpload() async throws {
+        let client = RecordingWebTransferClient()
+        let importer = RecordingTransferImporter(completedBookID: nil)
+        let item = TransferInboxItem(
+            id: UUID(),
+            filename: "book.epub",
+            byteSize: 12,
+            format: "epub",
+            createdAt: Date(),
+            expiresAt: Date().addingTimeInterval(3600)
+        )
+        let viewModel = WebTransferViewModel(
+            identityStore: InMemoryTransferIdentityStore(),
+            client: client,
+            importCoordinator: importer
+        )
+
+        await viewModel.importItem(item)
+
+        let clientCounts = await client.counts()
+        XCTAssertEqual(clientCounts.claim, 0)
+        XCTAssertNotNil(viewModel.error)
+    }
+
     func testReceivePendingItemsImportsAndClaimsInboxItems() async throws {
         let item = TransferInboxItem(
             id: UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")!,
@@ -126,15 +150,17 @@ final class WebTransferViewModelTests: XCTestCase {
 private actor RecordingTransferImporter: TransferImporting {
     private var importCount = 0
     let throwsOnImport: Bool
+    let completedBookID: UUID?
 
-    init(throwsOnImport: Bool = false) {
+    init(throwsOnImport: Bool = false, completedBookID: UUID? = UUID()) {
         self.throwsOnImport = throwsOnImport
+        self.completedBookID = completedBookID
     }
 
     func importBook(from sourceURL: URL) async throws -> UUID? {
         importCount += 1
         if throwsOnImport { throw TestTransferError.importFailed }
-        return UUID()
+        return completedBookID
     }
 
     func count() -> Int {

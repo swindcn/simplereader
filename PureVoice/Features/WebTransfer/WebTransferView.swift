@@ -40,7 +40,7 @@ struct WebTransferView: View {
                 .accessibilityHidden(true)
             Text("网站传书")
                 .font(.title3.weight(.semibold))
-            Text("（通过线上网址，输入传书码传书）")
+            Text("通过线上网址，传入书籍")
                 .font(.headline)
             Spacer(minLength: 0)
         }
@@ -94,9 +94,6 @@ struct WebTransferView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
-        .padding(18)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func iconCopyButton(value: String, message: String, label: String) -> some View {
@@ -169,6 +166,16 @@ struct WebTransferView: View {
 
     private func copyToPasteboard(_ value: String, message: String) {
         UIPasteboard.general.string = value
-        clipboardMessage = message
+        withAnimation(.easeOut(duration: 0.2)) {
+            clipboardMessage = message
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if clipboardMessage == message {
+                withAnimation(.easeIn(duration: 0.2)) {
+                    clipboardMessage = ""
+                }
+            }
+        }
     }
 }

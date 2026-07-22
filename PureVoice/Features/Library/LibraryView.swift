@@ -43,17 +43,21 @@ struct LibraryView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("简声")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     brandTitle
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         Task { await viewModel.refreshAndReceiveWebTransfers() }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image("RefreshAction")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 28, height: 28)
                     }
                     .disabled(viewModel.isLoading)
                     .accessibilityLabel("刷新书架并接收网站传书")
@@ -87,6 +91,7 @@ struct LibraryView: View {
         } message: {
             Text(viewModel.errorMessage ?? "发生未知错误")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var libraryContent: some View {

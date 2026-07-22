@@ -325,7 +325,7 @@ async function webUpload(request: Request): Promise<Response> {
     return jsonError(
       429,
       "daily_upload_limit_reached",
-      "今天已上传 3 本书，请明天再试。",
+      "今天上传数量已达测试上限，请明天再试。",
       { "retry-after": String(24 * 60 * 60) },
     );
   }

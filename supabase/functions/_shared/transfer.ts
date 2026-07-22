@@ -8,7 +8,7 @@ export const MAX_UPLOAD_BYTES = 262_144_000;
 export const UPLOAD_SESSION_TTL_SECONDS = 30 * 60;
 export const UPLOAD_TTL_HOURS = 72;
 export const DOWNLOAD_URL_TTL_SECONDS = 300;
-export const WEB_TRANSFER_DAILY_UPLOAD_LIMIT = 3;
+export const WEB_TRANSFER_DAILY_UPLOAD_LIMIT = 999;
 
 export type TransferFormat = "txt" | "epub";
 
@@ -90,7 +90,6 @@ export function validateUploadSize(byteSize: number): void {
 
 export function verificationPenaltySeconds(attemptCount: number): number {
   if (attemptCount >= 5) return 60 * 60;
-  if (attemptCount >= 3) return 60;
   return 0;
 }
 
