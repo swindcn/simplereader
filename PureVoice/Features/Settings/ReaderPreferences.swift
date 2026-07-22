@@ -1,4 +1,21 @@
 import Foundation
+import UIKit
+
+enum AppFontSize: String, Codable, CaseIterable, Sendable {
+    case small
+    case medium
+    case large
+    case extraLarge
+
+    var title: String {
+        switch self {
+        case .small: "小"
+        case .medium: "中"
+        case .large: "大"
+        case .extraLarge: "极大"
+        }
+    }
+}
 
 enum ReaderFontFamily: String, Codable, CaseIterable, Sendable {
     case system
@@ -28,6 +45,48 @@ enum ReaderTheme: String, Codable, CaseIterable, Sendable {
         case .dark: "深色"
         }
     }
+
+    func readerAppearance(usesDarkSystemTheme: Bool) -> ReaderThemeAppearance {
+        switch self {
+        case .system:
+            return usesDarkSystemTheme ? .dark : .light
+        case .light:
+            return .light
+        case .sepia:
+            return .sepia
+        case .dark:
+            return .dark
+        }
+    }
+}
+
+struct ReaderThemeAppearance: Equatable, Sendable {
+    let backgroundColor: UIColor
+    let chromeBackgroundColor: UIColor
+}
+
+extension ReaderThemeAppearance {
+    static let light = ReaderThemeAppearance(
+        backgroundColor: .white,
+        chromeBackgroundColor: .pureVoiceLightChrome
+    )
+
+    static let sepia = ReaderThemeAppearance(
+        backgroundColor: .pureVoiceSepiaBackground,
+        chromeBackgroundColor: .pureVoiceSepiaChrome
+    )
+
+    static let dark = ReaderThemeAppearance(
+        backgroundColor: .black,
+        chromeBackgroundColor: .pureVoiceDarkChrome
+    )
+}
+
+extension UIColor {
+    static let pureVoiceLightChrome = UIColor(red: 0.96, green: 0.96, blue: 0.95, alpha: 1)
+    static let pureVoiceSepiaBackground = UIColor(red: 0.98, green: 0.94, blue: 0.86, alpha: 1)
+    static let pureVoiceSepiaChrome = UIColor(red: 0.93, green: 0.86, blue: 0.73, alpha: 1)
+    static let pureVoiceDarkChrome = UIColor(red: 0.03, green: 0.03, blue: 0.03, alpha: 1)
 }
 
 enum ReaderLayout: String, Codable, CaseIterable, Sendable {
@@ -36,8 +95,8 @@ enum ReaderLayout: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .paginated: "分页"
-        case .scroll: "滚动"
+        case .paginated: "左右分页"
+        case .scroll: "上下滚动"
         }
     }
 }
@@ -82,6 +141,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
     var lineHeight: Double
     var theme: ReaderTheme
     var layout: ReaderLayout
+    var appFontSize: AppFontSize
     var voiceIdentifier: String?
     var speechRate: Double
 
@@ -89,8 +149,9 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         fontFamily: ReaderFontFamily = .system,
         fontScale: Double = 1,
         lineHeight: Double = 1.5,
-        theme: ReaderTheme = .system,
+        theme: ReaderTheme = .sepia,
         layout: ReaderLayout = .paginated,
+        appFontSize: AppFontSize = .extraLarge,
         voiceIdentifier: String? = nil,
         speechRate: Double = 1
     ) {
@@ -99,8 +160,46 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         self.lineHeight = lineHeight
         self.theme = theme
         self.layout = layout
+        self.appFontSize = appFontSize
         self.voiceIdentifier = voiceIdentifier
         self.speechRate = speechRate
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case fontFamily
+        case fontScale
+        case lineHeight
+        case theme
+        case layout
+        case appFontSize
+        case voiceIdentifier
+        case speechRate
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            fontFamily: try container.decode(ReaderFontFamily.self, forKey: .fontFamily),
+            fontScale: try container.decode(Double.self, forKey: .fontScale),
+            lineHeight: try container.decode(Double.self, forKey: .lineHeight),
+            theme: try container.decode(ReaderTheme.self, forKey: .theme),
+            layout: try container.decode(ReaderLayout.self, forKey: .layout),
+            appFontSize: try container.decodeIfPresent(AppFontSize.self, forKey: .appFontSize) ?? .extraLarge,
+            voiceIdentifier: try container.decodeIfPresent(String.self, forKey: .voiceIdentifier),
+            speechRate: try container.decode(Double.self, forKey: .speechRate)
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(fontFamily, forKey: .fontFamily)
+        try container.encode(fontScale, forKey: .fontScale)
+        try container.encode(lineHeight, forKey: .lineHeight)
+        try container.encode(theme, forKey: .theme)
+        try container.encode(layout, forKey: .layout)
+        try container.encode(appFontSize, forKey: .appFontSize)
+        try container.encodeIfPresent(voiceIdentifier, forKey: .voiceIdentifier)
+        try container.encode(speechRate, forKey: .speechRate)
     }
 
     func effectiveFontScale(for category: ReaderDynamicTypeCategory) -> Double {
@@ -163,6 +262,7 @@ struct ReaderPreferencesOverride: Codable, Equatable, Sendable {
             lineHeight: lineHeight ?? global.lineHeight,
             theme: theme ?? global.theme,
             layout: layout ?? global.layout,
+            appFontSize: global.appFontSize,
             voiceIdentifier: resolvedVoiceIdentifier(inheriting: global.voiceIdentifier),
             speechRate: speechRate ?? global.speechRate
         ).sanitized()

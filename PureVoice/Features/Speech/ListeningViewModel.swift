@@ -34,6 +34,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private let preferencesStore: PreferencesStore
     private let announce: (String) -> Void
     private let appStateRestorer: AppStateRestorer?
+    private let onProgressSaved: @MainActor () -> Void
     private let persistenceDelay: TimeInterval
     private let audioSession: any AudioSessionActivating
     private var lastKnownLocator: Locator?
@@ -62,7 +63,8 @@ final class ListeningViewModel: NSObject, ObservableObject {
         appStateRestorer: AppStateRestorer? = nil,
         observesAudioSession: Bool = true,
         persistenceDelay: TimeInterval = 1,
-        audioSession: any AudioSessionActivating = SystemAudioSessionActivator()
+        audioSession: any AudioSessionActivating = SystemAudioSessionActivator(),
+        onProgressSaved: @escaping @MainActor () -> Void = {}
     ) {
         bookID = book.id
         title = book.title
@@ -76,6 +78,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
         self.preferencesStore = preferencesStore
         self.announce = announce
         self.appStateRestorer = appStateRestorer
+        self.onProgressSaved = onProgressSaved
         self.persistenceDelay = persistenceDelay
         self.audioSession = audioSession
         lastKnownLocator = initialLocator
@@ -139,6 +142,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
         invalidateInterruptionRecovery()
         service.pause()
         if announces { announce("已暂停") }
+        Task { await flushProgress() }
     }
 
     func resume(announces: Bool = true) {
@@ -336,6 +340,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
                 let position = try readingPosition(from: locator)
                 try await repository.updatePosition(id: bookID, position: position)
                 appStateRestorer?.recordListening(bookID: bookID, position: position, wasPlaying: state.isPlaying)
+                onProgressSaved()
             } catch {
                 if pendingLocator == nil {
                     pendingLocator = locator

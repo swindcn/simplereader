@@ -10,5 +10,7 @@ final class AppLaunchUITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["导入"].exists)
         XCTAssertTrue(app.tabBars.buttons["设置"].exists)
         XCTAssertFalse(app.tabBars.buttons["听书"].exists)
+        XCTAssertTrue(app.staticTexts["简声"].exists)
+        XCTAssertFalse(app.navigationBars["我的书架"].exists)
     }
 }

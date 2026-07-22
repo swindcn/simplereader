@@ -1,0 +1,7 @@
+project_id = "purevoice-local"
+
+[functions.transfer]
+verify_jwt = false
+
+[functions.transfer-cleanup]
+verify_jwt = true

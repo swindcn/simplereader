@@ -30,6 +30,7 @@ final class AppDependenciesTests: XCTestCase {
         await MainActor.run {
             XCTAssertTrue(dependencies.repository is CoreDataBookRepository)
             XCTAssertNotNil(dependencies.importCoordinator)
+            XCTAssertNotNil(dependencies.webTransferViewModel)
             XCTAssertEqual(dependencies.libraryRefresh.generation, 0)
         }
     }

@@ -68,6 +68,37 @@ struct UserFacingError: Equatable, Codable, Sendable {
         }
     }
 
+    init(webTransferError: WebTransferError) {
+        switch webTransferError {
+        case let .server(message):
+            self = .init(
+                title: "网站传书失败",
+                message: message,
+                recoveryAction: "稍后重试"
+            )
+        case .invalidResponse:
+            self = .init(
+                title: "网站传书失败",
+                message: "服务器返回内容无法识别。",
+                recoveryAction: "稍后重试"
+            )
+        case .downloadFailed:
+            self = .init(
+                title: "下载失败",
+                message: "无法下载这本书。",
+                recoveryAction: "检查网络后重试"
+            )
+        }
+    }
+
+    init(transferIdentityError: TransferIdentityStoreError) {
+        self = .init(
+            title: "传书身份不可用",
+            message: "无法读取本机传书身份。",
+            recoveryAction: "重新打开 App 后重试"
+        )
+    }
+
     static let unsupportedFormat = UserFacingError(
         title: "不支持该格式",
         message: "当前版本支持 TXT 和 EPUB，请选择受支持的文件。",

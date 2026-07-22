@@ -5,11 +5,12 @@ final class ReaderAccessibilityUITests: XCTestCase {
     func testReaderControlsAndTableOfContentsAreAccessible() throws {
         let app = launchReader(contentSizeCategory: "UICTContentSizeCategoryL")
 
-        XCTAssertTrue(app.buttons["reader.back"].waitForExistence(timeout: 8))
+        showReaderChrome(in: app)
+        XCTAssertTrue(app.buttons["reader.back"].waitForExistence(timeout: 3))
         XCTAssertEqual(app.buttons["reader.back"].label, "返回书架")
         XCTAssertEqual(app.buttons["reader.tableOfContents"].label, "目录")
-        XCTAssertEqual(app.buttons["reader.previousPage"].label, "上一页")
-        XCTAssertEqual(app.buttons["reader.nextPage"].label, "下一页")
+        XCTAssertFalse(app.buttons["reader.previousPage"].exists)
+        XCTAssertFalse(app.buttons["reader.nextPage"].exists)
         XCTAssertEqual(app.buttons["reader.listen"].label, "听书")
         XCTAssertEqual(app.buttons["reader.settings"].label, "设置")
         XCTAssertTrue(app.staticTexts["reader.chapterHeading"].exists)
@@ -19,18 +20,12 @@ final class ReaderAccessibilityUITests: XCTestCase {
         let located = NSPredicate(format: "label != %@", "等待定位")
         expectation(for: located, evaluatedWith: locatorProbe)
         waitForExpectations(timeout: 4)
-        let initialLocator = locatorProbe.label
-        app.buttons["reader.nextPage"].tap()
-        let moved = NSPredicate(format: "label != %@", initialLocator)
-        expectation(for: moved, evaluatedWith: locatorProbe)
-        waitForExpectations(timeout: 4)
-        app.buttons["reader.previousPage"].tap()
-
+        showReaderChrome(in: app)
         app.buttons["reader.tableOfContents"].tap()
         XCTAssertTrue(app.navigationBars["目录"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["reader.toc.1"].exists)
         app.buttons["reader.toc.1"].tap()
-        let chapterHeading = app.staticTexts["reader.chapterHeading"]
+        let chapterHeading = app.staticTexts["第二章 继续"]
         XCTAssertTrue(chapterHeading.waitForExistence(timeout: 2))
         XCTAssertEqual(chapterHeading.label, "第二章 继续")
     }
@@ -41,18 +36,16 @@ final class ReaderAccessibilityUITests: XCTestCase {
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL",
             headingOverride: longHeading
         )
-        let previous = app.buttons["reader.previousPage"]
-        let next = app.buttons["reader.nextPage"]
+        XCTAssertTrue(app.buttons["reader.contentTapArea"].waitForExistence(timeout: 5))
+        showReaderChrome(in: app)
         let listen = app.buttons["reader.listen"]
         let settings = app.buttons["reader.settings"]
         XCTAssertTrue(settings.waitForExistence(timeout: 8))
 
-        for element in [previous, next, listen, settings] {
+        for element in [listen, settings] {
             XCTAssertGreaterThanOrEqual(element.frame.width, 43.9)
             XCTAssertGreaterThanOrEqual(element.frame.height, 43.9)
         }
-        XCTAssertFalse(previous.frame.intersects(next.frame))
-        XCTAssertFalse(next.frame.intersects(listen.frame))
         XCTAssertFalse(listen.frame.intersects(settings.frame))
 
         let heading = app.staticTexts["reader.chapterHeading"]
@@ -60,6 +53,41 @@ final class ReaderAccessibilityUITests: XCTestCase {
         XCTAssertGreaterThan(heading.frame.height, 52)
         XCTAssertFalse(heading.frame.intersects(app.buttons["reader.back"].frame))
         XCTAssertFalse(heading.frame.intersects(app.buttons["reader.tableOfContents"].frame))
+    }
+
+    func testReaderChromeAutoHidesAndReturnsFromContentTap() throws {
+        let app = launchReader(contentSizeCategory: "UICTContentSizeCategoryL")
+
+        XCTAssertTrue(app.otherElements["reader.chrome"].waitForExistence(timeout: 8))
+        let hidden = NSPredicate(format: "exists == false")
+        expectation(for: hidden, evaluatedWith: app.otherElements["reader.chrome"])
+        waitForExpectations(timeout: 4)
+
+        XCTAssertTrue(app.buttons["reader.contentTapArea"].waitForExistence(timeout: 2))
+        XCTAssertLessThan(app.buttons["reader.contentTapArea"].frame.maxY, app.frame.height * 0.5)
+        showReaderChrome(in: app)
+        XCTAssertTrue(app.buttons["reader.back"].waitForExistence(timeout: 4))
+    }
+
+    func testReaderContentFrameDoesNotChangeWhenChromeToggles() throws {
+        let app = launchReader(contentSizeCategory: "UICTContentSizeCategoryL")
+        let content = app.otherElements["阅读内容"]
+        XCTAssertTrue(content.waitForExistence(timeout: 8))
+
+        let visibleFrame = content.frame
+        let hidden = NSPredicate(format: "exists == false")
+        expectation(for: hidden, evaluatedWith: app.otherElements["reader.chrome"])
+        waitForExpectations(timeout: 4)
+        XCTAssertEqual(content.frame, visibleFrame)
+
+        showReaderChrome(in: app)
+        XCTAssertTrue(app.buttons["reader.back"].waitForExistence(timeout: 4))
+        XCTAssertEqual(content.frame, visibleFrame)
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
+        expectation(for: hidden, evaluatedWith: app.otherElements["reader.chrome"])
+        waitForExpectations(timeout: 2)
+        XCTAssertEqual(content.frame, visibleFrame)
     }
 
     private func launchReader(
@@ -75,5 +103,14 @@ final class ReaderAccessibilityUITests: XCTestCase {
         }
         app.launch()
         return app
+    }
+
+    private func showReaderChrome(in app: XCUIApplication) {
+        let hotZone = app.buttons["reader.contentTapArea"]
+        if hotZone.waitForExistence(timeout: 1) {
+            hotZone.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
     }
 }

@@ -37,6 +37,23 @@ struct PublicationTOCItem: Equatable, Sendable {
     }
 }
 
+struct ContinuousReaderChapterReference: Equatable, Identifiable, Sendable {
+    let index: Int
+    let title: String
+    let href: String
+
+    var id: String { href }
+}
+
+struct ContinuousReaderChapter: Equatable, Identifiable, Sendable {
+    let index: Int
+    let title: String
+    let href: String
+    let paragraphs: [String]
+
+    var id: String { href }
+}
+
 @MainActor
 final class OpenedPublication {
     let title: String
@@ -106,6 +123,51 @@ final class OpenedPublication {
         } catch {
             throw PublicationServiceError.invalidReadingPosition
         }
+    }
+
+    func continuousChapterReferences() -> [ContinuousReaderChapterReference] {
+        readiumPublication.readingOrder.enumerated().map { index, link in
+            ContinuousReaderChapterReference(
+                index: index,
+                title: chapterTitle(for: link.href) ?? link.title?.trimmedNonEmpty ?? "第 \(index + 1) 章",
+                href: link.href
+            )
+        }
+    }
+
+    func continuousChapter(for reference: ContinuousReaderChapterReference) async throws -> ContinuousReaderChapter {
+        guard let href = AnyURL(string: reference.href),
+              let link = readiumPublication.linkWithHREF(href),
+              let resource = readiumPublication.get(link)
+        else {
+            throw PublicationServiceError.invalidPublication
+        }
+
+        let data: Data
+        do {
+            data = try await resource.read().get()
+        } catch {
+            throw PublicationServiceError.invalidPublication
+        }
+
+        let extracted = XHTMLBodyTextExtractor.extract(from: data)
+        let title = extracted.title?.trimmedNonEmpty ?? reference.title
+        let paragraphs = extracted.paragraphs.filter { $0.trimmedNonEmpty != nil }
+        return ContinuousReaderChapter(
+            index: reference.index,
+            title: title,
+            href: reference.href,
+            paragraphs: paragraphs
+        )
+    }
+
+    private func chapterTitle(for href: String) -> String? {
+        let resource = href.resourceHREF
+        return tableOfContents.flattened().first { item in
+            item.href.resourceHREF == resource && !item.href.contains("#")
+        }?.title ?? tableOfContents.flattened().first { item in
+            item.href.resourceHREF == resource
+        }?.title
     }
 }
 
@@ -247,5 +309,125 @@ private extension PublicationTOCItem {
             href: link.href,
             children: link.children.map(PublicationTOCItem.init(link:))
         )
+    }
+}
+
+private extension Array where Element == PublicationTOCItem {
+    func flattened() -> [PublicationTOCItem] {
+        flatMap { item in
+            [item] + item.children.flattened()
+        }
+    }
+}
+
+extension String {
+    var trimmedNonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var resourceHREF: String {
+        split(separator: "#", maxSplits: 1).first.map(String.init) ?? self
+    }
+}
+
+private struct XHTMLBodyTextExtractor {
+    let title: String?
+    let paragraphs: [String]
+
+    static func extract(from data: Data) -> XHTMLBodyTextExtractor {
+        let parser = XMLParser(data: data)
+        let delegate = Delegate()
+        parser.delegate = delegate
+        parser.parse()
+        return XHTMLBodyTextExtractor(
+            title: delegate.heading.trimmedNonEmpty ?? delegate.documentTitle.trimmedNonEmpty,
+            paragraphs: delegate.paragraphs
+        )
+    }
+
+    private final class Delegate: NSObject, XMLParserDelegate {
+        var documentTitle = ""
+        var heading = ""
+        var paragraphs: [String] = []
+
+        private var isInBody = false
+        private var captureTitle = false
+        private var captureHeading = false
+        private var captureParagraph = false
+        private var buffer = ""
+
+        func parser(
+            _ parser: XMLParser,
+            didStartElement elementName: String,
+            namespaceURI: String?,
+            qualifiedName qName: String?,
+            attributes attributeDict: [String: String] = [:]
+        ) {
+            switch elementName.lowercased() {
+            case "body":
+                isInBody = true
+            case "title":
+                captureTitle = true
+                buffer = ""
+            case "h1", "h2":
+                guard isInBody else { return }
+                captureHeading = true
+                buffer = ""
+            case "p", "li", "blockquote":
+                guard isInBody else { return }
+                captureParagraph = true
+                buffer = ""
+            default:
+                break
+            }
+        }
+
+        func parser(_ parser: XMLParser, foundCharacters string: String) {
+            guard captureTitle || captureHeading || captureParagraph else { return }
+            buffer += string
+        }
+
+        func parser(
+            _ parser: XMLParser,
+            didEndElement elementName: String,
+            namespaceURI: String?,
+            qualifiedName qName: String?
+        ) {
+            switch elementName.lowercased() {
+            case "body":
+                isInBody = false
+            case "title":
+                if captureTitle {
+                    documentTitle = normalized(buffer)
+                    captureTitle = false
+                    buffer = ""
+                }
+            case "h1", "h2":
+                if captureHeading {
+                    if heading.isEmpty {
+                        heading = normalized(buffer)
+                    }
+                    captureHeading = false
+                    buffer = ""
+                }
+            case "p", "li", "blockquote":
+                if captureParagraph {
+                    if let paragraph = normalized(buffer).trimmedNonEmpty {
+                        paragraphs.append(paragraph)
+                    }
+                    captureParagraph = false
+                    buffer = ""
+                }
+            default:
+                break
+            }
+        }
+
+        private func normalized(_ value: String) -> String {
+            value
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
     }
 }

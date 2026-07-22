@@ -31,7 +31,13 @@ struct LibraryView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle("我的书架")
+            .navigationTitle("简声")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    brandTitle
+                }
+            }
         }
         .navigationViewStyle(.stack)
         .task { await viewModel.load() }
@@ -100,6 +106,28 @@ struct LibraryView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .frame(height: DesignTokens.minimumTouchTarget + DesignTokens.stackGap)
                 .accessibilityHidden(true)
+        }
+    }
+
+    private var brandTitle: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Image("BrandLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .accessibilityHidden(true)
+                Text("简声标志")
+                    .font(.caption2)
+                    .foregroundStyle(.clear)
+                    .frame(width: 1, height: 1)
+                    .accessibilityIdentifier("library.brandLogo")
+            }
+            .frame(width: 42, height: 42)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("简声")
+                    .font(.title2.bold())
+                    .foregroundStyle(DesignTokens.onSurface)
+            }
         }
     }
 

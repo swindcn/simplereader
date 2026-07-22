@@ -2,32 +2,18 @@ import SwiftUI
 
 struct ImportView: View {
     @ObservedObject var coordinator: ImportCoordinator
+    @ObservedObject var webTransferViewModel: WebTransferViewModel
     @State private var isPickingDocument = false
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                statusContent
-
-                Button {
-                    isPickingDocument = true
-                } label: {
-                    Label("选择文件", systemImage: "doc.badge.plus")
-                        .frame(maxWidth: .infinity)
+            ScrollView {
+                VStack(spacing: 20) {
+                    localImportSection
+                    WebTransferView(viewModel: webTransferViewModel)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isBusy)
-                .accessibilityLabel("选择要导入的书籍文件")
-                .accessibilityHint("支持 TXT 和 EPUB")
-
-                if case .failed = coordinator.state, let retryURL = coordinator.retrySourceURL {
-                    Button("重试") {
-                        Task { try? await coordinator.importBook(from: retryURL) }
-                    }
-                    .accessibilityHint("重新导入上次选择的文件")
-                }
+                .padding()
             }
-            .padding()
             .navigationTitle("导入书籍")
         }
         .navigationViewStyle(.stack)
@@ -37,6 +23,30 @@ struct ImportView: View {
                 Task { try? await coordinator.importBook(from: url) }
             } onCancel: {
                 isPickingDocument = false
+            }
+        }
+    }
+
+    private var localImportSection: some View {
+        VStack(spacing: 16) {
+            statusContent
+
+            Button {
+                isPickingDocument = true
+            } label: {
+                Label("选择文件", systemImage: "doc.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isBusy)
+            .accessibilityLabel("选择要导入的书籍文件")
+            .accessibilityHint("支持 TXT 和 EPUB")
+
+            if case .failed = coordinator.state, let retryURL = coordinator.retrySourceURL {
+                Button("重试") {
+                    Task { try? await coordinator.importBook(from: retryURL) }
+                }
+                .accessibilityHint("重新导入上次选择的文件")
             }
         }
     }

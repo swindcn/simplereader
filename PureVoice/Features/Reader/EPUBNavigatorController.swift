@@ -3,6 +3,43 @@ import UIKit
 @preconcurrency import ReadiumNavigator
 @preconcurrency import ReadiumShared
 
+struct EPUBScrollAutoAdvancePolicy {
+    var bottomThreshold: CGFloat = 96
+    var cooldown: TimeInterval = 1.2
+    private var lastAdvanceTime: TimeInterval?
+
+    init(bottomThreshold: CGFloat = 96, cooldown: TimeInterval = 1.2) {
+        self.bottomThreshold = bottomThreshold
+        self.cooldown = cooldown
+    }
+
+    mutating func shouldAdvance(
+        isScrollLayout: Bool,
+        isVoiceOverRunning: Bool,
+        isUserScrolling: Bool,
+        contentOffsetY: CGFloat,
+        viewportHeight: CGFloat,
+        contentHeight: CGFloat,
+        now: TimeInterval
+    ) -> Bool {
+        guard isScrollLayout,
+              !isVoiceOverRunning,
+              isUserScrolling,
+              viewportHeight > 0,
+              contentHeight > viewportHeight + bottomThreshold
+        else { return false }
+
+        if let lastAdvanceTime, now - lastAdvanceTime < cooldown {
+            return false
+        }
+
+        let remaining = contentHeight - viewportHeight - max(contentOffsetY, 0)
+        guard remaining <= bottomThreshold else { return false }
+        lastAdvanceTime = now
+        return true
+    }
+}
+
 struct PreferenceSubmissionDecision<Value: Equatable> {
     private var lastValue: Value?
 
@@ -35,6 +72,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
     let initialLocation: Locator?
     let preferences: EPUBPreferences
     let navigationRequest: ReaderNavigationRequest?
+    let speechHighlightLocator: Locator?
     let commands: EPUBNavigatorCommands
     let onLocationChange: (Locator) -> Void
     let onNavigationFailure: () -> Void
@@ -53,12 +91,21 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
             let navigator = try EPUBNavigatorViewController(
                 publication: publication.readiumPublication,
                 initialLocation: initialLocation,
-                config: .init(preferences: preferences)
+                config: .init(
+                    preferences: preferences,
+                    disablePageTurnsWhileScrolling: true
+                )
             )
             navigator.delegate = context.coordinator
             context.coordinator.navigator = navigator
+            context.coordinator.isScrollLayout = preferences.scroll == true
             context.coordinator.preferencesDecision = .init(initialValue: preferences)
             commands.navigator = navigator
+            let coordinator = context.coordinator
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                coordinator.refreshScrollObservers(in: navigator.view)
+            }
             return navigator
         } catch {
             Task { @MainActor in onError() }
@@ -70,6 +117,9 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
         if context.coordinator.preferencesDecision.shouldSubmit(preferences) {
             context.coordinator.navigator?.submitPreferences(preferences)
         }
+        context.coordinator.isScrollLayout = preferences.scroll == true
+        context.coordinator.refreshScrollObservers(in: uiViewController.view)
+        context.coordinator.applySpeechHighlight(locator: speechHighlightLocator)
         guard let request = navigationRequest,
               request.id != context.coordinator.lastNavigationRequestID,
               let navigator = context.coordinator.navigator
@@ -78,7 +128,7 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
 
         if let locator = request.locator {
             Task {
-                if !(await navigator.go(to: locator)) {
+                if !(await navigator.go(to: locator)), request.reportsFailure {
                     onNavigationFailure()
                 }
             }
@@ -88,11 +138,13 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
         guard let href = AnyURL(string: request.href),
               let link = publication.readiumPublication.linkWithHREF(href)
         else {
-            onNavigationFailure()
+            if request.reportsFailure {
+                onNavigationFailure()
+            }
             return
         }
         Task {
-            if !(await navigator.go(to: link)) {
+            if !(await navigator.go(to: link)), request.reportsFailure {
                 onNavigationFailure()
             }
         }
@@ -102,6 +154,11 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
         weak var navigator: EPUBNavigatorViewController?
         var lastNavigationRequestID: UUID?
         var preferencesDecision = PreferenceSubmissionDecision<EPUBPreferences>()
+        var isScrollLayout = false
+        private var lastSpeechHighlightLocator: Locator?
+        private var observedScrollViews: [ObjectIdentifier: NSKeyValueObservation] = [:]
+        private var autoAdvancePolicy = EPUBScrollAutoAdvancePolicy()
+        private var isAutoAdvancing = false
         private let onLocationChange: (Locator) -> Void
         private let onNavigationFailure: () -> Void
         private let onError: () -> Void
@@ -123,6 +180,72 @@ struct EPUBNavigatorController: UIViewControllerRepresentable {
         func navigator(_ navigator: Navigator, presentError error: NavigatorError) {
             onError()
         }
+
+        func refreshScrollObservers(in view: UIView) {
+            let scrollViews = view.descendantScrollViews()
+                .filter { $0.contentSize.height > 0 || !$0.bounds.isEmpty }
+            let currentIDs = Set(scrollViews.map(ObjectIdentifier.init))
+            observedScrollViews = observedScrollViews.filter { currentIDs.contains($0.key) }
+
+            for scrollView in scrollViews {
+                let id = ObjectIdentifier(scrollView)
+                guard observedScrollViews[id] == nil else { continue }
+                observedScrollViews[id] = scrollView.observe(\.contentOffset, options: [.new]) { [weak self, weak scrollView] _, _ in
+                    Task { @MainActor in
+                        guard let self, let scrollView else { return }
+                        self.handleScrollOffsetChange(scrollView)
+                    }
+                }
+            }
+        }
+
+        private func handleScrollOffsetChange(_ scrollView: UIScrollView) {
+            guard let navigator, !isAutoAdvancing else { return }
+            let userScrolling = scrollView.isDragging || scrollView.isDecelerating || scrollView.isTracking
+            guard autoAdvancePolicy.shouldAdvance(
+                isScrollLayout: isScrollLayout,
+                isVoiceOverRunning: UIAccessibility.isVoiceOverRunning,
+                isUserScrolling: userScrolling,
+                contentOffsetY: scrollView.contentOffset.y + scrollView.adjustedContentInset.top,
+                viewportHeight: scrollView.bounds.height - scrollView.adjustedContentInset.top - scrollView.adjustedContentInset.bottom,
+                contentHeight: scrollView.contentSize.height,
+                now: ProcessInfo.processInfo.systemUptime
+            ) else { return }
+
+            isAutoAdvancing = true
+            Task {
+                _ = await navigator.goForward(options: NavigatorGoOptions(animated: false))
+                await MainActor.run { self.isAutoAdvancing = false }
+            }
+        }
+
+        func applySpeechHighlight(locator: Locator?) {
+            guard locator != lastSpeechHighlightLocator else { return }
+            lastSpeechHighlightLocator = locator
+            let decorations = locator.map {
+                [
+                    Decoration(
+                        id: "current-speech",
+                        locator: $0,
+                        style: .highlight(tint: UIColor.systemYellow, isActive: true)
+                    )
+                ]
+            } ?? []
+            navigator?.apply(decorations: decorations, in: "tts")
+        }
+    }
+}
+
+private extension UIView {
+    func descendantScrollViews() -> [UIScrollView] {
+        var result: [UIScrollView] = []
+        if let scrollView = self as? UIScrollView {
+            result.append(scrollView)
+        }
+        for subview in subviews {
+            result.append(contentsOf: subview.descendantScrollViews())
+        }
+        return result
     }
 }
 
@@ -151,7 +274,8 @@ extension ReaderPreferences {
             scroll: layout == .scroll,
             spread: .never,
             textNormalization: true,
-            theme: readiumTheme
+            theme: readiumTheme,
+            verticalText: false
         )
     }
 }

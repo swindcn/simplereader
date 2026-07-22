@@ -95,6 +95,43 @@ final class SpeechSessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(service.startCount, 1)
         XCTAssertEqual(service.startedLocator?.href.string, "EPUB/chapter-1.xhtml")
     }
+
+    @MainActor
+    func testPublishesLatestListeningLocatorForReaderSynchronization() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let publication = try await PublicationService().open(at: fixture)
+        let service = CoordinatorSpeechService()
+        let coordinator = SpeechSessionCoordinator(
+            repository: InMemoryBookRepository(),
+            serviceFactory: { _ in service },
+            audioSessionFactory: { CoordinatorControlledAudioSessionActivator() }
+        )
+        coordinator.begin(book: .fixture(), publication: publication, locator: nil)
+
+        XCTAssertNil(coordinator.currentLocator)
+        service.send(.playing(service.utterance))
+
+        XCTAssertEqual(coordinator.currentLocator, service.utterance.locator)
+    }
+
+    @MainActor
+    func testEndSessionReturnsLatestLocatorForReaderReturn() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let publication = try await PublicationService().open(at: fixture)
+        let service = CoordinatorSpeechService()
+        let coordinator = SpeechSessionCoordinator(
+            repository: InMemoryBookRepository(),
+            serviceFactory: { _ in service },
+            audioSessionFactory: { CoordinatorControlledAudioSessionActivator() }
+        )
+        coordinator.begin(book: .fixture(), publication: publication, locator: nil)
+        service.send(.playing(service.utterance))
+
+        let locator = coordinator.endSession()
+
+        XCTAssertEqual(locator, service.utterance.locator)
+        XCTAssertEqual(coordinator.currentLocator, service.utterance.locator)
+    }
 }
 
 @MainActor

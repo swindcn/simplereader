@@ -432,6 +432,37 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(snapshot.fullSaveCount, 0)
     }
 
+    func testPausePersistsCurrentSpeechLocatorImmediately() async {
+        let repository = RecordingPositionRepository()
+        let locator = makeLocator(progression: 0.58)
+        let service = FakeSpeechService()
+        let viewModel = makeViewModel(service: service, repository: repository, persistenceDelay: 60)
+        service.send(.playing(.init(text: "暂停前的位置", locator: locator)))
+
+        viewModel.pause(announces: false)
+        for _ in 0..<40 { await Task.yield() }
+
+        let snapshot = await repository.snapshot()
+        XCTAssertEqual(snapshot.updates.map(\.position?.progression), [0.58])
+    }
+
+    func testSuccessfulFlushNotifiesShelfRefreshObserver() async {
+        let repository = RecordingPositionRepository()
+        let service = FakeSpeechService()
+        var refreshCount = 0
+        let viewModel = makeViewModel(
+            service: service,
+            repository: repository,
+            onProgressSaved: { refreshCount += 1 }
+        )
+        service.send(.playing(.init(text: "同步到书架", locator: makeLocator(progression: 0.41))))
+
+        let succeeded = await viewModel.flushProgress()
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(refreshCount, 1)
+    }
+
     func testSuccessfulProgressFlushRecordsRestorableListeningPositionWithoutAutoplay() async throws {
         let repository = RecordingPositionRepository()
         let locator = makeLocator(progression: 0.63)
@@ -615,6 +646,18 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertFalse(service.voices.isEmpty)
     }
 
+    func testReadiumPlaybackLocatorPrefersCurrentRangeOverUtteranceStart() {
+        let utteranceStart = makeLocator(progression: 0.2)
+        let currentRange = makeLocator(progression: 0.37)
+
+        let locator = ReadiumSpeechService.playbackLocator(
+            utteranceLocator: utteranceStart,
+            rangeLocator: currentRange
+        )
+
+        XCTAssertEqual(locator, currentRange)
+    }
+
     private func makeViewModel(
         service: FakeSpeechService,
         book: Book = .fixture(title: "测试书", author: "测试作者"),
@@ -624,7 +667,8 @@ final class ListeningViewModelTests: XCTestCase {
         persistenceDelay: TimeInterval = 60,
         audioSession: any AudioSessionActivating = FakeAudioSessionActivator(),
         preferencesStore: PreferencesStore? = nil,
-        appStateRestorer: AppStateRestorer? = nil
+        appStateRestorer: AppStateRestorer? = nil,
+        onProgressSaved: @escaping @MainActor () -> Void = {}
     ) -> ListeningViewModel {
         ListeningViewModel(
             book: book,
@@ -638,7 +682,8 @@ final class ListeningViewModelTests: XCTestCase {
             appStateRestorer: appStateRestorer,
             observesAudioSession: false,
             persistenceDelay: persistenceDelay,
-            audioSession: audioSession
+            audioSession: audioSession,
+            onProgressSaved: onProgressSaved
         )
     }
 

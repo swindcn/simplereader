@@ -17,6 +17,20 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            if bookID == nil {
+                Section("显示") {
+                    Picker("应用字体大小", selection: appFontSizeBinding) {
+                        ForEach(AppFontSize.allCases, id: \.self) { size in
+                            Text(size.title).tag(size)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("应用字体大小")
+                    .accessibilityValue(store.global.appFontSize.title)
+                    .accessibilityIdentifier("settings.appFontSize")
+                }
+            }
+
             if let bookID {
                 Section {
                     Toggle("使用全局设置", isOn: usesGlobalForBookBinding(bookID: bookID))
@@ -114,6 +128,17 @@ struct SettingsView: View {
     }
 
     private var resolved: ReaderPreferences { store.resolved(for: bookID) }
+
+    private var appFontSizeBinding: Binding<AppFontSize> {
+        Binding(
+            get: { store.global.appFontSize },
+            set: { size in
+                var global = store.global
+                global.appFontSize = size
+                store.setGlobal(global)
+            }
+        )
+    }
 
     private var fontFamilyBinding: Binding<ReaderFontFamily> {
         readingBinding(\.fontFamily, override: \.fontFamily)

@@ -26,8 +26,9 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(store.global.fontFamily, .system)
         XCTAssertEqual(store.global.fontScale, 1)
         XCTAssertEqual(store.global.lineHeight, 1.5)
-        XCTAssertEqual(store.global.theme, .system)
+        XCTAssertEqual(store.global.theme, .sepia)
         XCTAssertEqual(store.global.layout, .paginated)
+        XCTAssertEqual(store.global.appFontSize, .extraLarge)
         XCTAssertEqual(store.global.speechRate, 1)
         XCTAssertNil(store.global.voiceIdentifier)
     }
@@ -40,6 +41,7 @@ final class PreferencesStoreTests: XCTestCase {
         changed.lineHeight = 1.8
         changed.theme = .sepia
         changed.layout = .scroll
+        changed.appFontSize = .small
         changed.voiceIdentifier = "voice.test"
         changed.speechRate = 1.5
         store.setGlobal(changed)
@@ -83,6 +85,20 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(resolved.fontScale, 1.6)
         XCTAssertEqual(resolved.lineHeight, 2)
         XCTAssertEqual(PreferencesStore(defaults: defaults).resolved(for: bookID), resolved)
+    }
+
+    func testBookLayoutOverridePreservesExistingThemeOverride() {
+        let bookID = UUID()
+        let store = PreferencesStore(defaults: defaults)
+        store.setOverride(.init(theme: .dark), for: bookID)
+
+        var override = store.override(for: bookID)!
+        override.layout = .scroll
+        store.setOverride(override, for: bookID)
+
+        let resolved = store.resolved(for: bookID)
+        XCTAssertEqual(resolved.theme, .dark)
+        XCTAssertEqual(resolved.layout, .scroll)
     }
 
     func testDisablingGlobalPreferencesFreezesAllEffectiveBookPreferences() {
@@ -183,6 +199,13 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(ReaderPreferences(fontScale: 2).effectiveFontScale(for: .accessibilityExtraExtraExtraLarge), 3)
     }
 
+    func testReaderThemeProvidesMatchingReaderChromeColors() {
+        XCTAssertEqual(ReaderTheme.sepia.readerAppearance(usesDarkSystemTheme: false).backgroundColor, .pureVoiceSepiaBackground)
+        XCTAssertEqual(ReaderTheme.sepia.readerAppearance(usesDarkSystemTheme: false).chromeBackgroundColor, .pureVoiceSepiaChrome)
+        XCTAssertEqual(ReaderTheme.dark.readerAppearance(usesDarkSystemTheme: false).backgroundColor, .black)
+        XCTAssertEqual(ReaderTheme.system.readerAppearance(usesDarkSystemTheme: true).backgroundColor, .black)
+    }
+
     func testLegacySpeechKeysMigrateOnceIntoUnifiedPayload() {
         defaults.set(1.75, forKey: "speech.rateMultiplier")
         defaults.set("legacy.voice", forKey: "speech.voiceIdentifier")
@@ -229,5 +252,78 @@ final class PreferencesStoreTests: XCTestCase {
         update(preferences: "changed", location: 2)
 
         XCTAssertEqual(submissions, ["changed"])
+    }
+
+    func testScrollAutoAdvanceRequiresUserGestureAtBottomInScrollLayout() {
+        var policy = EPUBScrollAutoAdvancePolicy(bottomThreshold: 80, cooldown: 1)
+
+        XCTAssertFalse(policy.shouldAdvance(
+            isScrollLayout: false,
+            isVoiceOverRunning: false,
+            isUserScrolling: true,
+            contentOffsetY: 920,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 10
+        ))
+        XCTAssertFalse(policy.shouldAdvance(
+            isScrollLayout: true,
+            isVoiceOverRunning: true,
+            isUserScrolling: true,
+            contentOffsetY: 920,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 10
+        ))
+        XCTAssertFalse(policy.shouldAdvance(
+            isScrollLayout: true,
+            isVoiceOverRunning: false,
+            isUserScrolling: false,
+            contentOffsetY: 920,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 10
+        ))
+        XCTAssertTrue(policy.shouldAdvance(
+            isScrollLayout: true,
+            isVoiceOverRunning: false,
+            isUserScrolling: true,
+            contentOffsetY: 830,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 10
+        ))
+    }
+
+    func testScrollAutoAdvanceDebouncesRepeatedBottomEvents() {
+        var policy = EPUBScrollAutoAdvancePolicy(bottomThreshold: 80, cooldown: 1)
+
+        XCTAssertTrue(policy.shouldAdvance(
+            isScrollLayout: true,
+            isVoiceOverRunning: false,
+            isUserScrolling: true,
+            contentOffsetY: 830,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 10
+        ))
+        XCTAssertFalse(policy.shouldAdvance(
+            isScrollLayout: true,
+            isVoiceOverRunning: false,
+            isUserScrolling: true,
+            contentOffsetY: 870,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 10.5
+        ))
+        XCTAssertTrue(policy.shouldAdvance(
+            isScrollLayout: true,
+            isVoiceOverRunning: false,
+            isUserScrolling: true,
+            contentOffsetY: 870,
+            viewportHeight: 600,
+            contentHeight: 1_500,
+            now: 11.1
+        ))
     }
 }

@@ -3,6 +3,8 @@ import SwiftUI
 struct MiniPlayerView: View {
     @ObservedObject var viewModel: ListeningViewModel
     let onOpen: () -> Void
+    let onClose: () -> Void
+    var reservesTabBarSpace = false
 
     var body: some View {
         if viewModel.isMiniPlayerVisible {
@@ -30,11 +32,20 @@ struct MiniPlayerView: View {
                 }
                 .accessibilityLabel(viewModel.state.isPlaying ? "暂停" : "播放")
                 .accessibilityIdentifier("miniPlayer.playPause")
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("关闭听书")
+                .accessibilityIdentifier("miniPlayer.close")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
             .background(.regularMaterial)
             .overlay(alignment: .top) { Divider() }
+            .padding(.bottom, reservesTabBarSpace ? DesignTokens.minimumTouchTarget : 0)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("miniPlayer")
         }

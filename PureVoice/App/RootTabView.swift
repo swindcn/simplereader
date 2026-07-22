@@ -10,17 +10,20 @@ struct RootTabView: View {
     @StateObject private var speechSession: SpeechSessionCoordinator
     private let repository: any BookRepository
     private let importCoordinator: ImportCoordinator?
+    private let webTransferViewModel: WebTransferViewModel?
     private let libraryRefresh: LibraryRefreshSignal
     private let appStateRestorer: AppStateRestorer?
 
     init(
         repository: any BookRepository = InMemoryBookRepository(),
         importCoordinator: ImportCoordinator? = nil,
+        webTransferViewModel: WebTransferViewModel? = nil,
         libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal(),
         appStateRestorer: AppStateRestorer? = nil
     ) {
         self.repository = repository
         self.importCoordinator = importCoordinator
+        self.webTransferViewModel = webTransferViewModel
         self.libraryRefresh = libraryRefresh
         self.appStateRestorer = appStateRestorer
         let preferencesStore = PreferencesStore(defaults: Self.preferencesDefaults())
@@ -28,7 +31,10 @@ struct RootTabView: View {
         _speechSession = StateObject(wrappedValue: SpeechSessionCoordinator(
             repository: repository,
             preferencesStore: preferencesStore,
-            appStateRestorer: appStateRestorer
+            appStateRestorer: appStateRestorer,
+            onProgressSaved: {
+                libraryRefresh.refresh()
+            }
         ))
     }
 
@@ -71,13 +77,20 @@ struct RootTabView: View {
                         speechSession.dismissListening(flushesProgress: false)
                     }
                 }
+                .appFontSize(preferencesStore.global.appFontSize)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let viewModel = speechSession.viewModel,
                !speechSession.isListeningPresented,
                readerBook == nil {
-                MiniPlayerView(viewModel: viewModel, onOpen: speechSession.presentListening)
+                MiniPlayerView(
+                    viewModel: viewModel,
+                    onOpen: speechSession.presentListening,
+                    onClose: { _ = speechSession.endSession() },
+                    reservesTabBarSpace: true
+                )
+                .appFontSize(preferencesStore.global.appFontSize)
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -119,15 +132,22 @@ struct RootTabView: View {
                 libraryRefresh: libraryRefresh,
                 onOpenBook: { readerBook = $0 }
             )
+            .appFontSize(preferencesStore.global.appFontSize)
         case .importBooks:
-            if let importCoordinator {
-                ImportView(coordinator: importCoordinator)
+            if let importCoordinator, let webTransferViewModel {
+                ImportView(
+                    coordinator: importCoordinator,
+                    webTransferViewModel: webTransferViewModel
+                )
+                    .appFontSize(preferencesStore.global.appFontSize)
             } else {
                 Text("导入功能暂不可用")
+                    .appFontSize(preferencesStore.global.appFontSize)
             }
         case .settings:
             NavigationView {
                 SettingsView(store: preferencesStore)
+                    .appFontSize(preferencesStore.global.appFontSize)
             }
             .navigationViewStyle(.stack)
         }
@@ -199,12 +219,20 @@ private struct ReaderListeningHost: View {
             onListen: { publication, locator in
                 speechSession.begin(book: book, publication: publication, locator: locator)
             },
-            listeningReturnLocator: listeningReturnLocator
+            listeningReturnLocator: listeningReturnLocator,
+            activeListeningLocator: speechSession.viewModel == nil ? nil : speechSession.currentLocator
         )
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let viewModel = speechSession.viewModel,
                !speechSession.isListeningPresented {
-                MiniPlayerView(viewModel: viewModel, onOpen: speechSession.presentListening)
+                MiniPlayerView(
+                    viewModel: viewModel,
+                    onOpen: speechSession.presentListening,
+                    onClose: {
+                        listeningReturnLocator = speechSession.endSession()
+                    }
+                )
+                .appFontSize(preferencesStore.global.appFontSize)
             }
         }
         .fullScreenCover(isPresented: $speechSession.isListeningPresented) {
@@ -217,6 +245,7 @@ private struct ReaderListeningHost: View {
                         speechSession.dismissListening(flushesProgress: false)
                     }
                 }
+                .appFontSize(preferencesStore.global.appFontSize)
             }
         }
         .alert("听书提示", isPresented: sessionErrorPresented) {

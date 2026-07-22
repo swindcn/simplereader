@@ -2,6 +2,7 @@ import enum ReadiumShared.AnyURL
 import struct ReadiumShared.Locator
 import struct ReadiumShared.MediaType
 import ReadiumNavigator
+import UIKit
 import XCTest
 @testable import PureVoice
 
@@ -302,6 +303,22 @@ final class ReaderViewModelTests: XCTestCase {
         viewModel.returnFromListening(at: locator)
 
         XCTAssertEqual(viewModel.navigationRequest?.locator, locator)
+        XCTAssertTrue(viewModel.navigationRequest?.reportsFailure ?? false)
+        XCTAssertEqual(viewModel.currentLocator, locator)
+    }
+
+    func testFollowingListeningLocatorCreatesNavigationAndSpeechHighlight() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let viewModel = ReaderViewModel(book: book, repository: InMemoryBookRepository(books: [book]))
+        await viewModel.open()
+        let locator = makeLocator(href: "EPUB/chapter-2.xhtml", progression: 0.64)
+
+        viewModel.followListening(at: locator)
+
+        XCTAssertEqual(viewModel.navigationRequest?.locator, locator)
+        XCTAssertFalse(viewModel.navigationRequest?.reportsFailure ?? true)
+        XCTAssertEqual(viewModel.speechHighlightLocator, locator)
     }
 
     func testTableOfContentsIsFlattenedAndSelectionCreatesNavigationRequest() async throws {
@@ -317,6 +334,7 @@ final class ReaderViewModelTests: XCTestCase {
         viewModel.selectChapter(viewModel.tableOfContents[2])
 
         XCTAssertEqual(viewModel.navigationRequest?.href, "EPUB/chapter-2.xhtml")
+        XCTAssertTrue(viewModel.navigationRequest?.reportsFailure ?? false)
         XCTAssertFalse(viewModel.isTableOfContentsPresented)
         XCTAssertNil(viewModel.errorMessage)
     }
@@ -345,7 +363,18 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(preferences.fontSize, 1.25)
         XCTAssertEqual(preferences.lineHeight, 1.7)
         XCTAssertEqual(preferences.scroll, true)
+        XCTAssertEqual(preferences.verticalText, false)
         XCTAssertEqual(preferences.theme, .sepia)
+    }
+
+    func testChapterHeadingLabelUsesSingleLineTailTruncation() {
+        let label = UILabel()
+
+        ChapterHeadingLabelStyle.apply(to: label)
+
+        XCTAssertEqual(label.numberOfLines, 1)
+        XCTAssertEqual(label.lineBreakMode, .byTruncatingTail)
+        XCTAssertEqual(label.textAlignment, .center)
     }
 
     private func makeLocator(href: String, progression: Double) -> Locator {

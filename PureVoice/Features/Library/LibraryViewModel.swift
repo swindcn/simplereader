@@ -47,7 +47,7 @@ final class LibraryViewModel: ObservableObject {
         let generation = mutationGeneration
         loadGeneration += 1
         let initialLoadGeneration = loadGeneration
-        var updatedBook = book
+        var updatedBook = (try? await repository.book(id: book.id)) ?? book
         updatedBook.lastOpenedAt = now()
 
         do {

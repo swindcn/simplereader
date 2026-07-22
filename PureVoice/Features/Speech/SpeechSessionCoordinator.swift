@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class SpeechSessionCoordinator: ObservableObject {
     @Published private(set) var viewModel: ListeningViewModel?
+    @Published private(set) var currentLocator: Locator?
     @Published var isListeningPresented = false
     @Published var errorMessage: String?
 
@@ -13,6 +14,7 @@ final class SpeechSessionCoordinator: ObservableObject {
     private let publicationService: PublicationService
     private let serviceFactory: @MainActor (OpenedPublication) -> (any SpeechService)?
     private let audioSessionFactory: @MainActor () -> any AudioSessionActivating
+    private let onProgressSaved: @MainActor () -> Void
     private let finalizations = ProgressFinalizationQueue()
     private var remoteCommands: RemoteCommandController?
 
@@ -24,7 +26,8 @@ final class SpeechSessionCoordinator: ObservableObject {
         appStateRestorer: AppStateRestorer? = nil,
         publicationService: PublicationService = PublicationService(),
         serviceFactory: @MainActor @escaping (OpenedPublication) -> (any SpeechService)? = SpeechSessionCoordinator.makeService,
-        audioSessionFactory: @MainActor @escaping () -> any AudioSessionActivating = { SystemAudioSessionActivator() }
+        audioSessionFactory: @MainActor @escaping () -> any AudioSessionActivating = { SystemAudioSessionActivator() },
+        onProgressSaved: @escaping @MainActor () -> Void = {}
     ) {
         self.repository = repository
         self.preferencesStore = preferencesStore ?? PreferencesStore()
@@ -32,6 +35,7 @@ final class SpeechSessionCoordinator: ObservableObject {
         self.publicationService = publicationService
         self.serviceFactory = serviceFactory
         self.audioSessionFactory = audioSessionFactory
+        self.onProgressSaved = onProgressSaved
         finalizations.onFailure = { [weak self] in
             self?.errorMessage = "无法保存听书进度，请重试。"
         }
@@ -62,7 +66,8 @@ final class SpeechSessionCoordinator: ObservableObject {
             service: service,
             preferencesStore: preferencesStore,
             appStateRestorer: appStateRestorer,
-            audioSession: audioSessionFactory()
+            audioSession: audioSessionFactory(),
+            onProgressSaved: onProgressSaved
         )
         install(viewModel)
         isListeningPresented = true
@@ -86,7 +91,8 @@ final class SpeechSessionCoordinator: ObservableObject {
                 service: service,
                 preferencesStore: preferencesStore,
                 appStateRestorer: appStateRestorer,
-                audioSession: audioSessionFactory()
+                audioSession: audioSessionFactory(),
+                onProgressSaved: onProgressSaved
             )
             install(viewModel)
             viewModel.restorePaused(at: locator)
@@ -107,8 +113,10 @@ final class SpeechSessionCoordinator: ObservableObject {
             case .previous: viewModel.previousSentence(announces: false)
             }
         }
-        viewModel.onNowPlayingChange = { [weak viewModel] in
+        currentLocator = viewModel.currentLocator
+        viewModel.onNowPlayingChange = { [weak self, weak viewModel] in
             guard let viewModel else { return }
+            self?.currentLocator = viewModel.currentLocator
             remoteCommands.update(
                 state: viewModel.state,
                 metadata: .init(
@@ -135,8 +143,11 @@ final class SpeechSessionCoordinator: ObservableObject {
         isListeningPresented = true
     }
 
-    func endSession() {
+    @discardableResult
+    func endSession() -> Locator? {
         let endingViewModel = viewModel
+        let finalLocator = endingViewModel?.currentLocator ?? currentLocator
+        currentLocator = finalLocator
         endingViewModel?.teardown()
         if let endingViewModel {
             finalizations.enqueue {
@@ -147,6 +158,7 @@ final class SpeechSessionCoordinator: ObservableObject {
         remoteCommands = nil
         viewModel = nil
         isListeningPresented = false
+        return finalLocator
     }
 
     @discardableResult

@@ -2,7 +2,7 @@ import Foundation
 
 struct ChapterParser: Sendable {
     private static let chineseHeading = try! NSRegularExpression(
-        pattern: #"^\s*第\s*(?:[0-9０-９]+|[零〇一二三四五六七八九十百千万两]+)\s*[章节回卷部篇](?:\s*[:：\-—]?\s*.*)?\s*$"#
+        pattern: #"^\s*(?:[0-9０-９]+\s*[\.．、:：]\s*)?第\s*(?:[0-9０-９]+|[零〇一二三四五六七八九十百千万两]+)\s*[章节回卷部篇](?:\s*[:：\-—]?\s*.*)?\s*$"#
     )
     private static let englishHeading = try! NSRegularExpression(
         pattern: #"^\s*chapter\s+[0-9]+(?:\s*[:：\-—]\s*.*|\s+.*)?\s*$"#,

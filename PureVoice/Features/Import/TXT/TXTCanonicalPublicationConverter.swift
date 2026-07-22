@@ -15,8 +15,7 @@ enum TXTConversionError: Error, Equatable, LocalizedError {
 }
 
 struct TXTCanonicalPublicationConverter: CanonicalPublicationConverting {
-    // V1 decodes the complete source in memory; raise this safety cap after streaming decode lands.
-    static let maximumSourceBytes = 32 * 1_024 * 1_024
+    static let maximumSourceBytes = Int(BookFileStore.maximumImportSize)
 
     private let decoder = TXTDecoder()
     private let parser = ChapterParser()

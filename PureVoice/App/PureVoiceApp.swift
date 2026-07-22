@@ -94,6 +94,7 @@ private struct AppBootstrapView: View {
                 RootTabView(
                     repository: dependencies.repository,
                     importCoordinator: dependencies.importCoordinator,
+                    webTransferViewModel: dependencies.webTransferViewModel,
                     libraryRefresh: dependencies.libraryRefresh,
                     appStateRestorer: dependencies.appStateRestorer
                 )

@@ -36,6 +36,25 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.continueReadingBook?.id, book.id)
     }
 
+    func testOpenPreservesNewerPersistedListeningProgressFromStaleShelfBook() async throws {
+        let staleBook = Self.books[3]
+        let latestPosition = ReadingPosition(href: "EPUB/chapter-3.xhtml", progression: 0.31)
+        let repository = InMemoryBookRepository(books: [staleBook])
+        try await repository.updatePosition(id: staleBook.id, position: latestPosition)
+        var openedBook: Book?
+        let viewModel = LibraryViewModel(
+            repository: repository,
+            now: { Date(timeIntervalSince1970: 9_999) },
+            onOpenBook: { openedBook = $0 }
+        )
+
+        await viewModel.open(staleBook)
+
+        let persistedBook = try await repository.book(id: staleBook.id)
+        XCTAssertEqual(persistedBook?.position, latestPosition)
+        XCTAssertEqual(openedBook?.position, latestPosition)
+    }
+
     func testOpenCompletesAfterNewerLoadAndReconcilesShelf() async {
         let book = Self.books[3]
         let repository = DelayedSuccessfulMutationRepository(books: [book])

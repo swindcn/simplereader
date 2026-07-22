@@ -106,6 +106,13 @@ final class ReadiumSpeechService: SpeechService {
             ?? availableVoices.first?.identifier
     }
 
+    static func playbackLocator(
+        utteranceLocator: Locator,
+        rangeLocator: Locator?
+    ) -> Locator {
+        rangeLocator ?? utteranceLocator
+    }
+
     private static func baseLanguage(_ language: String) -> String {
         language.split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init)?.lowercased()
             ?? language.lowercased()
@@ -135,8 +142,14 @@ extension ReadiumSpeechService: PublicationSpeechSynthesizerDelegate {
             publish(.stopped)
         case let .paused(utterance):
             publish(.paused(.init(text: utterance.text, locator: utterance.locator)))
-        case let .playing(utterance, range: _):
-            publish(.playing(.init(text: utterance.text, locator: utterance.locator)))
+        case let .playing(utterance, range: range):
+            publish(.playing(.init(
+                text: utterance.text,
+                locator: Self.playbackLocator(
+                    utteranceLocator: utterance.locator,
+                    rangeLocator: range
+                )
+            )))
         }
     }
 

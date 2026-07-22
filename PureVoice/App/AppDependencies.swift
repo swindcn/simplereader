@@ -13,6 +13,7 @@ final class LibraryRefreshSignal: ObservableObject {
 struct AppDependencies {
     let repository: any BookRepository
     let importCoordinator: ImportCoordinator
+    let webTransferViewModel: WebTransferViewModel
     let libraryRefresh: LibraryRefreshSignal
     let appStateRestorer: AppStateRestorer
 
@@ -52,9 +53,18 @@ struct AppDependencies {
                 appStateRestorer.recordImport(bookID: bookID, originalFileURL: originalFileURL, state: state)
             }
         )
+        let transferBaseURLString = ProcessInfo.processInfo.environment["PUREVOICE_WEB_TRANSFER_BASE_URL"] ?? ""
+        let transferBaseURL = URL(string: transferBaseURLString)
+            ?? URL(string: "https://nzksxspznpkquybprqms.supabase.co/functions/v1/transfer")!
+        let webTransferViewModel = WebTransferViewModel(
+            identityStore: KeychainTransferIdentityStore(),
+            client: URLSessionWebTransferClient(baseURL: transferBaseURL),
+            importCoordinator: ImportCoordinatorTransferImporter(coordinator: coordinator)
+        )
         return AppDependencies(
             repository: repository,
             importCoordinator: coordinator,
+            webTransferViewModel: webTransferViewModel,
             libraryRefresh: libraryRefresh,
             appStateRestorer: appStateRestorer
         )

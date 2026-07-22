@@ -12,10 +12,12 @@ struct ReaderNavigationRequest: Equatable, Identifiable {
     let id = UUID()
     let href: String
     let locator: Locator?
+    let reportsFailure: Bool
 
-    init(href: String, locator: Locator? = nil) {
+    init(href: String, locator: Locator? = nil, reportsFailure: Bool = true) {
         self.href = href
         self.locator = locator
+        self.reportsFailure = reportsFailure
     }
 }
 
@@ -30,6 +32,7 @@ final class ReaderViewModel: ObservableObject {
     @Published private(set) var tableOfContents: [ReaderTOCEntry] = []
     @Published var isTableOfContentsPresented = false
     @Published private(set) var navigationRequest: ReaderNavigationRequest?
+    @Published private(set) var speechHighlightLocator: Locator?
     @Published private(set) var errorMessage: String?
 
     var isReady: Bool { openedPublication != nil && !isLoading }
@@ -122,7 +125,28 @@ final class ReaderViewModel: ObservableObject {
             errorMessage = "无法返回到当前听书位置。"
             return
         }
+        currentLocator = locator
+        updateChapter(for: locator.href.string)
         navigationRequest = ReaderNavigationRequest(href: locator.href.string, locator: locator)
+    }
+
+    func followListening(at locator: Locator) {
+        guard openedPublication?.readiumPublication.linkWithHREF(locator.href) != nil else {
+            errorMessage = "无法跟随当前听书位置。"
+            return
+        }
+        currentLocator = locator
+        updateChapter(for: locator.href.string)
+        speechHighlightLocator = locator
+        navigationRequest = ReaderNavigationRequest(
+            href: locator.href.string,
+            locator: locator,
+            reportsFailure: false
+        )
+    }
+
+    func clearSpeechHighlight() {
+        speechHighlightLocator = nil
     }
 
     func reportNavigationFailure() {

@@ -7,6 +7,9 @@ final class SettingsAccessibilityUITests: XCTestCase {
         var app = launch(suite: suite, resets: true, contentSizeCategory: "UICTContentSizeCategoryL")
         app.tabBars.buttons["设置"].tap()
 
+        XCTAssertTrue(app.segmentedControls["settings.appFontSize"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["极大"].isSelected)
+
         let fontScale = app.sliders["settings.fontScale"]
         XCTAssertTrue(fontScale.waitForExistence(timeout: 5))
         fontScale.adjust(toNormalizedSliderPosition: 0.75)
@@ -19,6 +22,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
 
         app = launch(suite: suite, resets: false, contentSizeCategory: "UICTContentSizeCategoryL")
         app.tabBars.buttons["设置"].tap()
+        XCTAssertTrue(app.buttons["极大"].isSelected)
         XCTAssertTrue(app.sliders["settings.fontScale"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.sliders["settings.fontScale"].value as? String, persistedValue)
         XCTAssertTrue(app.buttons["滚动"].isSelected)
@@ -29,6 +33,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         reset.tap()
         app.buttons.matching(identifier: "settings.reset.confirm").firstMatch.tap()
         app.swipeDown()
+        XCTAssertTrue(app.buttons["极大"].isSelected)
         XCTAssertTrue(app.buttons["分页"].isSelected)
     }
 
@@ -61,6 +66,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
             contentSizeCategory: "UICTContentSizeCategoryL",
             readerFixturePath: fixture.path
         )
+        showReaderChrome(in: app)
         XCTAssertTrue(app.buttons["reader.settings"].waitForExistence(timeout: 8))
         app.buttons["reader.settings"].tap()
 
@@ -74,6 +80,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         expectation(for: NSPredicate(format: "value == '0'"), evaluatedWith: usesGlobal)
         waitForExpectations(timeout: 3)
         app.buttons["settings.done"].tap()
+        showReaderChrome(in: app)
         XCTAssertTrue(app.buttons["reader.settings"].waitForExistence(timeout: 3))
         app.buttons["reader.settings"].tap()
         XCTAssertEqual(app.switches["settings.useGlobal"].value as? String, "0")
@@ -86,6 +93,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         )
         waitForExpectations(timeout: 3)
         app.buttons["settings.done"].tap()
+        showReaderChrome(in: app)
         app.buttons["reader.settings"].tap()
         XCTAssertEqual(app.switches["settings.useGlobal"].value as? String, "1")
 
@@ -95,6 +103,41 @@ final class SettingsAccessibilityUITests: XCTestCase {
             evaluatedWith: app.switches["settings.useGlobal"]
         )
         waitForExpectations(timeout: 3)
+    }
+
+    func testReaderSheetsFollowAppFontSizeSetting() {
+        let suite = "ReaderSheetsAppFontSize-\(UUID().uuidString)"
+        var app = launch(
+            suite: suite,
+            resets: true,
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL"
+        )
+        app.tabBars.buttons["设置"].tap()
+        XCTAssertTrue(app.segmentedControls["settings.appFontSize"].waitForExistence(timeout: 5))
+        app.buttons["小"].tap()
+        app.terminate()
+
+        let fixture = Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub")!
+        app = launch(
+            suite: suite,
+            resets: false,
+            contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL",
+            readerFixturePath: fixture.path
+        )
+        showReaderChrome(in: app)
+        XCTAssertTrue(app.buttons["reader.settings"].waitForExistence(timeout: 8))
+        app.buttons["reader.settings"].tap()
+
+        let useGlobal = app.switches["settings.useGlobal"]
+        XCTAssertTrue(useGlobal.waitForExistence(timeout: 3))
+        XCTAssertLessThan(useGlobal.frame.height, 56)
+        app.buttons["settings.done"].tap()
+
+        showReaderChrome(in: app)
+        app.buttons["reader.tableOfContents"].tap()
+        let tocEntry = app.buttons["reader.toc.0"]
+        XCTAssertTrue(tocEntry.waitForExistence(timeout: 3))
+        XCTAssertLessThan(tocEntry.frame.height, 64)
     }
 
     private func launch(
@@ -116,5 +159,20 @@ final class SettingsAccessibilityUITests: XCTestCase {
 
     private func tapSwitch(_ element: XCUIElement) {
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+    }
+
+    private func showReaderChrome(in app: XCUIApplication) {
+        if app.buttons["reader.listen"].exists || app.buttons["reader.back"].exists {
+            return
+        }
+        if app.otherElements["reader.chrome"].exists {
+            return
+        }
+        let hotZone = app.buttons["reader.contentTapArea"]
+        if hotZone.waitForExistence(timeout: 3) {
+            hotZone.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
     }
 }

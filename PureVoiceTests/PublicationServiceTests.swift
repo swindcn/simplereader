@@ -95,6 +95,20 @@ final class PublicationServiceTests: XCTestCase {
         ])
     }
 
+    func testLoadsContinuousReaderChapterTextFromReadingOrder() async throws {
+        let opened = try await PublicationService().open(at: try copyFixture("minimal.epub"))
+
+        let references = opened.continuousChapterReferences()
+        let first = try await opened.continuousChapter(for: references[0])
+        let second = try await opened.continuousChapter(for: references[1])
+
+        XCTAssertEqual(references.map(\.href), ["EPUB/chapter-1.xhtml", "EPUB/chapter-2.xhtml"])
+        XCTAssertEqual(first.title, "第一章 起点")
+        XCTAssertEqual(first.paragraphs, ["第一节内容。"])
+        XCTAssertEqual(second.title, "第二章 继续")
+        XCTAssertEqual(second.paragraphs, ["后续内容。"])
+    }
+
     func testLocatorAndReadingPositionRoundTrip() async throws {
         let opened = try await PublicationService().open(at: try copyFixture("minimal.epub"))
         let locator = Locator(
