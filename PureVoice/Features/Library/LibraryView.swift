@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct LibraryView: View {
+    @Environment(\.appFontSize) private var appFontSize
     @StateObject private var viewModel: LibraryViewModel
     @ObservedObject private var libraryRefresh: LibraryRefreshSignal
     @State private var renameTarget: Book?
@@ -82,6 +83,7 @@ struct LibraryView: View {
                 },
                 onCancel: { actionTarget = nil }
             )
+            .appFontSize(appFontSize)
         }
         .sheet(item: $deleteTarget) { book in
             DeleteBookSheet(
@@ -92,6 +94,7 @@ struct LibraryView: View {
                     Task { await viewModel.delete(book) }
                 }
             )
+            .appFontSize(appFontSize)
         }
         .alert("操作失败", isPresented: errorPresented) {
             Button("好", role: .cancel) { viewModel.dismissError() }

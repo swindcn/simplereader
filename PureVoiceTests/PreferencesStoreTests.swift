@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import PureVoice
 
@@ -17,6 +18,13 @@ final class PreferencesStoreTests: XCTestCase {
         defaults = nil
         suiteName = nil
         super.tearDown()
+    }
+
+    func testAppFontSizesUseBoundedDynamicTypeValues() {
+        XCTAssertEqual(AppFontSize.small.dynamicTypeSize, .medium)
+        XCTAssertEqual(AppFontSize.medium.dynamicTypeSize, .large)
+        XCTAssertEqual(AppFontSize.large.dynamicTypeSize, .xLarge)
+        XCTAssertEqual(AppFontSize.extraLarge.dynamicTypeSize, .xxLarge)
     }
 
     func testDefaultsAreAccessibleReaderAndSpeechValues() {
