@@ -7,6 +7,9 @@ final class SettingsAccessibilityUITests: XCTestCase {
         var app = launch(suite: suite, resets: true, contentSizeCategory: "UICTContentSizeCategoryL")
         app.tabBars.buttons["设置"].tap()
 
+        let navigationBar = app.navigationBars["设置"]
+        XCTAssertTrue(navigationBar.waitForExistence(timeout: 3))
+        XCTAssertLessThan(navigationBar.frame.height, 120)
         XCTAssertTrue(app.segmentedControls["settings.appFontSize"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["极大"].isSelected)
 
@@ -16,8 +19,8 @@ final class SettingsAccessibilityUITests: XCTestCase {
         let persistedValue = fontScale.value as? String
         XCTAssertNotNil(persistedValue)
 
-        app.buttons["滚动"].tap()
-        XCTAssertTrue(app.buttons["滚动"].isSelected)
+        app.buttons["上下滚动"].tap()
+        XCTAssertTrue(app.buttons["上下滚动"].isSelected)
         app.terminate()
 
         app = launch(suite: suite, resets: false, contentSizeCategory: "UICTContentSizeCategoryL")
@@ -25,7 +28,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["极大"].isSelected)
         XCTAssertTrue(app.sliders["settings.fontScale"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.sliders["settings.fontScale"].value as? String, persistedValue)
-        XCTAssertTrue(app.buttons["滚动"].isSelected)
+        XCTAssertTrue(app.buttons["上下滚动"].isSelected)
 
         app.swipeUp()
         let reset = app.buttons["settings.reset"]
@@ -34,7 +37,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         app.buttons.matching(identifier: "settings.reset.confirm").firstMatch.tap()
         app.swipeDown()
         XCTAssertTrue(app.buttons["极大"].isSelected)
-        XCTAssertTrue(app.buttons["分页"].isSelected)
+        XCTAssertTrue(app.buttons["左右分页"].isSelected)
     }
 
     func testSettingsControlsRemainReachableAtLargestDynamicType() {
@@ -45,6 +48,9 @@ final class SettingsAccessibilityUITests: XCTestCase {
         )
         app.tabBars.buttons["设置"].tap()
 
+        let navigationBar = app.navigationBars["设置"]
+        XCTAssertTrue(navigationBar.waitForExistence(timeout: 3))
+        XCTAssertLessThan(navigationBar.frame.height, 120)
         let fontScale = app.sliders["settings.fontScale"]
         let lineHeight = app.sliders["settings.lineHeight"]
         XCTAssertTrue(lineHeight.waitForExistence(timeout: 5))
@@ -76,7 +82,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         let fontScale = app.sliders["settings.fontScale"]
         fontScale.adjust(toNormalizedSliderPosition: 0.75)
         let savedFontScale = fontScale.value as? String
-        app.buttons["滚动"].tap()
+        app.buttons["上下滚动"].tap()
         expectation(for: NSPredicate(format: "value == '0'"), evaluatedWith: usesGlobal)
         waitForExpectations(timeout: 3)
         app.buttons["settings.done"].tap()
@@ -84,7 +90,7 @@ final class SettingsAccessibilityUITests: XCTestCase {
         XCTAssertTrue(app.buttons["reader.settings"].waitForExistence(timeout: 3))
         app.buttons["reader.settings"].tap()
         XCTAssertEqual(app.switches["settings.useGlobal"].value as? String, "0")
-        XCTAssertTrue(app.buttons["滚动"].isSelected)
+        XCTAssertTrue(app.buttons["上下滚动"].isSelected)
         XCTAssertEqual(app.sliders["settings.fontScale"].value as? String, savedFontScale)
         tapSwitch(app.switches["settings.useGlobal"])
         expectation(

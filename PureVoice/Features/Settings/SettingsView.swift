@@ -112,6 +112,7 @@ struct SettingsView: View {
             }
         }
         .navigationTitle(bookID == nil ? "设置" : "本书设置")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if showsCloseButton {

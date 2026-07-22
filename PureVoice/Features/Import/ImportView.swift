@@ -15,6 +15,7 @@ struct ImportView: View {
                 .padding()
             }
             .navigationTitle("导入书籍")
+            .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(.stack)
         .sheet(isPresented: $isPickingDocument) {
