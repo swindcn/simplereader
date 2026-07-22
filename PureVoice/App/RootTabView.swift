@@ -130,6 +130,7 @@ struct RootTabView: View {
             LibraryView(
                 repository: repository,
                 libraryRefresh: libraryRefresh,
+                webTransferViewModel: webTransferViewModel,
                 onOpenBook: { readerBook = $0 }
             )
             .appFontSize(preferencesStore.global.appFontSize)

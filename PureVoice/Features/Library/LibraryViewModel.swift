@@ -10,16 +10,19 @@ final class LibraryViewModel: ObservableObject {
     private let repository: any BookRepository
     private let now: () -> Date
     private let onOpenBook: (Book) -> Void
+    private let receiveWebTransfers: (() async -> UserFacingError?)?
     private var loadGeneration = 0
     private var mutationGeneration = 0
 
     init(
         repository: any BookRepository,
         now: @escaping () -> Date = Date.init,
+        receiveWebTransfers: (() async -> UserFacingError?)? = nil,
         onOpenBook: @escaping (Book) -> Void = { _ in }
     ) {
         self.repository = repository
         self.now = now
+        self.receiveWebTransfers = receiveWebTransfers
         self.onOpenBook = onOpenBook
     }
 
@@ -40,6 +43,15 @@ final class LibraryViewModel: ObservableObject {
 
         guard generation == loadGeneration else { return }
         isLoading = false
+    }
+
+    func refreshAndReceiveWebTransfers() async {
+        if let receiveWebTransfers {
+            if let error = await receiveWebTransfers() {
+                errorMessage = "\(error.message)\n\(error.recoveryAction)"
+            }
+        }
+        await load()
     }
 
     func open(_ book: Book) async {

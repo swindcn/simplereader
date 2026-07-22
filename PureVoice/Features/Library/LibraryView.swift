@@ -10,11 +10,21 @@ struct LibraryView: View {
     init(
         repository: any BookRepository,
         libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal(),
+        webTransferViewModel: WebTransferViewModel? = nil,
         onOpenBook: @escaping (Book) -> Void = { _ in }
     ) {
         self.libraryRefresh = libraryRefresh
         _viewModel = StateObject(
-            wrappedValue: LibraryViewModel(repository: repository, onOpenBook: onOpenBook)
+            wrappedValue: LibraryViewModel(
+                repository: repository,
+                receiveWebTransfers: webTransferViewModel.map { viewModel in
+                    {
+                        _ = await viewModel.receivePendingItems()
+                        return viewModel.error
+                    }
+                },
+                onOpenBook: onOpenBook
+            )
         )
     }
 
@@ -36,6 +46,15 @@ struct LibraryView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     brandTitle
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        Task { await viewModel.refreshAndReceiveWebTransfers() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(viewModel.isLoading)
+                    .accessibilityLabel("刷新书架并接收网站传书")
                 }
             }
         }
@@ -100,7 +119,7 @@ struct LibraryView: View {
             .padding(.horizontal, DesignTokens.edgeMargin)
             .padding(.vertical, DesignTokens.stackGap)
         }
-        .refreshable { await viewModel.load() }
+        .refreshable { await viewModel.refreshAndReceiveWebTransfers() }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color(uiColor: .systemGroupedBackground)
                 .ignoresSafeArea(edges: .bottom)
@@ -143,6 +162,14 @@ struct LibraryView: View {
             Text("从“导入”添加本地书籍")
                 .font(.body)
                 .foregroundStyle(.secondary)
+            Button {
+                Task { await viewModel.refreshAndReceiveWebTransfers() }
+            } label: {
+                Label("刷新接收网站传书", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(viewModel.isLoading)
+            .accessibilityHint("检查网页上传的书籍并导入到书架")
         }
         .multilineTextAlignment(.center)
         .padding(DesignTokens.edgeMargin)

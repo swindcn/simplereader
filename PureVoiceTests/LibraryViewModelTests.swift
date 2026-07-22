@@ -138,6 +138,25 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.recentBooks.contains { $0.id == books[0].id })
     }
 
+    func testShelfRefreshReceivesWebTransfersBeforeLoadingBooks() async {
+        let book = Self.books[0]
+        let repository = InMemoryBookRepository(books: [book])
+        var receiveCount = 0
+        let viewModel = LibraryViewModel(
+            repository: repository,
+            receiveWebTransfers: {
+                receiveCount += 1
+                return nil
+            }
+        )
+
+        await viewModel.refreshAndReceiveWebTransfers()
+
+        XCTAssertEqual(receiveCount, 1)
+        XCTAssertEqual(viewModel.continueReadingBook?.id, book.id)
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
     func testAccessibilityProgressUsesChineseSpellOut() {
         XCTAssertEqual(BookRow.accessibilityLabel(for: .fixture(position: nil)), "活着，余华，已读百分之零")
         XCTAssertEqual(

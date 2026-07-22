@@ -77,6 +77,34 @@ final class WebTransferViewModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func receivePendingItems() async -> Int {
+        guard let importCoordinator else {
+            error = UserFacingError(
+                title: "导入功能不可用",
+                message: "当前无法导入网站传书文件。",
+                recoveryAction: "稍后重试"
+            )
+            return 0
+        }
+
+        var importedCount = 0
+        await run { [self] in
+            let identity = try self.identityStore.identity()
+            let items = try await self.client.inbox(identity: identity)
+            self.inbox = items
+            for item in items {
+                let url = try await self.client.downloadURL(uploadID: item.id, identity: identity)
+                let localURL = try await self.client.downloadFile(from: url, suggestedFilename: item.filename)
+                let importedBookID = try await importCoordinator.importBook(from: localURL)
+                try await self.client.claim(uploadID: item.id, identity: identity, importedBookID: importedBookID)
+                self.inbox.removeAll { $0.id == item.id }
+                importedCount += 1
+            }
+        }
+        return importedCount
+    }
+
     func deleteItem(_ item: TransferInboxItem) async {
         await run { [self] in
             let identity = try self.identityStore.identity()
