@@ -17,6 +17,34 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
     }
 
+    func testLoadPublishesAllShelfBooksInRecentOrder() async throws {
+        let olderOpened = Book.fixture(
+            id: UUID(uuidString: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")!,
+            title: "旧打开",
+            lastOpenedAt: Date(timeIntervalSince1970: 200),
+            createdAt: Date(timeIntervalSince1970: 10)
+        )
+        let newImport = Book.fixture(
+            id: UUID(uuidString: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")!,
+            title: "新导入",
+            lastOpenedAt: nil,
+            createdAt: Date(timeIntervalSince1970: 300)
+        )
+        let recentOpened = Book.fixture(
+            id: UUID(uuidString: "cccccccc-cccc-4ccc-8ccc-cccccccccccc")!,
+            title: "最近打开",
+            lastOpenedAt: Date(timeIntervalSince1970: 400),
+            createdAt: Date(timeIntervalSince1970: 20)
+        )
+        let repository = InMemoryBookRepository(books: [olderOpened, newImport, recentOpened])
+        let viewModel = LibraryViewModel(repository: repository)
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.continueReadingBook?.id, recentOpened.id)
+        XCTAssertEqual(viewModel.shelfBooks.map(\.id), [newImport.id, olderOpened.id])
+    }
+
     func testOpenPersistsLastOpenedDateAndDelegatesToReader() async throws {
         let book = Self.books[3]
         let repository = InMemoryBookRepository(books: [book])

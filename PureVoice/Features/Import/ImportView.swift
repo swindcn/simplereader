@@ -8,7 +8,7 @@ struct ImportView: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 28) {
                     localImportSection
                     WebTransferView(viewModel: webTransferViewModel)
                 }
@@ -29,16 +29,37 @@ struct ImportView: View {
     }
 
     private var localImportSection: some View {
-        VStack(spacing: 16) {
-            statusContent
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Image("LocalImport")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .foregroundStyle(DesignTokens.onSurface)
+                    .accessibilityHidden(true)
+                Text("选择本地书籍开始导入")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(DesignTokens.onSurface)
+                Spacer()
+                statusContent
+            }
 
             Button {
                 isPickingDocument = true
             } label: {
-                Label("选择文件", systemImage: "doc.badge.plus")
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: 10) {
+                    Image(systemName: "icloud.and.arrow.up.fill")
+                        .font(.system(size: 48))
+                    Text("从本机选择")
+                        .font(.title3.weight(.bold))
+                }
+                .foregroundStyle(isBusy ? .secondary : DesignTokens.primary)
+                .frame(maxWidth: .infinity, minHeight: 132)
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
             .disabled(isBusy)
             .accessibilityLabel("选择要导入的书籍文件")
             .accessibilityHint("支持 TXT 和 EPUB")
@@ -56,7 +77,7 @@ struct ImportView: View {
     private var statusContent: some View {
         switch coordinator.state {
         case .idle:
-            Text("选择本地书籍开始导入")
+            EmptyView()
         case .copying:
             progress("正在复制文件")
         case .detecting:
@@ -66,7 +87,8 @@ struct ImportView: View {
         case .openingPublication:
             progress("正在验证书籍")
         case .completed:
-            Label("导入完成", systemImage: "checkmark.circle.fill")
+            Text("导入完成")
+                .font(.headline)
                 .foregroundStyle(.green)
         case let .failed(failure):
             let userError = UserFacingError(importFailure: failure)

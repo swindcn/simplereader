@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct LibraryView: View {
     @StateObject private var viewModel: LibraryViewModel
@@ -6,6 +7,7 @@ struct LibraryView: View {
     @State private var renameTarget: Book?
     @State private var renameTitle = ""
     @State private var deleteTarget: Book?
+    private let shelfColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
     init(
         repository: any BookRepository,
@@ -31,9 +33,9 @@ struct LibraryView: View {
     var body: some View {
         NavigationView {
             Group {
-                if viewModel.isLoading && viewModel.continueReadingBook == nil && viewModel.recentBooks.isEmpty {
+                if viewModel.isLoading && viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
                     ProgressView("正在载入书架")
-                } else if viewModel.continueReadingBook == nil && viewModel.recentBooks.isEmpty {
+                } else if viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
                     emptyState
                 } else {
                     libraryContent
@@ -99,20 +101,32 @@ struct LibraryView: View {
                     )
                 }
 
-                if !viewModel.recentBooks.isEmpty {
+                if !viewModel.shelfBooks.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("最近阅读")
+                        Text("我的书籍")
                             .font(.title2.bold())
                             .foregroundStyle(DesignTokens.onSurface)
-                        ForEach(viewModel.recentBooks) { book in
-                            BookRow(
-                                book: book,
-                                accessibilityIdentifier: "library.recent.book.\(book.id.uuidString)",
-                                onOpen: { Task { await viewModel.open(book) } },
-                                onRename: { beginRename(book) },
-                                onDelete: { deleteTarget = book }
-                            )
+                        LazyVGrid(columns: shelfColumns, alignment: .leading, spacing: 18) {
+                            ForEach(viewModel.shelfBooks) { book in
+                                BookGridItem(
+                                    book: book,
+                                    accessibilityIdentifier: "library.shelf.book.\(book.id.uuidString)",
+                                    onOpen: { Task { await viewModel.open(book) } },
+                                    onRename: { beginRename(book) },
+                                    onDelete: { deleteTarget = book }
+                                )
+                            }
                         }
+                        .accessibilityElement(children: .contain)
+                    }
+                } else if viewModel.continueReadingBook != nil {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("我的书籍")
+                            .font(.title2.bold())
+                            .foregroundStyle(DesignTokens.onSurface)
+                        Text("当前只有一本书，已放在继续阅读中。")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -125,6 +139,104 @@ struct LibraryView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .frame(height: DesignTokens.minimumTouchTarget + DesignTokens.stackGap)
                 .accessibilityHidden(true)
+        }
+    }
+
+    private struct BookGridItem: View {
+        let book: Book
+        let accessibilityIdentifier: String
+        let onOpen: () -> Void
+        let onRename: () -> Void
+        let onDelete: () -> Void
+
+        var body: some View {
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 7) {
+                    cover
+                    Text(book.title)
+                        .font(.headline)
+                        .foregroundStyle(DesignTokens.onSurface)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(book.author)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Spacer(minLength: 2)
+                        Text("\(percentage)%")
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    ProgressView(value: progress)
+                        .tint(DesignTokens.primary)
+                        .frame(height: 3)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(BookRow.accessibilityLabel(for: book))
+                .accessibilityIdentifier(accessibilityIdentifier)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("双击继续阅读。可使用辅助功能操作重命名或删除。")
+            .accessibilityAction(named: Text("重命名"), onRename)
+            .accessibilityAction(named: Text("删除"), onDelete)
+            .contextMenu {
+                Button(action: onRename) {
+                    Label("重命名", systemImage: "pencil")
+                }
+                Button(role: .destructive, action: onDelete) {
+                    Label("删除", systemImage: "trash")
+                }
+            }
+        }
+
+        private var cover: some View {
+            GeometryReader { proxy in
+                Group {
+                    if let coverURL = book.coverFileURL,
+                       let image = UIImage(contentsOfFile: coverURL.path) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        ZStack {
+                            placeholderColor
+                            Text(book.title.prefix(1))
+                                .font(.system(size: 42, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .accessibilityHidden(true)
+            }
+            .aspectRatio(0.72, contentMode: .fit)
+        }
+
+        private var progress: Double {
+            book.position?.progression ?? 0
+        }
+
+        private var percentage: Int {
+            Int((progress * 100).rounded())
+        }
+
+        private var placeholderColor: Color {
+            let colors: [Color] = [
+                Color(red: 0.08, green: 0.22, blue: 0.42),
+                Color(red: 0.42, green: 0.12, blue: 0.18),
+                Color(red: 0.08, green: 0.32, blue: 0.24),
+                Color(red: 0.20, green: 0.20, blue: 0.24)
+            ]
+            let stableIndex = Int(book.id.uuid.0)
+            return colors[stableIndex % colors.count]
         }
     }
 

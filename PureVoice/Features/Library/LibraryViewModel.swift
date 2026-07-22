@@ -6,6 +6,7 @@ final class LibraryViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var continueReadingBook: Book?
     @Published private(set) var recentBooks: [Book] = []
+    @Published private(set) var shelfBooks: [Book] = []
 
     private let repository: any BookRepository
     private let now: () -> Date
@@ -133,6 +134,7 @@ final class LibraryViewModel: ObservableObject {
                 return lhsDate < rhsDate
             }
         continueReadingBook = continueBook
-        recentBooks = Array(orderedBooks.lazy.filter { $0.id != continueBook?.id }.prefix(3))
+        shelfBooks = orderedBooks.filter { $0.id != continueBook?.id }
+        recentBooks = Array(shelfBooks.prefix(3))
     }
 }

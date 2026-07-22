@@ -51,6 +51,11 @@ final class WebTransferViewModel: ObservableObject {
         }
     }
 
+    func prepareTransferCode() async {
+        guard pairingCode == nil else { return }
+        await generateCode()
+    }
+
     func refreshInbox() async {
         await run { [self] in
             let identity = try self.identityStore.identity()

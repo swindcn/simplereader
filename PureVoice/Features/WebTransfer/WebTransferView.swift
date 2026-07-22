@@ -8,11 +8,7 @@ struct WebTransferView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
-            transferInstructions
-
-            if let pairingCode = viewModel.pairingCode {
-                pairingCodeView(pairingCode)
-            }
+            transferCard
 
             if !clipboardMessage.isEmpty {
                 Text(clipboardMessage)
@@ -21,22 +17,10 @@ struct WebTransferView: View {
                     .accessibilityLabel(clipboardMessage)
             }
 
-            Button {
-                Task { await viewModel.generateCode() }
-            } label: {
-                Label(viewModel.pairingCode == nil ? "生成传书码" : "重新生成传书码", systemImage: "number")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(viewModel.isBusy)
-            .accessibilityHint("生成网页上传书籍时需要输入的传书码")
-
             inboxContent
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .contain)
+        .task { await viewModel.prepareTransferCode() }
         .alert("网站传书提示", isPresented: errorPresented) {
             Button("好", role: .cancel) { viewModel.error = nil }
         } message: {
@@ -46,94 +30,84 @@ struct WebTransferView: View {
 
     private var header: some View {
         HStack {
-            Label("网站传书", systemImage: "globe")
+            Image("NetworkTransfer")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 30, height: 30)
+                .foregroundStyle(DesignTokens.onSurface)
+                .accessibilityHidden(true)
+            Text("网站传书")
+                .font(.title3.weight(.semibold))
+            Text("（通过线上网址，输入传书码传书）")
                 .font(.headline)
-            Spacer()
-            Button("刷新") {
-                Task { await viewModel.refreshInbox() }
-            }
-            .disabled(viewModel.isBusy)
-            .accessibilityHint("刷新待接收文件列表")
+            Spacer(minLength: 0)
         }
     }
 
-    private var transferInstructions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("让家人打开下面的网站，输入传书码后上传 TXT 或 EPUB。")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            infoRow(
-                title: "网站地址",
-                value: viewModel.webTransferPageURL.absoluteString,
-                actionTitle: "复制网站地址",
-                accessibilityValue: viewModel.webTransferPageURL.absoluteString,
-                copyValue: viewModel.webTransferPageURL.absoluteString
-            )
-            infoRow(
-                title: "设备传书 ID",
-                value: viewModel.deviceTransferID,
-                actionTitle: nil,
-                accessibilityValue: groupedIdentifier(viewModel.deviceTransferID),
-                copyValue: nil
-            )
-            Text("设备传书 ID 是 App 生成的本机标识，不是 iPhone IMEI。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func infoRow(
-        title: String,
-        value: String,
-        actionTitle: String?,
-        accessibilityValue: String,
-        copyValue: String?
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-            HStack(alignment: .center, spacing: 8) {
-                Text(value)
-                    .font(.callout.monospaced())
-                    .lineLimit(2)
-                    .textSelection(.enabled)
-                    .accessibilityLabel("\(title) \(accessibilityValue)")
-                Spacer(minLength: 8)
-                if let actionTitle, let copyValue {
-                    Button(actionTitle) {
-                        copyToPasteboard(copyValue, message: "\(title)已复制")
+    private var transferCard: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("传书码")
+                    .font(.headline)
+                if let pairingCode = viewModel.pairingCode {
+                    HStack(spacing: 12) {
+                        Text(pairingCode.code)
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.55)
+                            .lineLimit(1)
+                            .accessibilityLabel("传书码 \(pairingCode.code.map(String.init).joined(separator: " "))")
+                        Spacer(minLength: 8)
+                        iconCopyButton(value: pairingCode.code, message: "传书码已复制", label: "复制传书码")
                     }
-                    .buttonStyle(.bordered)
-                    .accessibilityHint("复制后可以发给家人打开网站传书")
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 74)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                } else {
+                    ProgressView("正在生成传书码")
+                        .frame(maxWidth: .infinity, minHeight: 74)
                 }
             }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("传书网址")
+                    .font(.headline)
+                HStack(spacing: 12) {
+                    Text(viewModel.webTransferPageURL.absoluteString)
+                        .font(.title3.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.52)
+                        .accessibilityLabel("传书网址 \(viewModel.webTransferPageURL.absoluteString)")
+                    Spacer(minLength: 8)
+                    iconCopyButton(value: viewModel.webTransferPageURL.absoluteString, message: "传书网址已复制", label: "复制传书网址")
+                }
+                .padding(.horizontal, 12)
+                .frame(minHeight: 74)
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
         }
-        .padding(12)
+        .padding(18)
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
-    private func pairingCodeView(_ pairingCode: TransferPairingCode) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 12) {
-                Text(pairingCode.code)
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .textSelection(.enabled)
-                    .accessibilityLabel("传书码 \(pairingCode.code.map(String.init).joined(separator: " "))")
-                Spacer(minLength: 8)
-                Button("复制传书码") {
-                    copyToPasteboard(pairingCode.code, message: "传书码已复制")
-                }
-                .buttonStyle(.bordered)
-                .accessibilityHint("复制后可以发给家人在网站中输入")
-            }
-            Text("长期有效，重新生成后旧码失效")
-                .foregroundStyle(.secondary)
-            Text("上传的书籍保留 72 小时")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+    private func iconCopyButton(value: String, message: String, label: String) -> some View {
+        Button {
+            copyToPasteboard(value, message: message)
+        } label: {
+            Image("CopyAction")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 34, height: 34)
+                .foregroundStyle(DesignTokens.onSurface)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityHint("复制后可以发给家人在网站中输入")
     }
 
     @ViewBuilder
@@ -185,10 +159,6 @@ struct WebTransferView: View {
             get: { viewModel.error != nil },
             set: { if !$0 { viewModel.error = nil } }
         )
-    }
-
-    private func groupedIdentifier(_ identifier: String) -> String {
-        identifier.map(String.init).joined(separator: " ")
     }
 
     private func copyToPasteboard(_ value: String, message: String) {

@@ -23,6 +23,23 @@ final class WebTransferViewModelTests: XCTestCase {
         XCTAssertEqual(counts.createCode, 1)
     }
 
+    func testPrepareTransferCodeGeneratesCodeOnlyOnce() async throws {
+        let client = RecordingWebTransferClient()
+        let viewModel = WebTransferViewModel(
+            identityStore: InMemoryTransferIdentityStore(),
+            client: client,
+            importCoordinator: nil
+        )
+
+        await viewModel.prepareTransferCode()
+        await viewModel.prepareTransferCode()
+
+        XCTAssertEqual(viewModel.pairingCode?.code, "12345678")
+        let counts = await client.counts()
+        XCTAssertEqual(counts.register, 1)
+        XCTAssertEqual(counts.createCode, 1)
+    }
+
     func testImportSuccessClaimsUpload() async throws {
         let client = RecordingWebTransferClient()
         let importer = RecordingTransferImporter()
