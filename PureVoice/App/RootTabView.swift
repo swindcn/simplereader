@@ -223,6 +223,7 @@ private struct ReaderListeningHost: View {
             listeningReturnLocator: listeningReturnLocator,
             activeListeningLocator: speechSession.viewModel == nil ? nil : speechSession.currentLocator
         )
+        .appFontSize(preferencesStore.global.appFontSize)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let viewModel = speechSession.viewModel,
                !speechSession.isListeningPresented {

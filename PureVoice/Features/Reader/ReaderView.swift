@@ -109,7 +109,7 @@ struct ReaderView: View {
                     navigationRequest: viewModel.navigationRequest,
                     speechHighlightLocator: viewModel.speechHighlightLocator,
                     preferences: currentPreferences,
-                    dynamicTypeCategory: dynamicTypeSize.readerCategory,
+                    dynamicTypeCategory: readerFontCategory,
                     appearance: readerAppearance,
                     onLocationChange: viewModel.receive(locator:),
                     onError: viewModel.reportNavigatorError
@@ -120,7 +120,7 @@ struct ReaderView: View {
                     publication: publication,
                     initialLocation: viewModel.currentLocator ?? viewModel.initialLocator,
                     preferences: currentPreferences.epubPreferences(
-                        dynamicTypeCategory: dynamicTypeSize.readerCategory,
+                        dynamicTypeCategory: readerFontCategory,
                         usesDarkSystemTheme: colorScheme == .dark
                     ),
                     navigationRequest: viewModel.navigationRequest,
@@ -253,6 +253,10 @@ struct ReaderView: View {
 
     private var currentPreferences: ReaderPreferences {
         preferencesStore.resolved(for: viewModel.bookID)
+    }
+
+    private var readerFontCategory: ReaderDynamicTypeCategory {
+        .large
     }
 
     private var readerAppearance: ReaderThemeAppearance {

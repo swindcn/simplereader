@@ -29,14 +29,7 @@ struct BookRow: View {
         .accessibilityHint("双击继续阅读。可使用辅助功能操作重命名或删除。")
         .accessibilityAction(named: Text("重命名"), onRename)
         .accessibilityAction(named: Text("删除"), onDelete)
-        .contextMenu {
-            Button(action: onRename) {
-                Label("重命名", systemImage: "pencil")
-            }
-            Button(role: .destructive, action: onDelete) {
-                Label("删除", systemImage: "trash")
-            }
-        }
+        .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in onDelete() })
     }
 
     static func accessibilityLabel(for book: Book) -> String {

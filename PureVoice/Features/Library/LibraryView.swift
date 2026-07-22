@@ -7,6 +7,7 @@ struct LibraryView: View {
     @State private var renameTarget: Book?
     @State private var renameTitle = ""
     @State private var deleteTarget: Book?
+    @State private var actionTarget: Book?
     private let shelfColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
     init(
@@ -68,13 +69,29 @@ struct LibraryView: View {
         } message: { book in
             Text("为《\(book.title)》输入新书名")
         }
-        .confirmationDialog("删除这本书？", isPresented: deletePresented, presenting: deleteTarget) { book in
-            Button("删除《\(book.title)》", role: .destructive) {
-                Task { await viewModel.delete(book) }
-            }
-            Button("取消", role: .cancel) {}
-        } message: { _ in
-            Text("此操作无法撤销。")
+        .sheet(item: $actionTarget) { book in
+            BookActionsSheet(
+                book: book,
+                onRename: {
+                    actionTarget = nil
+                    beginRename(book)
+                },
+                onDelete: {
+                    actionTarget = nil
+                    deleteTarget = book
+                },
+                onCancel: { actionTarget = nil }
+            )
+        }
+        .sheet(item: $deleteTarget) { book in
+            DeleteBookSheet(
+                book: book,
+                onCancel: { deleteTarget = nil },
+                onDelete: {
+                    deleteTarget = nil
+                    Task { await viewModel.delete(book) }
+                }
+            )
         }
         .alert("操作失败", isPresented: errorPresented) {
             Button("好", role: .cancel) { viewModel.dismissError() }
@@ -92,7 +109,7 @@ struct LibraryView: View {
                         book: book,
                         onOpen: { Task { await viewModel.open(book) } },
                         onRename: { beginRename(book) },
-                        onDelete: { deleteTarget = book }
+                        onDelete: { actionTarget = book }
                     )
                 }
 
@@ -108,7 +125,7 @@ struct LibraryView: View {
                                     accessibilityIdentifier: "library.shelf.book.\(book.id.uuidString)",
                                     onOpen: { Task { await viewModel.open(book) } },
                                     onRename: { beginRename(book) },
-                                    onDelete: { deleteTarget = book }
+                                    onDelete: { actionTarget = book }
                                 )
                             }
                         }
@@ -210,14 +227,7 @@ struct LibraryView: View {
             .accessibilityHint("双击继续阅读。可使用辅助功能操作重命名或删除。")
             .accessibilityAction(named: Text("重命名"), onRename)
             .accessibilityAction(named: Text("删除"), onDelete)
-            .contextMenu {
-                Button(action: onRename) {
-                    Label("重命名", systemImage: "pencil")
-                }
-                Button(role: .destructive, action: onDelete) {
-                    Label("删除", systemImage: "trash")
-                }
-            }
+            .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in onDelete() })
         }
 
         private var cover: some View {
@@ -314,13 +324,6 @@ struct LibraryView: View {
         )
     }
 
-    private var deletePresented: Binding<Bool> {
-        Binding(
-            get: { deleteTarget != nil },
-            set: { if !$0 { deleteTarget = nil } }
-        )
-    }
-
     private var errorPresented: Binding<Bool> {
         Binding(
             get: { viewModel.errorMessage != nil },
@@ -331,5 +334,95 @@ struct LibraryView: View {
     private func beginRename(_ book: Book) {
         renameTitle = book.title
         renameTarget = book
+    }
+}
+
+private struct BookActionsSheet: View {
+    let book: Book
+    let onRename: () -> Void
+    let onDelete: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 42, height: 5)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(book.title)
+                    .font(.title3.bold())
+                    .foregroundStyle(DesignTokens.onSurface)
+                    .lineLimit(2)
+                Text(book.author)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            VStack(spacing: 12) {
+                Button(action: onRename) {
+                    Label("重命名", systemImage: "pencil")
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("library.action.rename")
+
+                Button(role: .destructive, action: onDelete) {
+                    Label("删除", systemImage: "trash")
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("library.action.delete")
+
+                Button("取消", action: onCancel)
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .accessibilityIdentifier("library.action.cancel")
+            }
+        }
+        .padding(24)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct DeleteBookSheet: View {
+    let book: Book
+    let onCancel: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 42, height: 5)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("删除这本书？")
+                    .font(.title3.bold())
+                    .foregroundStyle(DesignTokens.onSurface)
+                Text("《\(book.title)》将从书架移除，此操作无法撤销。")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 12) {
+                Button("取消", action: onCancel)
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .accessibilityIdentifier("library.delete.cancel")
+                Button("删除", role: .destructive, action: onDelete)
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .accessibilityIdentifier("library.delete.confirm")
+            }
+        }
+        .padding(24)
+        .accessibilityElement(children: .contain)
     }
 }
