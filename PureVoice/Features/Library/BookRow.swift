@@ -3,6 +3,7 @@ import UIKit
 
 struct BookRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.appStrings) private var strings
 
     let book: Book
     let accessibilityIdentifier: String
@@ -22,18 +23,18 @@ struct BookRow: View {
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
             .shadow(color: DesignTokens.onSurface.opacity(0.09), radius: 8, x: 0, y: 3)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Self.accessibilityLabel(for: book))
+            .accessibilityLabel(Self.accessibilityLabel(for: book, strings: strings))
             .accessibilityIdentifier(accessibilityIdentifier)
         }
         .buttonStyle(.plain)
-        .accessibilityHint("双击继续阅读。可使用辅助功能操作重命名或删除。")
-        .accessibilityAction(named: Text("重命名"), onRename)
-        .accessibilityAction(named: Text("删除"), onDelete)
+            .accessibilityHint(strings.doubleTapContinueHint)
+            .accessibilityAction(named: Text(strings.rename), onRename)
+            .accessibilityAction(named: Text(strings.delete), onDelete)
         .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in onDelete() })
     }
 
-    static func accessibilityLabel(for book: Book) -> String {
-        "\(book.title)，\(book.author)，已读百分之\(chinesePercentage(for: book))"
+    static func accessibilityLabel(for book: Book, strings: AppStrings = AppStrings(language: .chinese)) -> String {
+        strings.bookAccessibilityLabel(for: book)
     }
 
     private var cover: some View {
@@ -98,7 +99,7 @@ struct BookRow: View {
     }
 
     private var progressStatus: some View {
-        Text(progress >= 1 ? "已完成" : "阅读中")
+        Text(progress >= 1 ? strings.completed : strings.reading)
             .font(.caption.weight(.semibold))
             .foregroundStyle(DesignTokens.primary)
     }
@@ -128,14 +129,5 @@ struct BookRow: View {
         ]
         let stableIndex = Int(book.id.uuid.0)
         return colors[stableIndex % colors.count]
-    }
-
-    private static func chinesePercentage(for book: Book) -> String {
-        let value = Int(((book.position?.progression ?? 0) * 100).rounded())
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.numberStyle = .spellOut
-        return formatter.string(from: NSNumber(value: value))?.replacingOccurrences(of: "〇", with: "零")
-            ?? String(value)
     }
 }

@@ -4,13 +4,17 @@ enum AppTab: CaseIterable {
     case settings
 
     var title: String {
+        title(in: AppStrings(language: .chinese))
+    }
+
+    func title(in strings: AppStrings) -> String {
         switch self {
         case .library:
-            return "书架"
+            return strings.libraryTab
         case .importBooks:
-            return "导入"
+            return strings.importTab
         case .settings:
-            return "设置"
+            return strings.settingsTab
         }
     }
 

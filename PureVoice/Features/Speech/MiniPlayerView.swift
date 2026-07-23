@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MiniPlayerView: View {
+    @Environment(\.appStrings) private var strings
     @ObservedObject var viewModel: ListeningViewModel
     let onOpen: () -> Void
     let onClose: () -> Void
@@ -22,7 +23,7 @@ struct MiniPlayerView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("返回听书，\(viewModel.title)")
+                .accessibilityLabel(strings.returnToListeningAccessibility(viewModel.title))
                 .accessibilityIdentifier("miniPlayer.open")
 
                 Button(action: { viewModel.togglePlayback() }) {
@@ -30,7 +31,7 @@ struct MiniPlayerView: View {
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel(viewModel.state.isPlaying ? "暂停" : "播放")
+                .accessibilityLabel(viewModel.state.isPlaying ? strings.pause : strings.play)
                 .accessibilityIdentifier("miniPlayer.playPause")
 
                 Button(action: onClose) {
@@ -38,7 +39,7 @@ struct MiniPlayerView: View {
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("关闭听书")
+                .accessibilityLabel(strings.closeListening)
                 .accessibilityIdentifier("miniPlayer.close")
             }
             .padding(.horizontal, 14)

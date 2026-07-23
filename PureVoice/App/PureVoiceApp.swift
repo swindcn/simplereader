@@ -85,6 +85,7 @@ struct PureVoiceApp: App {
 }
 
 private struct AppBootstrapView: View {
+    @Environment(\.appStrings) private var strings
     @State private var dependencies: AppDependencies?
     @State private var startupError: Error?
 
@@ -101,7 +102,7 @@ private struct AppBootstrapView: View {
             } else if let startupError {
                 FatalStartupView(error: startupError)
             } else {
-                ProgressView("正在启动 PureVoice")
+                ProgressView(strings.language == .chinese ? "正在启动 PureVoice" : "Starting PureVoice")
             }
         }
         .task {
@@ -120,6 +121,7 @@ private struct AppBootstrapView: View {
 }
 
 private struct FatalStartupView: View {
+    @Environment(\.appStrings) private var strings
     let error: Error
 
     var body: some View {
@@ -128,9 +130,9 @@ private struct FatalStartupView: View {
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
                 .accessibilityHidden(true)
-            Text("无法启动 PureVoice")
+            Text(strings.language == .chinese ? "无法启动 PureVoice" : "Unable to Start PureVoice")
                 .font(.title3.bold())
-            Text("本地书库初始化失败，请稍后重试。")
+            Text(strings.language == .chinese ? "本地书库初始化失败，请稍后重试。" : "The local library could not be initialized. Please try again later.")
                 .multilineTextAlignment(.center)
             Text(error.localizedDescription)
                 .font(.footnote)

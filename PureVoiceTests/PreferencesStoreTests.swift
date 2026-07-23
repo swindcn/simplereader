@@ -37,6 +37,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(store.global.theme, .sepia)
         XCTAssertEqual(store.global.layout, .paginated)
         XCTAssertEqual(store.global.appFontSize, .extraLarge)
+        XCTAssertEqual(store.global.appLanguage, .system)
         XCTAssertEqual(store.global.speechRate, 1)
         XCTAssertNil(store.global.voiceIdentifier)
     }
@@ -50,6 +51,7 @@ final class PreferencesStoreTests: XCTestCase {
         changed.theme = .sepia
         changed.layout = .scroll
         changed.appFontSize = .small
+        changed.appLanguage = .english
         changed.voiceIdentifier = "voice.test"
         changed.speechRate = 1.5
         store.setGlobal(changed)
@@ -184,6 +186,15 @@ final class PreferencesStoreTests: XCTestCase {
 
         XCTAssertEqual(store.global, .defaults)
         XCTAssertEqual(defaults.data(forKey: PreferencesStore.storageKey), payload)
+    }
+
+    func testLegacyPayloadWithoutLanguageDefaultsToSystemLanguage() {
+        let payload = Data(
+            #"{"fontFamily":"system","fontScale":1,"lineHeight":1.5,"theme":"sepia","layout":"paginated","appFontSize":"small","speechRate":1}"#.utf8
+        )
+        let decoded = try! JSONDecoder().decode(ReaderPreferences.self, from: payload)
+
+        XCTAssertEqual(decoded.appLanguage, .system)
     }
 
     func testExplicitChangeReplacesUnsupportedPayloadWithCurrentPayload() {

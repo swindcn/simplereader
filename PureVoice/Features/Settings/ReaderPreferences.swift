@@ -1,20 +1,66 @@
 import Foundation
 import UIKit
 
+enum EffectiveAppLanguage: Equatable, Sendable {
+    case chinese
+    case english
+}
+
+enum AppLanguage: String, Codable, CaseIterable, Sendable {
+    case system
+    case chinese
+    case english
+
+    var effectiveLanguage: EffectiveAppLanguage {
+        switch self {
+        case .chinese:
+            return .chinese
+        case .english:
+            return .english
+        case .system:
+            let identifier = Locale.preferredLanguages.first ?? Locale.current.identifier
+            return identifier.lowercased().hasPrefix("zh") ? .chinese : .english
+        }
+    }
+
+    func title(in language: EffectiveAppLanguage) -> String {
+        switch (self, language) {
+        case (.system, .chinese):
+            return "跟随系统"
+        case (.system, .english):
+            return "Follow System"
+        case (.chinese, .chinese):
+            return "中文"
+        case (.chinese, .english):
+            return "Chinese"
+        case (.english, .chinese):
+            return "英文"
+        case (.english, .english):
+            return "English"
+        }
+    }
+}
+
 enum AppFontSize: String, Codable, CaseIterable, Sendable {
     case small
     case medium
     case large
     case extraLarge
 
-    var title: String {
-        switch self {
-        case .small: "小"
-        case .medium: "中"
-        case .large: "大"
-        case .extraLarge: "极大"
+    func title(in language: EffectiveAppLanguage) -> String {
+        switch (self, language) {
+        case (.small, .chinese): "小"
+        case (.small, .english): "Small"
+        case (.medium, .chinese): "中"
+        case (.medium, .english): "Medium"
+        case (.large, .chinese): "大"
+        case (.large, .english): "Large"
+        case (.extraLarge, .chinese): "极大"
+        case (.extraLarge, .english): "Extra Large"
         }
     }
+
+    var title: String { title(in: .chinese) }
 }
 
 enum ReaderFontFamily: String, Codable, CaseIterable, Sendable {
@@ -22,13 +68,18 @@ enum ReaderFontFamily: String, Codable, CaseIterable, Sendable {
     case serif
     case sans
 
-    var title: String {
-        switch self {
-        case .system: "系统字体"
-        case .serif: "衬线字体"
-        case .sans: "无衬线字体"
+    func title(in language: EffectiveAppLanguage) -> String {
+        switch (self, language) {
+        case (.system, .chinese): "系统字体"
+        case (.system, .english): "System"
+        case (.serif, .chinese): "衬线字体"
+        case (.serif, .english): "Serif"
+        case (.sans, .chinese): "无衬线字体"
+        case (.sans, .english): "Sans Serif"
         }
     }
+
+    var title: String { title(in: .chinese) }
 }
 
 enum ReaderTheme: String, Codable, CaseIterable, Sendable {
@@ -37,14 +88,20 @@ enum ReaderTheme: String, Codable, CaseIterable, Sendable {
     case sepia
     case dark
 
-    var title: String {
-        switch self {
-        case .system: "跟随系统"
-        case .light: "浅色"
-        case .sepia: "护眼"
-        case .dark: "深色"
+    func title(in language: EffectiveAppLanguage) -> String {
+        switch (self, language) {
+        case (.system, .chinese): "跟随系统"
+        case (.system, .english): "Follow System"
+        case (.light, .chinese): "浅色"
+        case (.light, .english): "Light"
+        case (.sepia, .chinese): "护眼"
+        case (.sepia, .english): "Eye Comfort"
+        case (.dark, .chinese): "深色"
+        case (.dark, .english): "Dark"
         }
     }
+
+    var title: String { title(in: .chinese) }
 
     func readerAppearance(usesDarkSystemTheme: Bool) -> ReaderThemeAppearance {
         switch self {
@@ -93,12 +150,16 @@ enum ReaderLayout: String, Codable, CaseIterable, Sendable {
     case paginated
     case scroll
 
-    var title: String {
-        switch self {
-        case .paginated: "左右分页"
-        case .scroll: "上下滚动"
+    func title(in language: EffectiveAppLanguage) -> String {
+        switch (self, language) {
+        case (.paginated, .chinese): "左右分页"
+        case (.paginated, .english): "Page Left/Right"
+        case (.scroll, .chinese): "上下滚动"
+        case (.scroll, .english): "Scroll Up/Down"
         }
     }
+
+    var title: String { title(in: .chinese) }
 }
 
 enum ReaderDynamicTypeCategory: Sendable {
@@ -142,6 +203,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
     var theme: ReaderTheme
     var layout: ReaderLayout
     var appFontSize: AppFontSize
+    var appLanguage: AppLanguage
     var voiceIdentifier: String?
     var speechRate: Double
 
@@ -152,6 +214,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         theme: ReaderTheme = .sepia,
         layout: ReaderLayout = .paginated,
         appFontSize: AppFontSize = .extraLarge,
+        appLanguage: AppLanguage = .system,
         voiceIdentifier: String? = nil,
         speechRate: Double = 1
     ) {
@@ -161,6 +224,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         self.theme = theme
         self.layout = layout
         self.appFontSize = appFontSize
+        self.appLanguage = appLanguage
         self.voiceIdentifier = voiceIdentifier
         self.speechRate = speechRate
     }
@@ -172,6 +236,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         case theme
         case layout
         case appFontSize
+        case appLanguage
         case voiceIdentifier
         case speechRate
     }
@@ -185,6 +250,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
             theme: try container.decode(ReaderTheme.self, forKey: .theme),
             layout: try container.decode(ReaderLayout.self, forKey: .layout),
             appFontSize: try container.decodeIfPresent(AppFontSize.self, forKey: .appFontSize) ?? .extraLarge,
+            appLanguage: try container.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .system,
             voiceIdentifier: try container.decodeIfPresent(String.self, forKey: .voiceIdentifier),
             speechRate: try container.decode(Double.self, forKey: .speechRate)
         )
@@ -198,6 +264,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         try container.encode(theme, forKey: .theme)
         try container.encode(layout, forKey: .layout)
         try container.encode(appFontSize, forKey: .appFontSize)
+        try container.encode(appLanguage, forKey: .appLanguage)
         try container.encodeIfPresent(voiceIdentifier, forKey: .voiceIdentifier)
         try container.encode(speechRate, forKey: .speechRate)
     }
@@ -263,6 +330,7 @@ struct ReaderPreferencesOverride: Codable, Equatable, Sendable {
             theme: theme ?? global.theme,
             layout: layout ?? global.layout,
             appFontSize: global.appFontSize,
+            appLanguage: global.appLanguage,
             voiceIdentifier: resolvedVoiceIdentifier(inheriting: global.voiceIdentifier),
             speechRate: speechRate ?? global.speechRate
         ).sanitized()

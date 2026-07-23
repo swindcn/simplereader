@@ -56,10 +56,11 @@ struct RootTabView: View {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 tabContent(for: tab)
                     .tabItem {
-                        Label(tab.title, systemImage: tab.systemImage)
+                        Label(tab.title(in: appStrings), systemImage: tab.systemImage)
                     }
             }
         }
+        .appLanguage(appLanguage)
         .fullScreenCover(item: $readerBook) { book in
             ReaderListeningHost(
                 book: book,
@@ -78,6 +79,7 @@ struct RootTabView: View {
                     }
                 }
                 .appFontSize(preferencesStore.global.appFontSize)
+                .appLanguage(appLanguage)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -91,22 +93,23 @@ struct RootTabView: View {
                     reservesTabBarSpace: true
                 )
                 .appFontSize(preferencesStore.global.appFontSize)
+                .appLanguage(appLanguage)
             }
         }
         .onChange(of: scenePhase) { phase in
             guard phase != .active else { return }
             Task { await speechSession.flushProgress() }
         }
-        .alert("听书提示", isPresented: rootSessionErrorPresented) {
+        .alert(appStrings.listeningNotice, isPresented: rootSessionErrorPresented) {
             if speechSession.hasPendingProgressRetry {
-                Button("重试保存") { speechSession.retryPendingProgress() }
+                Button(appStrings.retrySave) { speechSession.retryPendingProgress() }
             }
-            Button("好", role: .cancel) { speechSession.dismissError() }
+            Button(appStrings.ok, role: .cancel) { speechSession.dismissError() }
         } message: {
-            Text(speechSession.errorMessage ?? "发生未知错误")
+            Text(speechSession.errorMessage ?? appStrings.unknownError)
         }
-        .alert("恢复提示", isPresented: restorationNoticePresented) {
-            Button("好", role: .cancel) { restorationNotice = nil }
+        .alert(appStrings.restoreNotice, isPresented: restorationNoticePresented) {
+            Button(appStrings.ok, role: .cancel) { restorationNotice = nil }
         } message: {
             Text(restorationNoticeMessage)
         }
@@ -123,6 +126,14 @@ struct RootTabView: View {
 #endif
     }
 
+    private var appLanguage: EffectiveAppLanguage {
+        preferencesStore.global.appLanguage.effectiveLanguage
+    }
+
+    private var appStrings: AppStrings {
+        AppStrings(language: appLanguage)
+    }
+
     @ViewBuilder
     private func tabContent(for tab: AppTab) -> some View {
         switch tab {
@@ -134,6 +145,7 @@ struct RootTabView: View {
                 onOpenBook: { readerBook = $0 }
             )
             .appFontSize(preferencesStore.global.appFontSize)
+            .appLanguage(appLanguage)
         case .importBooks:
             if let importCoordinator, let webTransferViewModel {
                 ImportView(
@@ -141,14 +153,17 @@ struct RootTabView: View {
                     webTransferViewModel: webTransferViewModel
                 )
                     .appFontSize(preferencesStore.global.appFontSize)
+                    .appLanguage(appLanguage)
             } else {
-                Text("导入功能暂不可用")
+                Text(appStrings.importUnavailable)
                     .appFontSize(preferencesStore.global.appFontSize)
+                    .appLanguage(appLanguage)
             }
         case .settings:
             NavigationView {
                 SettingsView(store: preferencesStore)
                     .appFontSize(preferencesStore.global.appFontSize)
+                    .appLanguage(appLanguage)
             }
             .navigationViewStyle(.stack)
         }
@@ -176,7 +191,7 @@ struct RootTabView: View {
     }
 
     private var restorationNoticeMessage: String {
-        guard let restorationNotice else { return "已恢复到可继续阅读的状态。" }
+        guard let restorationNotice else { return appStrings.restoredReadableState }
         return "\(restorationNotice.message)\n\(restorationNotice.recoveryAction)"
     }
 
@@ -224,6 +239,7 @@ private struct ReaderListeningHost: View {
             activeListeningLocator: speechSession.viewModel == nil ? nil : speechSession.currentLocator
         )
         .appFontSize(preferencesStore.global.appFontSize)
+        .appLanguage(appLanguage)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let viewModel = speechSession.viewModel,
                !speechSession.isListeningPresented {
@@ -235,6 +251,7 @@ private struct ReaderListeningHost: View {
                     }
                 )
                 .appFontSize(preferencesStore.global.appFontSize)
+                .appLanguage(appLanguage)
             }
         }
         .fullScreenCover(isPresented: $speechSession.isListeningPresented) {
@@ -248,16 +265,25 @@ private struct ReaderListeningHost: View {
                     }
                 }
                 .appFontSize(preferencesStore.global.appFontSize)
+                .appLanguage(appLanguage)
             }
         }
-        .alert("听书提示", isPresented: sessionErrorPresented) {
+        .alert(appStrings.listeningNotice, isPresented: sessionErrorPresented) {
             if speechSession.hasPendingProgressRetry {
-                Button("重试保存") { speechSession.retryPendingProgress() }
+                Button(appStrings.retrySave) { speechSession.retryPendingProgress() }
             }
-            Button("好", role: .cancel) { speechSession.dismissError() }
+            Button(appStrings.ok, role: .cancel) { speechSession.dismissError() }
         } message: {
-            Text(speechSession.errorMessage ?? "发生未知错误")
+            Text(speechSession.errorMessage ?? appStrings.unknownError)
         }
+    }
+
+    private var appLanguage: EffectiveAppLanguage {
+        preferencesStore.global.appLanguage.effectiveLanguage
+    }
+
+    private var appStrings: AppStrings {
+        AppStrings(language: appLanguage)
     }
 
     private var sessionErrorPresented: Binding<Bool> {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContinueReadingSection: View {
+    @Environment(\.appStrings) private var strings
     let book: Book
     let onOpen: () -> Void
     let onRename: () -> Void
@@ -8,7 +9,7 @@ struct ContinueReadingSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("继续阅读")
+            Text(strings.continueReading)
                 .font(.title2.bold())
                 .foregroundStyle(DesignTokens.onSurface)
             BookRow(

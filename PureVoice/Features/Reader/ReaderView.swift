@@ -7,6 +7,7 @@ struct ReaderView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.appStrings) private var strings
     @StateObject private var viewModel: ReaderViewModel
     @StateObject private var commands = EPUBNavigatorCommands()
     @ObservedObject private var preferencesStore: PreferencesStore
@@ -45,7 +46,7 @@ struct ReaderView: View {
     var body: some View {
         Group {
             if viewModel.isLoading {
-                ProgressView("正在打开这本书")
+                ProgressView(strings.openingBook)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let message = viewModel.errorMessage, viewModel.openedPublication == nil {
                 failureView(message)
@@ -93,10 +94,10 @@ struct ReaderView: View {
             .navigationViewStyle(.stack)
             .appFontSize(preferencesStore.global.appFontSize)
         }
-        .alert("阅读器提示", isPresented: nonfatalErrorPresented) {
-            Button("好", role: .cancel) { viewModel.dismissError() }
+        .alert(strings.readerNotice, isPresented: nonfatalErrorPresented) {
+            Button(strings.ok, role: .cancel) { viewModel.dismissError() }
         } message: {
-            Text(viewModel.errorMessage ?? "发生未知错误")
+            Text(viewModel.errorMessage ?? strings.unknownError)
         }
     }
 
@@ -114,7 +115,7 @@ struct ReaderView: View {
                     onLocationChange: viewModel.receive(locator:),
                     onError: viewModel.reportNavigatorError
                 )
-                .accessibilityLabel("阅读内容")
+                .accessibilityLabel(strings.readingContent)
             } else {
                 EPUBNavigatorController(
                     publication: publication,
@@ -131,7 +132,7 @@ struct ReaderView: View {
                     onError: viewModel.reportNavigatorError
                 )
                 .id(currentPreferences.layout)
-                .accessibilityLabel("阅读内容")
+                .accessibilityLabel(strings.readingContent)
             }
 
             GeometryReader { proxy in
@@ -143,7 +144,7 @@ struct ReaderView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: max(proxy.size.height / 3, 120))
                         .accessibilityAddTraits(.isButton)
-                        .accessibilityLabel(isChromeVisible ? "隐藏阅读控制" : "显示阅读控制")
+                        .accessibilityLabel(isChromeVisible ? strings.hideReaderControls : strings.showReaderControls)
                         .accessibilityIdentifier(isChromeVisible ? "reader.chromeDismissArea" : "reader.contentTapArea")
                     Spacer(minLength: 0)
                 }
@@ -219,10 +220,10 @@ struct ReaderView: View {
                 }
                 .accessibilityIdentifier("reader.toc.\(entry.id)")
             }
-            .navigationTitle("目录")
+            .navigationTitle(strings.tableOfContents)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { viewModel.isTableOfContentsPresented = false }
+                    Button(strings.close) { viewModel.isTableOfContentsPresented = false }
                 }
             }
         }
@@ -231,12 +232,12 @@ struct ReaderView: View {
 
     private func failureView(_ message: String) -> some View {
         VStack(spacing: 16) {
-            Text("无法打开这本书")
+            Text(strings.cannotOpenBook)
                 .font(.title2.bold())
             Text(message)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-            Button("返回书架", action: closeReader)
+            Button(strings.backToLibrary, action: closeReader)
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("reader.failure.back")
         }
@@ -486,6 +487,7 @@ private struct ContinuousReaderContentView: View {
 }
 
 private struct ContinuousReaderChapterView: View {
+    @Environment(\.appStrings) private var strings
     let reference: ContinuousReaderChapterReference
     let chapter: ContinuousReaderChapter?
     let isListeningChapter: Bool
@@ -532,7 +534,7 @@ private struct ContinuousReaderChapterView: View {
                     }
                 }
             } else {
-                Text("正在加载正文")
+                Text(strings.language == .chinese ? "正在加载正文" : "Loading text")
                     .font(readerFont(size: bodyFontSize, weight: .regular))
                     .foregroundStyle(secondaryTextColor)
                     .frame(maxWidth: .infinity, minHeight: 180, alignment: .topLeading)

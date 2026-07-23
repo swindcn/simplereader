@@ -1,15 +1,16 @@
 import SwiftUI
 
 struct ReaderToolbar: View {
+    @Environment(\.appStrings) private var strings
     let onListen: () -> Void
     let onSettings: () -> Void
     var backgroundColor: Color = Color(uiColor: .pureVoiceLightChrome)
 
     var body: some View {
         HStack(spacing: 12) {
-            iconButton("headphones", label: "听书", identifier: "reader.listen", action: onListen)
+            iconButton("headphones", label: strings.listen, identifier: "reader.listen", action: onListen)
             Spacer(minLength: 0)
-            iconButton("textformat.size", label: "设置", identifier: "reader.settings", action: onSettings)
+            iconButton("textformat.size", label: strings.readerSettings, identifier: "reader.settings", action: onSettings)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -34,15 +35,16 @@ struct ReaderToolbar: View {
 }
 
 struct ReaderHeaderToolbar: View {
+    @Environment(\.appStrings) private var strings
     let onBack: () -> Void
     let onTableOfContents: () -> Void
     var backgroundColor: Color = Color(uiColor: .pureVoiceLightChrome)
 
     var body: some View {
         HStack {
-            button("chevron.backward", label: "返回书架", identifier: "reader.back", action: onBack)
+            button("chevron.backward", label: strings.backToLibrary, identifier: "reader.back", action: onBack)
             Spacer()
-            button("list.bullet", label: "目录", identifier: "reader.tableOfContents", action: onTableOfContents)
+            button("list.bullet", label: strings.tableOfContents, identifier: "reader.tableOfContents", action: onTableOfContents)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 4)

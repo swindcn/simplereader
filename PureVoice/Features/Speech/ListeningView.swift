@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ListeningView: View {
+    @Environment(\.appStrings) private var strings
     @ObservedObject var viewModel: ListeningViewModel
     let onBack: () -> Void
     @State private var isSelectingVoice = false
@@ -24,8 +25,8 @@ struct ListeningView: View {
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .onAppear { viewModel.ensureStarted() }
         .onDisappear { Task { await viewModel.flushProgress() } }
-        .confirmationDialog("选择声音", isPresented: $isSelectingVoice, titleVisibility: .visible) {
-            Button("系统默认") {
+        .confirmationDialog(strings.chooseVoice, isPresented: $isSelectingVoice, titleVisibility: .visible) {
+            Button(strings.systemDefault) {
                 viewModel.selectVoice(identifier: nil, announces: false)
             }
             ForEach(viewModel.voices) { voice in
@@ -33,16 +34,16 @@ struct ListeningView: View {
                     viewModel.selectVoice(identifier: voice.identifier, announces: false)
                 }
             }
-            Button("取消", role: .cancel) {}
+            Button(strings.cancel, role: .cancel) {}
         }
-        .alert("Listening 提示", isPresented: errorPresented) {
-            Button("重试") {
+        .alert(strings.listeningNotice, isPresented: errorPresented) {
+            Button(strings.retry) {
                 viewModel.dismissError()
                 viewModel.togglePlayback()
             }
-            Button("关闭", role: .cancel) { viewModel.dismissError() }
+            Button(strings.close, role: .cancel) { viewModel.dismissError() }
         } message: {
-            Text(viewModel.errorMessage ?? "发生未知错误")
+            Text(viewModel.errorMessage ?? strings.unknownError)
         }
     }
 
@@ -53,10 +54,10 @@ struct ListeningView: View {
                     .font(.system(size: 22, weight: .semibold))
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel("返回阅读")
+            .accessibilityLabel(strings.backToReading)
             .accessibilityIdentifier("listening.back")
             Spacer()
-            Text("听书")
+            Text(strings.listen)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
@@ -111,7 +112,7 @@ struct ListeningView: View {
             .padding(16)
             .background(Color(uiColor: .secondarySystemBackground))
             .cornerRadius(8)
-            .accessibilityLabel("当前句，\(viewModel.currentSentence)")
+            .accessibilityLabel(strings.currentSentenceAccessibility(viewModel.currentSentence))
             .accessibilityIdentifier("listening.currentSentence")
     }
 
@@ -119,19 +120,19 @@ struct ListeningView: View {
         HStack(alignment: .top, spacing: 8) {
             controlButton(
                 systemName: "backward.end.fill",
-                label: "上一句",
+                label: strings.previousSentence,
                 identifier: "listening.previous",
                 action: { viewModel.previousSentence() }
             )
             controlButton(
                 systemName: viewModel.state.isPlaying ? "pause.fill" : "play.fill",
-                label: viewModel.state.isPlaying ? "暂停" : "播放",
+                label: viewModel.state.isPlaying ? strings.pause : strings.play,
                 identifier: "listening.playPause",
                 action: { viewModel.togglePlayback() }
             )
             controlButton(
                 systemName: "forward.end.fill",
-                label: "下一句",
+                label: strings.nextSentence,
                 identifier: "listening.next",
                 action: { viewModel.nextSentence() }
             )
@@ -167,7 +168,7 @@ struct ListeningView: View {
         VStack(spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("语速")
+                    Text(strings.speechRate)
                     Spacer()
                     Text(ListeningViewModel.rateLabel(viewModel.rate))
                         .foregroundStyle(.secondary)
@@ -180,7 +181,7 @@ struct ListeningView: View {
                     in: 0.5 ... 2,
                     step: 0.25
                 )
-                .accessibilityLabel("语速")
+                .accessibilityLabel(strings.speechRate)
                 .accessibilityValue(ListeningViewModel.rateLabel(viewModel.rate))
                 .accessibilityIdentifier("listening.rate")
             }
@@ -190,7 +191,7 @@ struct ListeningView: View {
                     isSelectingVoice = true
                 } label: {
                     HStack {
-                        Text("声音")
+                        Text(strings.voice)
                             .foregroundStyle(DesignTokens.onSurface)
                         Spacer()
                         Text(selectedVoiceName)
@@ -205,7 +206,7 @@ struct ListeningView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("声音")
+                .accessibilityLabel(strings.voice)
                 .accessibilityValue(selectedVoiceName)
                 .accessibilityIdentifier("listening.voice")
             }
@@ -213,8 +214,8 @@ struct ListeningView: View {
     }
 
     private var selectedVoiceName: String {
-        guard let identifier = viewModel.selectedVoiceIdentifier else { return "系统默认" }
-        return viewModel.voices.first { $0.identifier == identifier }?.displayName ?? "无可用声音"
+        guard let identifier = viewModel.selectedVoiceIdentifier else { return strings.systemDefault }
+        return viewModel.voices.first { $0.identifier == identifier }?.displayName ?? strings.unavailableVoice
     }
 
     private var errorPresented: Binding<Bool> {

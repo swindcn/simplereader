@@ -3,6 +3,7 @@ import UIKit
 
 struct LibraryView: View {
     @Environment(\.appFontSize) private var appFontSize
+    @Environment(\.appStrings) private var strings
     @StateObject private var viewModel: LibraryViewModel
     @ObservedObject private var libraryRefresh: LibraryRefreshSignal
     @State private var renameTarget: Book?
@@ -40,7 +41,7 @@ struct LibraryView: View {
                     .accessibilityHidden(true)
                 Group {
                     if viewModel.isLoading && viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
-                        ProgressView("正在载入书架")
+                        ProgressView(strings.libraryLoading)
                     } else if viewModel.continueReadingBook == nil && viewModel.shelfBooks.isEmpty {
                         emptyState
                     } else {
@@ -61,14 +62,14 @@ struct LibraryView: View {
         .onChange(of: libraryRefresh.generation) { _ in
             Task { await viewModel.load() }
         }
-        .alert("重命名", isPresented: renamePresented, presenting: renameTarget) { book in
-            TextField("书名", text: $renameTitle)
-            Button("取消", role: .cancel) {}
-            Button("保存") {
+        .alert(strings.renameBookTitle, isPresented: renamePresented, presenting: renameTarget) { book in
+            TextField(strings.bookNamePlaceholder, text: $renameTitle)
+            Button(strings.cancel, role: .cancel) {}
+            Button(strings.save) {
                 Task { await viewModel.rename(book, to: renameTitle) }
             }
         } message: { book in
-            Text("为《\(book.title)》输入新书名")
+            Text(strings.renameBookMessage(book.title))
         }
         .sheet(item: $actionTarget) { book in
             BookActionsSheet(
@@ -96,10 +97,10 @@ struct LibraryView: View {
             )
             .appFontSize(appFontSize)
         }
-        .alert("操作失败", isPresented: errorPresented) {
-            Button("好", role: .cancel) { viewModel.dismissError() }
+        .alert(strings.operationFailed, isPresented: errorPresented) {
+            Button(strings.ok, role: .cancel) { viewModel.dismissError() }
         } message: {
-            Text(viewModel.errorMessage ?? "发生未知错误")
+            Text(viewModel.errorMessage ?? strings.unknownError)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -118,7 +119,7 @@ struct LibraryView: View {
 
                 if !viewModel.shelfBooks.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("我的书籍")
+                        Text(strings.myBooks)
                             .font(.title2.bold())
                             .foregroundStyle(DesignTokens.onSurface)
                         LazyVGrid(columns: shelfColumns, alignment: .leading, spacing: 18) {
@@ -136,10 +137,10 @@ struct LibraryView: View {
                     }
                 } else if viewModel.continueReadingBook != nil {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("我的书籍")
+                        Text(strings.myBooks)
                             .font(.title2.bold())
                             .foregroundStyle(DesignTokens.onSurface)
-                        Text("当前只有一本书，已放在继续阅读中。")
+                        Text(strings.onlyBookInContinue)
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
@@ -175,7 +176,7 @@ struct LibraryView: View {
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isLoading)
-            .accessibilityLabel("刷新书架并接收网站传书")
+            .accessibilityLabel(strings.refreshLibraryAccessibility)
         }
         .padding(.horizontal, DesignTokens.edgeMargin)
         .padding(.top, 10)
@@ -186,6 +187,7 @@ struct LibraryView: View {
     }
 
     private struct BookGridItem: View {
+        @Environment(\.appStrings) private var strings
         let book: Book
         let accessibilityIdentifier: String
         let onOpen: () -> Void
@@ -223,13 +225,13 @@ struct LibraryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(BookRow.accessibilityLabel(for: book))
+                .accessibilityLabel(BookRow.accessibilityLabel(for: book, strings: strings))
                 .accessibilityIdentifier(accessibilityIdentifier)
             }
             .buttonStyle(.plain)
-            .accessibilityHint("双击继续阅读。可使用辅助功能操作重命名或删除。")
-            .accessibilityAction(named: Text("重命名"), onRename)
-            .accessibilityAction(named: Text("删除"), onDelete)
+            .accessibilityHint(strings.doubleTapContinueHint)
+            .accessibilityAction(named: Text(strings.rename), onRename)
+            .accessibilityAction(named: Text(strings.delete), onDelete)
             .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in onDelete() })
         }
 
@@ -286,13 +288,13 @@ struct LibraryView: View {
                 .frame(width: 30, height: 30)
                 .accessibilityHidden(true)
                 .accessibilityIdentifier("library.brandLogo")
-            Text("简声")
+            Text(strings.brandName)
                 .font(.title2.bold())
                 .foregroundStyle(DesignTokens.onSurface)
         }
         .frame(width: 128, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("简声")
+        .accessibilityLabel(strings.brandName)
     }
 
     private var emptyState: some View {
@@ -301,20 +303,20 @@ struct LibraryView: View {
                 .font(.system(size: 36))
                 .foregroundStyle(DesignTokens.primary)
                 .accessibilityHidden(true)
-            Text("书架还是空的")
+            Text(strings.libraryEmptyTitle)
                 .font(.title3.bold())
                 .foregroundStyle(DesignTokens.onSurface)
-            Text("从“导入”添加本地书籍")
+            Text(strings.libraryEmptyHint)
                 .font(.body)
                 .foregroundStyle(.secondary)
             Button {
                 Task { await viewModel.refreshAndReceiveWebTransfers() }
             } label: {
-                Label("刷新接收网站传书", systemImage: "arrow.clockwise")
+                Label(strings.refreshWebTransfers, systemImage: "arrow.clockwise")
             }
             .buttonStyle(.borderedProminent)
             .disabled(viewModel.isLoading)
-            .accessibilityHint("检查网页上传的书籍并导入到书架")
+            .accessibilityHint(strings.refreshWebTransfersHint)
         }
         .multilineTextAlignment(.center)
         .padding(DesignTokens.edgeMargin)
@@ -341,6 +343,7 @@ struct LibraryView: View {
 }
 
 private struct BookActionsSheet: View {
+    @Environment(\.appStrings) private var strings
     let book: Book
     let onRename: () -> Void
     let onDelete: () -> Void
@@ -367,20 +370,20 @@ private struct BookActionsSheet: View {
 
             VStack(spacing: 12) {
                 Button(action: onRename) {
-                    Label("重命名", systemImage: "pencil")
+                    Label(strings.rename, systemImage: "pencil")
                         .frame(maxWidth: .infinity, minHeight: 52)
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("library.action.rename")
 
                 Button(role: .destructive, action: onDelete) {
-                    Label("删除", systemImage: "trash")
+                    Label(strings.delete, systemImage: "trash")
                         .frame(maxWidth: .infinity, minHeight: 52)
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("library.action.delete")
 
-                Button("取消", action: onCancel)
+                Button(strings.cancel, action: onCancel)
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .accessibilityIdentifier("library.action.cancel")
@@ -392,6 +395,7 @@ private struct BookActionsSheet: View {
 }
 
 private struct DeleteBookSheet: View {
+    @Environment(\.appStrings) private var strings
     let book: Book
     let onCancel: () -> Void
     let onDelete: () -> Void
@@ -405,21 +409,21 @@ private struct DeleteBookSheet: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("删除这本书？")
+                Text(strings.deleteBookTitle)
                     .font(.title3.bold())
                     .foregroundStyle(DesignTokens.onSurface)
-                Text("《\(book.title)》将从书架移除，此操作无法撤销。")
+                Text(strings.deleteBookMessage(book.title))
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 12) {
-                Button("取消", action: onCancel)
+                Button(strings.cancel, action: onCancel)
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .accessibilityIdentifier("library.delete.cancel")
-                Button("删除", role: .destructive, action: onDelete)
+                Button(strings.delete, role: .destructive, action: onDelete)
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .accessibilityIdentifier("library.delete.confirm")

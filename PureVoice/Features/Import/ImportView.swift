@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ImportView: View {
+    @Environment(\.appStrings) private var strings
     @ObservedObject var coordinator: ImportCoordinator
     @ObservedObject var webTransferViewModel: WebTransferViewModel
     @State private var isPickingDocument = false
@@ -16,7 +17,7 @@ struct ImportView: View {
                 }
                 .padding()
             }
-            .navigationTitle("导入书籍")
+            .navigationTitle(strings.importTitle)
             .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(.stack)
@@ -40,7 +41,7 @@ struct ImportView: View {
                     .frame(width: 28, height: 28)
                     .foregroundStyle(DesignTokens.onSurface)
                     .accessibilityHidden(true)
-                Text("选择本地书籍开始导入")
+                Text(strings.localImportHeading)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(DesignTokens.onSurface)
                 Spacer()
@@ -56,7 +57,7 @@ struct ImportView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 54, height: 54)
-                    Text("从本机选择")
+                    Text(strings.chooseFromDevice)
                         .font(.title3.weight(.bold))
                 }
                 .foregroundStyle(isBusy ? .secondary : localImportTextColor)
@@ -66,14 +67,14 @@ struct ImportView: View {
             }
             .buttonStyle(.plain)
             .disabled(isBusy)
-            .accessibilityLabel("选择要导入的书籍文件")
-            .accessibilityHint("支持 TXT 和 EPUB")
+            .accessibilityLabel(strings.chooseBookAccessibility)
+            .accessibilityHint(strings.supportedImportHint)
 
             if case .failed = coordinator.state, let retryURL = coordinator.retrySourceURL {
-                Button("重试") {
+                Button(strings.retry) {
                     Task { try? await coordinator.importBook(from: retryURL) }
                 }
-                .accessibilityHint("重新导入上次选择的文件")
+                .accessibilityHint(strings.retryPreviousImportHint)
             }
         }
     }
@@ -84,15 +85,15 @@ struct ImportView: View {
         case .idle:
             EmptyView()
         case .copying:
-            progress("正在复制文件")
+            progress(strings.copyingFile)
         case .detecting:
-            progress("正在识别格式")
+            progress(strings.detectingFormat)
         case .converting:
-            progress("正在转换书籍")
+            progress(strings.convertingBook)
         case .openingPublication:
-            progress("正在验证书籍")
+            progress(strings.validatingBook)
         case .completed:
-            Text("导入完成")
+            Text(strings.importCompleted)
                 .font(.headline)
                 .foregroundStyle(.green)
         case let .failed(failure):
