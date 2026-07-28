@@ -115,7 +115,7 @@
   }
 
   /* ---------- state ---------- */
-  var state = { verified: false, code: "", uploadSessionId: "", files: [] };
+  var state = { verified: false, code: "", uploadSessionId: "", files: [], uploading: false };
   var cooldownActive = false, cooldownTimer = null;
   var el = {};
 
@@ -129,6 +129,12 @@
     if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
     if (bytes >= 1024) return (bytes / 1024).toFixed(0) + " KB";
     return bytes + " B";
+  }
+  function uploadProgress(done, total) {
+    var safeTotal = Math.max(1, Number(total) || 0);
+    var safeDone = Math.min(safeTotal, Math.max(0, Number(done) || 0));
+    var value = Math.round((safeDone / safeTotal) * 100);
+    return { value: value, text: value + "%" };
   }
   function recentKey() { return CONFIG.recentKeyPrefix + (state.code || ""); }
   function loadRecent() {
@@ -257,28 +263,70 @@
   }
 
   function updateUploadBtn() {
-    el.uploadBtn.disabled = !(state.verified && state.files.length);
+    el.uploadBtn.disabled = state.uploading || !(state.verified && state.files.length);
+  }
+
+  function setUploadLocked(locked) {
+    state.uploading = locked;
+    updateUploadBtn();
+    if (el.dropzone) {
+      el.dropzone.classList.toggle("disabled", locked);
+      el.dropzone.setAttribute("aria-disabled", locked ? "true" : "false");
+      if (locked) {
+        el.dropzone.setAttribute("tabindex", "-1");
+      } else {
+        el.dropzone.setAttribute("tabindex", "0");
+      }
+    }
+    if (el.fileInput) el.fileInput.disabled = locked;
+  }
+
+  function setUploadProgress(done, total) {
+    if (!el.uploadProgress || !el.uploadProgressBar || !el.uploadProgressText) return;
+    var progress = uploadProgress(done, total);
+    el.uploadProgress.hidden = false;
+    el.uploadProgressBar.value = progress.value;
+    el.uploadProgressText.textContent = progress.text;
+  }
+
+  function hideUploadProgressLater() {
+    if (!el.uploadProgress) return;
+    setTimeout(function () {
+      if (!state.uploading && el.uploadProgress) el.uploadProgress.hidden = true;
+    }, 1200);
   }
 
   function onUpload() {
     if (!state.verified) { setStatus(el.uploadStatus, t("transfer.needVerify"), "error"); return; }
-    if (!state.files.length) return;
-    el.uploadBtn.disabled = true;
+    if (!state.files.length || state.uploading) return;
     var pending = state.files.slice();
+    var total = pending.length;
+    var completed = 0;
     state.files = [];
     renderFiles();
+    setUploadLocked(true);
+    setUploadProgress(0, total);
     function next() {
-      if (!pending.length) { updateUploadBtn(); return; }
+      if (!pending.length) {
+        setUploadProgress(total, total);
+        setUploadLocked(false);
+        hideUploadProgressLater();
+        return;
+      }
       var f = pending.shift();
       uploadBookApi(state.uploadSessionId, f).then(function (r) {
         addRecent(f, r && r.ok ? "ok" : "fail");
         setStatus(el.uploadStatus, t((r && r.ok) ? "transfer.uploadOk" : "transfer.uploadFail", { name: f.name }), (r && r.ok) ? "ok" : "error");
         renderRecent();
+        completed += 1;
+        setUploadProgress(completed, total);
         next();
       }).catch(function (error) {
         addRecent(f, "fail");
         setStatus(el.uploadStatus, (error && error.message) || t("transfer.uploadFail", { name: f.name }), "error");
         renderRecent();
+        completed += 1;
+        setUploadProgress(completed, total);
         next();
       });
     }
@@ -288,6 +336,7 @@
   window.LucidReadTransferInternals = {
     CONFIG: CONFIG,
     createTransferClient: createTransferClient,
+    uploadProgress: uploadProgress,
   };
 
   /* ---------- recent list ---------- */
@@ -326,6 +375,9 @@
     el.fileInput = document.getElementById("file-input");
     el.fileList = document.getElementById("file-list");
     el.uploadBtn = document.getElementById("upload-btn");
+    el.uploadProgress = document.getElementById("upload-progress");
+    el.uploadProgressBar = document.getElementById("upload-progress-bar");
+    el.uploadProgressText = document.getElementById("upload-progress-text");
     el.verifyStatus = document.getElementById("verify-status");
     el.uploadStatus = document.getElementById("upload-status");
     el.recentList = document.getElementById("recent-list");

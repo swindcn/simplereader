@@ -13,8 +13,22 @@
       } catch (e) {}
     })();
   </script>
-  <title data-i18n="transfer.metaTitle">LucidRead Transfer — Send books to your device</title>
-  <meta name="description" data-i18n="transfer.metaDesc" content="Send TXT and EPUB books to LucidRead with a transfer code. Accessibility-first, private, and ad-free." />
+  <title data-i18n="transfer.metaTitle">LucidRead Transfer — Send EPUB & TXT Books to iPhone by Code</title>
+  <meta name="description" data-i18n="transfer.metaDesc" content="Use LucidRead Transfer to upload EPUB and TXT books by transfer code, so family can send novels to an iPhone reader without login or ads." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="keywords" content="LucidRead Transfer, send EPUB to iPhone, upload TXT novels to app, transfer books by code, web book transfer, no login reader upload, VoiceOver reader file transfer" />
+  <link rel="canonical" href="https://wildgrassx.com/transfer" />
+  <meta property="og:title" content="LucidRead Transfer — Send EPUB & TXT Books to iPhone by Code" />
+  <meta property="og:description" content="Upload EPUB and TXT books to LucidRead using a long-term transfer code. Built for family-assisted book transfer." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wildgrassx.com/transfer" />
+  <meta property="og:site_name" content="WildGrassX Studio" />
+  <meta property="og:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LucidRead Transfer — Send EPUB & TXT Books to iPhone by Code" />
+  <meta name="twitter:description" content="Send novels to LucidRead with a transfer code. Supports EPUB and TXT uploads without login." />
+  <meta name="twitter:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"LucidRead Transfer","url":"https://wildgrassx.com/transfer","applicationCategory":"UtilitiesApplication","description":"A web transfer portal for sending EPUB and TXT books to the LucidRead iOS reader by transfer code, designed for family-assisted use and no-login workflows.","operatingSystem":"Any","isPartOf":{"@type":"SoftwareApplication","name":"LucidRead","operatingSystem":"iOS"}}</script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -83,7 +97,13 @@
             </div>
           </div>
           <ul class="file-list" id="file-list"></ul>
-          <button class="btn-transfer btn-transfer-primary" id="upload-btn" type="button" disabled data-i18n="transfer.uploadBtn">Send to app</button>
+          <div class="upload-actions">
+            <button class="btn-transfer btn-transfer-primary" id="upload-btn" type="button" disabled data-i18n="transfer.uploadBtn">Send to app</button>
+            <div class="upload-progress" id="upload-progress" hidden aria-live="polite">
+              <progress id="upload-progress-bar" max="100" value="0"></progress>
+              <span id="upload-progress-text">0%</span>
+            </div>
+          </div>
           <p class="transfer-status" id="upload-status" role="status" aria-live="polite"></p>
         </div>
 

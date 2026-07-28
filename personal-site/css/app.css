@@ -413,6 +413,44 @@
   color: #fff;
 }
 .btn-transfer-primary:hover { opacity: .92; }
+.upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+.upload-actions .btn-transfer { margin-top: 0; }
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 180px;
+  min-width: 160px;
+  color: var(--muted);
+  font-size: .88rem;
+  font-weight: 700;
+}
+.upload-progress[hidden] { display: none; }
+.upload-progress progress {
+  width: 100%;
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.upload-progress progress::-webkit-progress-bar {
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 999px;
+}
+.upload-progress progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 999px;
+}
+.upload-progress progress::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: 999px;
+}
 .transfer-hint {
   color: var(--muted);
   font-size: .88rem;
@@ -443,6 +481,11 @@
 }
 .dropzone:hover, .dropzone:focus-visible { border-color: var(--accent); outline: none; }
 .dropzone.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.dropzone.disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .dropzone-inner svg { width: 38px; height: 38px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
 .dropzone-text { font-weight: 600; color: var(--text); margin: 12px 0 4px; }
 .dropzone-sub { color: var(--muted); font-size: .86rem; margin: 0; }
@@ -478,6 +521,17 @@
 .recent-item.ok { border-left: 3px solid #18a058; }
 .recent-item.fail { border-left: 3px solid #d03050; }
 .recent-empty { color: var(--muted); font-size: .9rem; margin: 0; }
+
+@media (max-width: 640px) {
+  .upload-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .upload-progress {
+    flex-basis: auto;
+    min-width: 0;
+  }
+}
 
 /* why */
 .transfer-why { margin-top: 40px; }

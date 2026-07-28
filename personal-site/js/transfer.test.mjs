@@ -96,3 +96,10 @@ assert.ok(transfer, "transfer internals should be exposed for behavior tests");
   assert.equal(uploadedFile.size, file.size);
   assert.equal(uploadedFile.type, file.type);
 }
+
+assert.equal(transfer.uploadProgress(0, 4).value, 0);
+assert.equal(transfer.uploadProgress(0, 4).text, "0%");
+assert.equal(transfer.uploadProgress(2, 4).value, 50);
+assert.equal(transfer.uploadProgress(2, 4).text, "50%");
+assert.equal(transfer.uploadProgress(4, 4).value, 100);
+assert.equal(transfer.uploadProgress(4, 4).text, "100%");
