@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title data-i18n="app.metaTitle">LucidRead — An accessibility-first iOS reader</title>
+  <meta name="description" data-i18n="app.metaDesc" content="LucidRead is an accessibility-first, ad-free iOS audiobook & reader with full VoiceOver gesture controls." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header" id="top">
+    <div class="container nav">
+      <a class="brand" href="lucidread.html">LucidRead<span class="accent">.</span></a>
+      <nav class="nav-links" id="nav-links" aria-label="Primary">
+        <a href="#features" data-i18n="app.nav.features">Features</a>
+        <a href="#gestures" data-i18n="app.nav.gestures">Gestures</a>
+        <a href="#pricing" data-i18n="app.nav.pricing">Pricing</a>
+        <a href="transfer.html" data-i18n="app.nav.transfer">Transfer</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== Hero ===================== -->
+  <section class="app-hero">
+    <div class="container app-hero-grid">
+      <div class="app-hero-copy">
+        <h1 data-i18n="app.hero.title">Reading, Simplified.<br />Built for Everyone.</h1>
+        <p class="app-hero-sub" data-i18n="app.hero.sub">An accessibility-first, ad-free iOS audiobook &amp; reader with full VoiceOver gesture controls.</p>
+        <div class="app-cta">
+          <a class="btn-appstore" href="#" aria-label="Download on the App Store">
+            <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+            <span>
+              <small data-i18n="app.cta.small">Download on the</small>
+              <strong data-i18n="app.cta.strong">App Store</strong>
+            </span>
+          </a>
+        </div>
+      </div>
+
+      <div class="app-hero-art" aria-hidden="true">
+        <div class="soundwave">
+          <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+        </div>
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="reader-h">LucidRead</div>
+            <div class="reader-book">Chapter 4 · The Quiet Library</div>
+            <p class="reader-text">
+              <span class="hl">She opened the book and the room fell silent.</span>
+              The words moved like water, calm and certain, and for the first time all day she could simply listen.
+            </p>
+            <div class="reader-wave">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Features ===================== -->
+  <section class="app-section" id="features">
+    <div class="container">
+      <div class="app-section-head">
+        <h2 data-i18n="app.features.title">Designed for every reader</h2>
+        <p data-i18n="app.features.sub">Built from the ground up to be used entirely by ear — calm, private, and effortless.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature">
+          <div class="feature-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="3.4"/><circle cx="15" cy="12" r="3.4"/><path d="M5 19a7 7 0 0 1 14 0" stroke-linecap="round"/></svg>
+          </div>
+          <h3 data-i18n="app.f1.title">Full VoiceOver Integration</h3>
+          <p data-i18n="app.f1.desc">Complete gesture control — Magic Tap, three-finger swipe, and more — so the app is fully usable without ever looking at the screen.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 2.6V11c0 4.6-3.1 7.7-7 9.4-3.9-1.7-7-4.8-7-9.4V5.6L12 3z" stroke-linejoin="round"/><path d="M9 11.5l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3 data-i18n="app.f2.title">Zero Ads, Zero Clutter</h3>
+          <p data-i18n="app.f2.desc">No tracking, no banners, no upsells. Just your book and a calm, private reading space built for focus.</p>
+        </article>
+        <article class="feature">
+          <div class="feature-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L8 8m4-4l4 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke-linecap="round"/></svg>
+          </div>
+          <h3 data-i18n="app.f3.title">Effortless File Import</h3>
+          <p data-i18n="app.f3.desc">Bring your own library from TXT, EPUB, Web Transfer, or the iOS Share Sheet — imported in a single tap.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Gesture Showcase ===================== -->
+  <section class="app-section app-gestures" id="gestures">
+    <div class="container">
+      <div class="app-section-head">
+        <h2 data-i18n="app.gestures.title">Core gestures</h2>
+        <p data-i18n="app.gestures.sub">Everything you need, without lifting your eyes from the page.</p>
+      </div>
+      <div class="gesture-grid">
+        <article class="gesture">
+          <div class="gesture-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="11" r="4"/><circle cx="15" cy="13" r="4"/><path d="M4 20a8 8 0 0 1 16 0" stroke-linecap="round"/></svg>
+          </div>
+          <h3 data-i18n="app.g1.title">Magic Tap</h3>
+          <p data-i18n="app.g1.desc">Two-finger double tap anywhere on the screen to play or pause.</p>
+        </article>
+        <article class="gesture">
+          <div class="gesture-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M18 7v10M18 17H6M6 17V7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3 data-i18n="app.g2.title">Two-Finger Scrub</h3>
+          <p data-i18n="app.g2.desc">A Z-shape gesture exits the reader and saves your progress automatically.</p>
+        </article>
+        <article class="gesture">
+          <div class="gesture-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10m0 0l-4-4m4 4l-4 4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="7" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="7" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <h3 data-i18n="app.g3.title">Three-Finger Swipe</h3>
+          <p data-i18n="app.g3.desc">Swipe left or right to move smoothly between chapters.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Testimonial ===================== -->
+  <section class="app-section app-quote">
+    <div class="container">
+      <blockquote class="quote-card">
+        <p data-i18n="app.quote.text">"For the first time, an audiobook app that just works with VoiceOver. No ads, no confusion — I finished three books in a single week."</p>
+        <footer data-i18n="app.quote.author">— Maya R., low-vision reader</footer>
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- ===================== Pricing ===================== -->
+  <section class="app-section" id="pricing">
+    <div class="container">
+      <div class="app-section-head">
+        <h2 data-i18n="app.pricing.title">Simple, honest pricing</h2>
+        <p data-i18n="app.pricing.sub">Try the Pro experience free. Keep reading ad-free forever.</p>
+      </div>
+      <div class="pricing-card">
+        <span class="pricing-badge" data-i18n="app.pricing.badge">Forever Ad-Free</span>
+        <h3 data-i18n="app.pricing.free">LucidRead Free</h3>
+        <ul>
+          <li data-i18n="app.pricing.f1">Unlimited reading &amp; listening</li>
+          <li data-i18n="app.pricing.f2">Full VoiceOver gesture controls</li>
+          <li data-i18n="app.pricing.f3">Local &amp; private iCloud storage</li>
+        </ul>
+        <p class="pricing-trial" data-i18n="app.pricing.trial">7-Day Free Trial of Pro Features</p>
+        <a class="btn-appstore" href="#" aria-label="Download on the App Store">
+          <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+          <span>
+            <small data-i18n="app.cta.small">Download on the</small>
+            <strong data-i18n="app.cta.strong">App Store</strong>
+          </span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer app-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">LucidRead<span class="accent">.</span></div>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a>
+        <a href="terms.html" data-i18n="footer.terms">Terms of Service</a>
+        <a href="accessibility.html" data-i18n="app.footer.a11y">Accessibility Statement</a>
+        <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a>
+        <a href="index.html" data-i18n="footer.home">Back to site</a>
+      </nav>
+      <a class="footer-badge" href="#" aria-label="Download on the App Store">
+        <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+        App Store
+      </a>
+    </div>
+    <p class="footer-copy">© <span id="year"></span> WildGrassX Studio</p>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/transfer.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

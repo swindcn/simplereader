@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title data-i18n="cookie.metaTitle">Cookie Policy — Alin Zhu</title>
+  <meta name="description" data-i18n="cookie.metaDesc" content="Cookie Policy for LucidRead by WildGrassX Studio." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">Alin<span class="accent">Zhu</span></a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.home">Home</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================== Cookie Policy content ===================== -->
+  <main class="prose">
+    <h1 data-i18n="cookie.h1">Cookie Policy</h1>
+    <p class="last-updated" data-i18n="cookie.updated">Last Updated: July 2026</p>
+
+    <p data-i18n="cookie.intro">This Cookie Policy explains how <strong>LucidRead</strong> (the "Application"), developed by <strong>WildGrassX Studio</strong>, uses — or more accurately, does not use — cookies and similar technologies.</p>
+
+    <h2 data-i18n="cookie.s1h">1. Our Stance on Cookies</h2>
+    <p data-i18n="cookie.s1p">The Application is designed as an Accessibility-First, No-Login service. We do <strong>not</strong> use cookies, advertising identifiers, or tracking pixels to profile you across the web.</p>
+
+    <h2 data-i18n="cookie.s2h">2. What We Do NOT Use</h2>
+    <p data-i18n="cookie.s2p">Specifically, the Application contains:</p>
+    <ul>
+      <li data-i18n="cookie.s2li1"><strong>No third-party advertising cookies</strong> — we serve no ads.</li>
+      <li data-i18n="cookie.s2li2"><strong>No analytics or tracking SDKs</strong> — we do not measure or sell your behavior.</li>
+      <li data-i18n="cookie.s2li3"><strong>No cross-site tracking</strong> — we cannot follow you between websites or apps.</li>
+    </ul>
+
+    <h2 data-i18n="cookie.s3h">3. Local-Only Preferences</h2>
+    <p data-i18n="cookie.s3p">The only data stored on your device is your own reading content and a few app preferences (such as your theme or language choice). These are kept in your local device storage or your private Apple iCloud account, not in cookies, and are never transmitted to us.</p>
+
+    <h2 data-i18n="cookie.s4h">4. Managing Cookies in iOS</h2>
+    <p data-i18n="cookie.s4p">Because the Application itself sets no tracking cookies, there is nothing for you to clear inside the app. If you open our website from the app, you may manage cookies through iOS Safari settings (Settings → Apps → Safari → Advanced → Website Data).</p>
+
+    <h2 data-i18n="cookie.s5h">5. Changes to This Cookie Policy</h2>
+    <p data-i18n="cookie.s5p">We may update this Cookie Policy from time to time. You are advised to review this page periodically for any changes.</p>
+
+    <h2 data-i18n="cookie.s6h">6. Contact Us</h2>
+    <p data-i18n="cookie.s6p">If you have any questions about this Cookie Policy, please contact us at: <strong>support@wildgrassx.com</strong>.</p>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© <span id="year"></span> Alin Zhu. <a href="index.html" data-i18n="footer.home">Back to home</a> · <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a> · <a href="terms.html" data-i18n="footer.terms">Terms of Service</a> · <a href="support.html" data-i18n="footer.support">Support</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

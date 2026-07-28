@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title data-i18n="transfer.metaTitle">LucidRead Transfer — Send books to your device</title>
+  <meta name="description" data-i18n="transfer.metaDesc" content="Send TXT and EPUB books to LucidRead with a transfer code. Accessibility-first, private, and ad-free." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header" id="top">
+    <div class="container nav">
+      <a class="brand" href="lucidread.html">LucidRead<span class="accent">.</span></a>
+      <nav class="nav-links" id="nav-links" aria-label="Primary">
+        <a href="lucidread.html#features" data-i18n="app.nav.features">Features</a>
+        <a href="lucidread.html#gestures" data-i18n="app.nav.gestures">Gestures</a>
+        <a href="lucidread.html#pricing" data-i18n="app.nav.pricing">Pricing</a>
+        <a href="transfer.html" class="active" aria-current="page" data-i18n="app.nav.transfer">Transfer</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== Page hero ===================== -->
+  <section class="transfer-hero">
+    <div class="container">
+      <h1 data-i18n="transfer.heading">Send books to LucidRead</h1>
+      <p data-i18n="transfer.sub">Enter the transfer code shown in the app, choose a TXT or EPUB file, and send it securely to that device. Files are stored in the cloud for 72 hours, then auto-removed after the app receives them.</p>
+    </div>
+  </section>
+
+  <!-- ===================== Transfer (传书) ===================== -->
+  <section class="app-section app-transfer">
+    <div class="container">
+      <div class="transfer-panel">
+        <!-- Step 1: verify device -->
+        <div class="transfer-step" id="step-verify">
+          <h3 class="transfer-step-h" data-i18n="transfer.step1">1 · Verify device</h3>
+          <div class="transfer-field">
+            <label for="device-code" data-i18n="transfer.codeLabel">Transfer code</label>
+            <div class="transfer-row">
+              <input id="device-code" type="text" inputmode="text" autocomplete="off" spellcheck="false" maxlength="16" placeholder="8-digit code" />
+              <button class="btn-transfer" id="verify-btn" type="button" data-i18n="transfer.verify">Verify device</button>
+            </div>
+            <p class="transfer-hint" data-i18n="transfer.codeHint">Find this code on the app's “Website Transfer” screen. It stays valid.</p>
+            <p class="transfer-rate"><span data-i18n="transfer.rateInfo">Verification limit: 3 per minute.</span> <span id="rate-remaining"></span></p>
+          </div>
+          <p class="transfer-status" id="verify-status" role="status" aria-live="polite"></p>
+        </div>
+
+        <!-- Step 2: upload books -->
+        <div class="transfer-step transfer-step-locked" id="step-upload">
+          <h3 class="transfer-step-h" data-i18n="transfer.step2">2 · Upload books</h3>
+          <p class="transfer-hint" data-i18n="transfer.uploadHint">After verification, drag in or choose TXT / EPUB files (max 250MB each).</p>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose files to upload">
+            <input type="file" id="file-input" accept=".txt,.epub" multiple hidden />
+            <div class="dropzone-inner">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0L8 8m4-4l4 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke-linecap="round"/></svg>
+              <p class="dropzone-text" data-i18n="transfer.dropText">Drag files here or click to choose</p>
+              <p class="dropzone-sub" data-i18n="transfer.dropSub">TXT · EPUB · up to 250MB</p>
+            </div>
+          </div>
+          <ul class="file-list" id="file-list"></ul>
+          <button class="btn-transfer btn-transfer-primary" id="upload-btn" type="button" disabled data-i18n="transfer.uploadBtn">Send to app</button>
+          <p class="transfer-status" id="upload-status" role="status" aria-live="polite"></p>
+        </div>
+
+        <!-- Recent uploads -->
+        <div class="transfer-recent">
+          <h3 data-i18n="transfer.recent">Recent uploads</h3>
+          <ul class="recent-list" id="recent-list"></ul>
+          <p class="recent-empty" id="recent-empty" data-i18n="transfer.empty">No uploads yet.</p>
+        </div>
+      </div>
+
+      <!-- Why -->
+      <div class="transfer-why">
+        <h3 data-i18n="transfer.whyTitle">Why LucidRead Transfer?</h3>
+        <div class="why-grid">
+          <div>
+            <h4 data-i18n="transfer.why1h">Fewer steps</h4>
+            <p data-i18n="transfer.why1p">Family just enters the code and picks a file — it appears in the app after a refresh.</p>
+          </div>
+          <div>
+            <h4 data-i18n="transfer.why2h">Great for novels</h4>
+            <p data-i18n="transfer.why2p">TXT and EPUB supported; size limits and format errors are shown clearly on the web.</p>
+          </div>
+          <div>
+            <h4 data-i18n="transfer.why3h">Privacy-first</h4>
+            <p data-i18n="transfer.why3p">Uploads travel over HTTPS; unreceived files are cleared after 72 hours.</p>
+          </div>
+        </div>
+      </div>
+
+      <p class="transfer-service">
+        <span data-i18n="transfer.serviceStatus">Service status</span>:
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="service-status-text" data-i18n="transfer.serviceOnline">Cloud connected</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer app-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">LucidRead<span class="accent">.</span></div>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a>
+        <a href="terms.html" data-i18n="footer.terms">Terms of Service</a>
+        <a href="accessibility.html" data-i18n="app.footer.a11y">Accessibility Statement</a>
+        <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a>
+        <a href="index.html" data-i18n="footer.home">Back to site</a>
+      </nav>
+      <a class="footer-badge" href="#" aria-label="Download on the App Store">
+        <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+        App Store
+      </a>
+    </div>
+    <p class="footer-copy">© <span id="year"></span> WildGrassX Studio</p>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/transfer.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

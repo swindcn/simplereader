@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title data-i18n="support.metaTitle">Support & Accessibility Guide — LucidRead</title>
+  <meta name="description" data-i18n="support.metaDesc" content="LucidRead support and VoiceOver accessibility guide — gesture shortcuts, FAQ, and contact." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header" id="top">
+    <div class="container nav">
+      <a class="brand" href="index.html">Alin<span class="accent">Zhu</span></a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.home">Home</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================== Guide content ===================== -->
+  <main class="prose">
+    <h1 data-i18n="support.h1">LucidRead Support & Accessibility Guide</h1>
+    <p data-i18n="support.intro">Welcome to LucidRead. We are dedicated to providing a clean, ad-free, and accessibility-first reading experience.</p>
+
+    <div class="guide-card">
+      <h2 data-i18n="support.c1h">VoiceOver Gesture Shortcuts</h2>
+      <ul>
+        <li data-i18n="support.c1li1"><strong>Play / Pause:</strong> Two-finger double tap (Magic Tap) anywhere on the screen.</li>
+        <li data-i18n="support.c1li2"><strong>Next / Previous Chapter:</strong> Three-finger swipe left or right.</li>
+        <li data-i18n="support.c1li3"><strong>Adjust Speech Rate:</strong> Three-finger swipe up or down.</li>
+        <li data-i18n="support.c1li4"><strong>Exit Reader / Save Progress:</strong> Two-finger Z-shape scrub.</li>
+      </ul>
+    </div>
+
+    <div class="guide-card">
+      <h2 data-i18n="support.c2h">Frequently Asked Questions</h2>
+      <p data-i18n="support.faq1"><strong>Q: How do I import my books?</strong><br>A: You can open any TXT or EPUB file in the iOS Files app, Safari, or WeChat, tap "Share", and select LucidRead to import instantly.</p>
+      <p data-i18n="support.faq2"><strong>Q: How do I restore my purchase on a new iPhone?</strong><br>A: Simply open the Paywall or Settings page in the app and tap "Restore Purchases". No login required.</p>
+    </div>
+
+    <div class="guide-card">
+      <h2 data-i18n="support.c3h">Need Further Help?</h2>
+      <p data-i18n="support.c3p">If you encounter any bugs, VoiceOver focus issues, or have feature requests, please reach out directly to our developer team:</p>
+      <p><span data-i18n="support.emailLabel">Email:</span> <a href="mailto:support@wildgrassx.com">support@wildgrassx.com</a></p>
+    </div>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© <span id="year"></span> Alin Zhu. <a href="index.html" data-i18n="footer.home">Back to home</a> · <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a> · <a href="terms.html" data-i18n="footer.terms">Terms of Service</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

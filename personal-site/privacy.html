@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <!-- TODO: Replace with your own name / studio -->
+  <title data-i18n="privacy.metaTitle">Privacy Policy — Alin Zhu</title>
+  <meta name="description" data-i18n="privacy.metaDesc" content="Privacy Policy for Alin Zhu's products and services." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header">
+    <div class="container nav">
+      <!-- TODO: Your name / logo -->
+      <a class="brand" href="index.html">Alin<span class="accent">Zhu</span></a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.home">Home</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================== Policy content ===================== -->
+  <main class="prose">
+    <h1 data-i18n="privacy.h1">Privacy Policy</h1>
+    <p class="last-updated" data-i18n="privacy.updated">Last Updated: July 2026</p>
+
+    <p data-i18n="privacy.intro">This Privacy Policy applies to the <strong>LucidRead</strong> mobile application (the "Application"), created by <strong>WildGrassX Studio</strong> ("we", "us", or "our") as an Accessibility-First, No-Login service.</p>
+
+    <h2 data-i18n="privacy.s1h">1. Information Collection and Use</h2>
+    <p data-i18n="privacy.s1p">We respect your privacy and are committed to protecting it:</p>
+    <ul>
+      <li data-i18n="privacy.s1li1"><strong>No Personal Accounts or Registration:</strong> The Application operates without user registration or login. We do not collect, store, or process personal identification information such as your name, email address, phone number, or IP address.</li>
+      <li data-i18n="privacy.s1li2"><strong>Local &amp; iCloud Book Storage:</strong> All files (TXT, EPUB) and reading progress imported into the Application remain entirely on your local device or your private Apple iCloud account. We have no access to your personal library or reading contents.</li>
+      <li data-i18n="privacy.s1li3"><strong>In-App Subscriptions:</strong> All financial transactions, subscriptions, and purchase validations are handled directly by Apple Inc. via StoreKit. We do not process or store any credit card or payment information.</li>
+    </ul>
+
+    <h2 data-i18n="privacy.s2h">2. Third-Party Services &amp; Analytics</h2>
+    <p data-i18n="privacy.s2p">The Application contains <strong>NO third-party advertising frameworks, tracking SDKs, or invasive analytics tools</strong>. Your reading behavior and preferences are strictly private to you.</p>
+
+    <h2 data-i18n="privacy.s3h">3. Data Security</h2>
+    <p data-i18n="privacy.s3p">Since your reading data is stored locally on your device or synced via your encrypted Apple iCloud storage, the security of your data is safeguarded by iOS operating system security standards.</p>
+
+    <h2 data-i18n="privacy.s4h">4. Children's Privacy</h2>
+    <p data-i18n="privacy.s4p">The Application does not address anyone under the age of 13. We do not knowingly collect personally identifiable information from children.</p>
+
+    <h2 data-i18n="privacy.s5h">5. Changes to This Privacy Policy</h2>
+    <p data-i18n="privacy.s5p">We may update our Privacy Policy from time to time. You are advised to review this page periodically for any changes.</p>
+
+    <h2 data-i18n="privacy.s6h">6. Contact Us</h2>
+    <p data-i18n="privacy.s6p">If you have any questions or suggestions about our Privacy Policy or accessibility features, do not hesitate to contact us at: <strong>support@wildgrassx.com</strong>.</p>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <!-- TODO: your name -->
+      <p>© <span id="year"></span> Alin Zhu. <a href="index.html" data-i18n="footer.home">Back to home</a> · <a href="terms.html" data-i18n="footer.terms">Terms of Service</a> · <a href="support.html" data-i18n="footer.support">Support</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
