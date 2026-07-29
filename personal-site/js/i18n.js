@@ -3,7 +3,7 @@
    - Each translatable node in the HTML carries data-i18n="key"
    - This file holds the dictionary and the switch logic
    - Choice is saved in localStorage and remembered across pages
-   - First visit follows the browser language (zh -> 中文, else EN)
+   - First visit defaults to English; manual choice is remembered
    To add a language: add another object (e.g. "ja") with the
    same keys, then extend getLang()/toggle logic if needed.
    ========================================================= */
@@ -444,8 +444,7 @@ window.I18N = {
     var stored = null;
     try { stored = localStorage.getItem("lang"); } catch (e) {}
     if (stored === "zh" || stored === "en") return stored;
-    var nav = (navigator.language || "en").toLowerCase();
-    return nav.indexOf("zh") === 0 ? "zh" : "en";
+    return "en";
   }
 
   function applyLang(lang) {
