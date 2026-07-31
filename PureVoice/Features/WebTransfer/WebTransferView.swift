@@ -5,20 +5,11 @@ struct WebTransferView: View {
     @Environment(\.appStrings) private var strings
     @ObservedObject var viewModel: WebTransferViewModel
     @State private var clipboardMessage = ""
-    private let transferFieldBackground = Color(red: 0.937, green: 0.937, blue: 0.937)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
             transferCard
-
-            if !clipboardMessage.isEmpty {
-                Text(clipboardMessage)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(clipboardMessage)
-            }
-
             inboxContent
         }
         .accessibilityElement(children: .contain)
@@ -31,70 +22,113 @@ struct WebTransferView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 14) {
             Image("NetworkTransfer")
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 30, height: 30)
-                .foregroundStyle(DesignTokens.onSurface)
+                .frame(width: 24, height: 24)
+                .foregroundStyle(DesignTokens.primary)
+                .frame(width: 44, height: 44)
+                .background(DesignTokens.primary.opacity(0.11))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityHidden(true)
-            Text(strings.webTransferTitle)
-                .font(.title3.weight(.semibold))
             Text(strings.webTransferSubtitle)
-                .font(.headline)
+                .font(.title3.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
             Spacer(minLength: 0)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(strings.webTransferSubtitle)
     }
 
     private var transferCard: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(strings.transferCode)
-                    .font(.headline)
-                if let pairingCode = viewModel.pairingCode {
-                    HStack(spacing: 12) {
-                        Text(pairingCode.code)
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .minimumScaleFactor(0.55)
-                            .lineLimit(1)
-                            .accessibilityLabel(strings.transferCodeAccessibility(pairingCode.code))
-                        Spacer(minLength: 16)
-                        iconCopyButton(value: pairingCode.code, message: strings.transferCodeCopied, label: strings.copyTransferCode)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: .infinity, minHeight: 82, alignment: .center)
-                    .background(transferFieldBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                } else {
-                    ProgressView(strings.generatingTransferCode)
-                        .frame(maxWidth: .infinity, minHeight: 82)
-                        .background(transferFieldBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-            }
+        VStack(alignment: .leading, spacing: 20) {
+            transferCodeBlock
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text(strings.transferURL)
-                    .font(.headline)
-                HStack(spacing: 12) {
-                    Text(viewModel.webTransferPageURL.absoluteString)
-                        .font(.title3.weight(.bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.52)
-                        .accessibilityLabel(strings.transferURLAccessibility(viewModel.webTransferPageURL.absoluteString))
-                    Spacer(minLength: 16)
-                    iconCopyButton(value: viewModel.webTransferPageURL.absoluteString, message: strings.transferURLCopied, label: strings.copyTransferURL)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 18)
-                .frame(maxWidth: .infinity, minHeight: 82, alignment: .center)
-                .background(transferFieldBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Divider()
+                .overlay(DesignTokens.outline.opacity(0.55))
+
+            transferWebsiteBlock
+
+            if !clipboardMessage.isEmpty {
+                Text(clipboardMessage)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(DesignTokens.onSurfaceVariant)
+                    .accessibilityLabel(clipboardMessage)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(18)
+        .background(DesignTokens.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(DesignTokens.outline.opacity(0.45), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 10)
+    }
+
+    private var transferCodeBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            labelText(strings.transferCode)
+            if let pairingCode = viewModel.pairingCode {
+                HStack(spacing: 12) {
+                    Text(pairingCode.code)
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.48)
+                        .lineLimit(1)
+                        .accessibilityLabel(strings.transferCodeAccessibility(pairingCode.code))
+                    Spacer(minLength: 12)
+                    iconCopyButton(value: pairingCode.code, message: strings.transferCodeCopied, label: strings.copyTransferCode)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, minHeight: 86, alignment: .center)
+                .background(DesignTokens.fieldBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                Text(strings.transferCodeInstruction)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(DesignTokens.onSurfaceVariant)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
+            } else {
+                ProgressView(strings.generatingTransferCode)
+                    .frame(maxWidth: .infinity, minHeight: 86)
+                    .background(DesignTokens.fieldBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+        }
+    }
+
+    private var transferWebsiteBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            labelText(strings.transferURL)
+            HStack(spacing: 12) {
+                Text(viewModel.webTransferPageURL.absoluteString)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(DesignTokens.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+                    .accessibilityLabel(strings.transferURLAccessibility(viewModel.webTransferPageURL.absoluteString))
+                Spacer(minLength: 12)
+                iconCopyButton(value: viewModel.webTransferPageURL.absoluteString, message: strings.transferURLCopied, label: strings.copyTransferURL)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, minHeight: 78, alignment: .center)
+            .background(DesignTokens.fieldBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+
+    private func labelText(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(DesignTokens.onSurfaceVariant)
     }
 
     private func iconCopyButton(value: String, message: String, label: String) -> some View {
@@ -105,8 +139,8 @@ struct WebTransferView: View {
                 .renderingMode(.template)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 24, height: 24)
-                .foregroundStyle(DesignTokens.onSurface)
+                .frame(width: 23, height: 23)
+                .foregroundStyle(DesignTokens.onSurfaceVariant)
                 .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
@@ -118,6 +152,7 @@ struct WebTransferView: View {
     private var inboxContent: some View {
         if viewModel.inbox.isEmpty {
             Text(strings.noPendingFiles)
+                .font(.callout.weight(.medium))
                 .foregroundStyle(.secondary)
                 .accessibilityLabel(strings.noPendingFiles)
         } else {
@@ -146,7 +181,11 @@ struct WebTransferView: View {
             .disabled(viewModel.isBusy)
         }
         .padding(12)
-        .background(Color(.systemBackground))
+        .background(DesignTokens.surfaceElevated)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(DesignTokens.outline.opacity(0.65), lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .contextMenu {
             Button(strings.delete, role: .destructive) {

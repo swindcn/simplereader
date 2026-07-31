@@ -25,6 +25,7 @@ export type RouteName =
   | "resolveCode"
   | "webUpload"
   | "inbox"
+  | "entitlement"
   | "downloadUrl"
   | "claim"
   | "deleteUpload"
@@ -48,6 +49,9 @@ export function routeName(url: URL, method: string): RouteName {
   }
   if (method === "POST" && path === "/transfer/web/upload") return "webUpload";
   if (method === "GET" && path === "/transfer/inbox") return "inbox";
+  if (method === "GET" && path === "/transfer/entitlement") {
+    return "entitlement";
+  }
   if (
     method === "POST" && /^\/transfer\/uploads\/[^/]+\/download-url$/.test(path)
   ) return "downloadUrl";
@@ -425,6 +429,22 @@ async function inbox(request: Request): Promise<Response> {
   });
 }
 
+async function entitlement(request: Request): Promise<Response> {
+  const supabase = serviceClient();
+  const auth = await assertDevice(supabase, request);
+  const { data, error } = await supabase
+    .from("server_grant_entitlements")
+    .select("entitlement")
+    .eq("device_id", auth.deviceId)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (error) {
+    console.error("server_grant_entitlement_failed", error);
+    return jsonError(500, "entitlement_failed", "读取服务端权益失败。");
+  }
+  return json({ entitlement: data?.entitlement ?? null });
+}
+
 async function downloadUrl(
   request: Request,
   uploadId: string,
@@ -509,6 +529,8 @@ export async function handler(request: Request): Promise<Response> {
         return await webUpload(request);
       case "inbox":
         return await inbox(request);
+      case "entitlement":
+        return await entitlement(request);
       case "downloadUrl":
         return await downloadUrl(request, uploadIdFromPath(url.pathname));
       case "claim":

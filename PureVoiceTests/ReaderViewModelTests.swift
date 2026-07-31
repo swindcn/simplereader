@@ -104,7 +104,7 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(saved.position?.progression, 0.8)
     }
 
-    func testSuccessfulProgressFlushRecordsRestorableReadingPosition() async throws {
+    func testSuccessfulProgressFlushDoesNotAutoRestoreReadingOnNextLaunch() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)
         let suiteName = "ReaderViewModelTests-\(UUID().uuidString)"
@@ -123,12 +123,7 @@ final class ReaderViewModelTests: XCTestCase {
         let didFlush = await viewModel.flushProgress()
         XCTAssertTrue(didFlush)
 
-        guard case let .reopenReader(bookID, position) = restorer.restoreLaunchState() else {
-            return XCTFail("Expected restorable reader state")
-        }
-        XCTAssertEqual(bookID, book.id)
-        XCTAssertEqual(position.href, "EPUB/chapter-2.xhtml")
-        XCTAssertEqual(position.progression, 0.8)
+        XCTAssertNil(restorer.restoreLaunchState())
     }
 
     func testLatestProgressIsPersistedAutomaticallyAfterDebounceDelay() async throws {
@@ -321,6 +316,20 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.speechHighlightLocator, locator)
     }
 
+    func testFollowingUnrelatedListeningLocatorIsIgnoredWithoutAlert() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let viewModel = ReaderViewModel(book: book, repository: InMemoryBookRepository(books: [book]))
+        await viewModel.open()
+        let locator = makeLocator(href: "EPUB/missing.xhtml", progression: 0.64)
+
+        viewModel.followListening(at: locator)
+
+        XCTAssertNil(viewModel.errorMessage)
+        XCTAssertNil(viewModel.navigationRequest)
+        XCTAssertNil(viewModel.speechHighlightLocator)
+    }
+
     func testTableOfContentsIsFlattenedAndSelectionCreatesNavigationRequest() async throws {
         let epubURL = try copyFixture()
         let book = Book.fixture(canonicalFileURL: epubURL)
@@ -339,6 +348,104 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
     }
 
+    func testAccessibilityChapterNavigationMovesBetweenAdjacentChapters() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let viewModel = ReaderViewModel(book: book, repository: InMemoryBookRepository(books: [book]))
+        await viewModel.open()
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.2))
+
+        let next = viewModel.navigateAdjacentChapter(.next)
+
+        XCTAssertEqual(next, .moved(title: "第二章 继续"))
+        XCTAssertEqual(viewModel.navigationRequest?.href, "EPUB/chapter-2.xhtml")
+
+        let previous = viewModel.navigateAdjacentChapter(.previous)
+
+        XCTAssertEqual(previous, .moved(title: "第一章 起点"))
+        XCTAssertEqual(viewModel.navigationRequest?.href, "EPUB/chapter-1.xhtml")
+    }
+
+    func testAccessibilityChapterNavigationSkipsNavigationResourcesFromTableOfContents() async throws {
+        let entries = ReaderViewModel.flatten([
+            PublicationTOCItem(title: "目录", href: "EPUB/nav.xhtml"),
+            PublicationTOCItem(title: "第一章 正文", href: "EPUB/chapter-1.xhtml"),
+            PublicationTOCItem(title: "第二章 继续", href: "EPUB/chapter-2.xhtml")
+        ])
+
+        let chapters = PublicationReadingFilter.readableTopLevelChapters(in: entries)
+
+        XCTAssertEqual(chapters.map(\.title), ["第一章 正文", "第二章 继续"])
+    }
+
+    func testAccessibilityChapterNavigationSkipsGeneratedHtmlTableOfContentsEntry() {
+        let entries = ReaderViewModel.flatten([
+            PublicationTOCItem(title: "目录", href: "OEBPS/text00000.html"),
+            PublicationTOCItem(title: "序", href: "OEBPS/text00001.html#title"),
+            PublicationTOCItem(title: "第一章 渭城有雨，少年有侍", href: "OEBPS/text00003.html#title")
+        ])
+
+        let chapters = PublicationReadingFilter.readableTopLevelChapters(in: entries)
+
+        XCTAssertEqual(chapters.map(\.title), ["序", "第一章 渭城有雨，少年有侍"])
+    }
+
+    func testNavigationResourceHREFsIncludeGeneratedHtmlTableOfContentsEntry() {
+        let entries = ReaderViewModel.flatten([
+            PublicationTOCItem(title: "目录", href: "OEBPS/text00000.html"),
+            PublicationTOCItem(title: "序", href: "OEBPS/text00001.html#title")
+        ])
+
+        let resources = PublicationReadingFilter.navigationResourceHREFs(in: entries)
+
+        XCTAssertEqual(resources, ["OEBPS/text00000.html"])
+    }
+
+    func testAccessibilityNextChapterFromNavigationResourceStartsAtFirstReadableChapter() {
+        let chapters = ReaderViewModel.flatten([
+            PublicationTOCItem(title: "目录", href: "EPUB/nav.xhtml"),
+            PublicationTOCItem(title: "第一章 正文", href: "EPUB/chapter-1.xhtml"),
+            PublicationTOCItem(title: "第二章 继续", href: "EPUB/chapter-2.xhtml")
+        ])
+
+        let targetIndex = PublicationReadingFilter.targetChapterIndex(
+            for: .next,
+            currentResource: "EPUB/nav.xhtml",
+            in: PublicationReadingFilter.readableTopLevelChapters(in: chapters)
+        )
+
+        XCTAssertEqual(targetIndex, 0)
+    }
+
+    func testAccessibilityNextChapterMatchesReadingOrderResourceWithTocRelativeHREF() {
+        let chapters = ReaderViewModel.flatten([
+            PublicationTOCItem(title: "目录", href: "text00000.html"),
+            PublicationTOCItem(title: "序", href: "text00001.html#title"),
+            PublicationTOCItem(title: "第一章 正文", href: "text00002.html#title")
+        ])
+
+        let targetIndex = PublicationReadingFilter.targetChapterIndex(
+            for: .next,
+            currentResource: "OEBPS/text00001.html",
+            in: PublicationReadingFilter.readableTopLevelChapters(in: chapters)
+        )
+
+        XCTAssertEqual(targetIndex, 1)
+    }
+
+    func testAccessibilityChapterNavigationReportsBoundaryWithoutAlert() async throws {
+        let epubURL = try copyFixture()
+        let book = Book.fixture(canonicalFileURL: epubURL)
+        let viewModel = ReaderViewModel(book: book, repository: InMemoryBookRepository(books: [book]))
+        await viewModel.open()
+        viewModel.receive(locator: makeLocator(href: "EPUB/chapter-1.xhtml", progression: 0.2))
+
+        let previous = viewModel.navigateAdjacentChapter(.previous)
+
+        XCTAssertEqual(previous, .boundary(message: "已经是第一章"))
+        XCTAssertNil(viewModel.errorMessage)
+    }
+
     func testFlattenedTableOfContentsUsesTreePathForDuplicateHREFIdentity() {
         let entries = ReaderViewModel.flatten([
             PublicationTOCItem(title: "镜像一", href: "same.xhtml"),
@@ -348,6 +455,20 @@ final class ReaderViewModelTests: XCTestCase {
         XCTAssertEqual(entries.map(\.id), ["0", "1"])
         XCTAssertEqual(Set(entries.map(\.id)).count, 2)
         XCTAssertEqual(entries.map(\.href), ["same.xhtml", "same.xhtml"])
+    }
+
+    func testHelpGestureGuideIncludesCoreVoiceOverGesturesInBothLanguages() {
+        for language in [EffectiveAppLanguage.chinese, .english] {
+            let entries = HelpGestureGuide.entries(strings: AppStrings(language: language))
+            let gestures = entries.map(\.gesture)
+
+            XCTAssertTrue(gestures.contains(AppStrings(language: language).magicTapGesture))
+            XCTAssertTrue(gestures.contains(AppStrings(language: language).threeFingerLeftGesture))
+            XCTAssertTrue(gestures.contains(AppStrings(language: language).threeFingerRightGesture))
+            XCTAssertTrue(gestures.contains(AppStrings(language: language).threeFingerUpDownGesture))
+            XCTAssertTrue(gestures.contains(AppStrings(language: language).scrubGesture))
+            XCTAssertTrue(entries.allSatisfy { !$0.title.isEmpty && !$0.description.isEmpty })
+        }
     }
 
     func testUnifiedPreferencesMapToReadiumPreferences() {

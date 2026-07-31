@@ -106,6 +106,10 @@ final class BookFileStore: @unchecked Sendable {
         bookDirectory(for: bookID).appendingPathComponent("publication.epub")
     }
 
+    func originalURL(for bookID: UUID, format: BookFormat) -> URL {
+        bookDirectory(for: bookID).appendingPathComponent("original.\(format.fileExtension)")
+    }
+
     func coverURL(for bookID: UUID) -> URL {
         bookDirectory(for: bookID).appendingPathComponent("cover")
     }
