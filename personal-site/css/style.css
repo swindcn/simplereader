@@ -354,6 +354,16 @@ a { color: inherit; text-decoration: none; }
 .prose ul { padding-left: 22px; }
 .prose li { margin-bottom: 8px; color: var(--text); }
 .prose strong { color: var(--text); }
+.prose .policy-list {
+  display: grid;
+  gap: 14px;
+  padding-left: 24px;
+  margin: 14px 0 28px;
+}
+.prose .policy-list li {
+  margin-bottom: 0;
+  line-height: 1.7;
+}
 
 /* ---------------- Support / Accessibility guide ---------------- */
 .guide-card {
