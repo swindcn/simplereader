@@ -106,7 +106,7 @@ enum ReaderTheme: String, Codable, CaseIterable, Sendable {
     func readerAppearance(usesDarkSystemTheme: Bool) -> ReaderThemeAppearance {
         switch self {
         case .system:
-            return usesDarkSystemTheme ? .dark : .light
+            return usesDarkSystemTheme ? .dark : .sepia
         case .light:
             return .light
         case .sepia:
@@ -213,7 +213,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
         lineHeight: Double = 1.5,
         theme: ReaderTheme = .sepia,
         layout: ReaderLayout = .paginated,
-        appFontSize: AppFontSize = .extraLarge,
+        appFontSize: AppFontSize = .medium,
         appLanguage: AppLanguage = .system,
         voiceIdentifier: String? = nil,
         speechRate: Double = 1
@@ -249,7 +249,7 @@ struct ReaderPreferences: Codable, Equatable, Sendable {
             lineHeight: try container.decode(Double.self, forKey: .lineHeight),
             theme: try container.decode(ReaderTheme.self, forKey: .theme),
             layout: try container.decode(ReaderLayout.self, forKey: .layout),
-            appFontSize: try container.decodeIfPresent(AppFontSize.self, forKey: .appFontSize) ?? .extraLarge,
+            appFontSize: try container.decodeIfPresent(AppFontSize.self, forKey: .appFontSize) ?? .medium,
             appLanguage: try container.decodeIfPresent(AppLanguage.self, forKey: .appLanguage) ?? .system,
             voiceIdentifier: try container.decodeIfPresent(String.self, forKey: .voiceIdentifier),
             speechRate: try container.decode(Double.self, forKey: .speechRate)

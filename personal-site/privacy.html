@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <!-- TODO: Replace with your own name / studio -->
+  <title data-i18n="privacy.metaTitle">LucidRead Privacy Policy — No Login, No Ads, Local Reading</title>
+  <meta name="description" data-i18n="privacy.metaDesc" content="LucidRead's privacy policy explains no login, no third-party ads, no tracking SDKs, local EPUB/TXT storage, iCloud sync, and Apple-managed purchases." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="keywords" content="LucidRead privacy policy, no login reader app, no ads reading app, no tracking iOS app, local EPUB storage, iCloud reading progress, accessible reader privacy" />
+  <link rel="canonical" href="https://wildgrassx.com/privacy" />
+  <meta property="og:title" content="LucidRead Privacy Policy — No Login, No Ads, Local Reading" />
+  <meta property="og:description" content="Privacy policy for LucidRead: no accounts, no ads, no tracking SDKs, local library storage and Apple-managed purchases." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wildgrassx.com/privacy" />
+  <meta property="og:site_name" content="WildGrassX Studio" />
+  <meta property="og:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LucidRead Privacy Policy — No Login, No Ads, Local Reading" />
+  <meta name="twitter:description" content="No login, no ads, no tracking SDKs, local EPUB/TXT storage, iCloud sync and Apple purchases." />
+  <meta name="twitter:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"LucidRead Privacy Policy","url":"https://wildgrassx.com/privacy","description":"Privacy policy for LucidRead covering no login, no ads, no tracking SDKs, local EPUB and TXT storage, iCloud sync and Apple-managed purchases.","publisher":{"@type":"Organization","name":"WildGrassX Studio","url":"https://wildgrassx.com/"},"about":{"@type":"SoftwareApplication","name":"LucidRead","applicationCategory":"BookApplication"}}</script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header">
+    <div class="container nav">
+      <!-- TODO: Your name / logo -->
+      <a class="brand" href="index.html">Alin<span class="accent">Zhu</span></a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.home">Home</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================== Policy content ===================== -->
+  <main class="prose">
+    <h1 data-i18n="privacy.h1">Privacy Policy</h1>
+    <p class="last-updated" data-i18n="privacy.updated">Last Updated: July 2026</p>
+
+    <p data-i18n="privacy.intro">This Privacy Policy applies to the LucidRead mobile application (the "Application"), developed by WildGrassX Studio ("we", "us", or "our"). LucidRead is an accessibility-first reading tool requiring no user login.</p>
+
+    <h2 data-i18n="privacy.s1h">1. Information Collection and Use</h2>
+    <p data-i18n="privacy.s1p">We highly value your privacy:</p>
+    <ul class="policy-list">
+      <li data-i18n="privacy.s1li1"><strong>No registration, no user accounts.</strong> We do not collect, store or process any personally identifiable information, including your name, email, phone number or IP address.</li>
+      <li data-i18n="privacy.s1li2">All imported books (TXT, EPUB) and reading progress are stored locally on your device or your private iCloud storage. We cannot access your library contents or reading records.</li>
+      <li data-i18n="privacy.s1li3">All in-app subscription transactions and purchase verification are processed exclusively by Apple through StoreKit. We never receive or store your payment, credit card or billing information.</li>
+    </ul>
+
+    <h2 data-i18n="privacy.s2h">2. Third-Party Services &amp; Analytics</h2>
+    <p data-i18n="privacy.s2p">This Application does not embed any third-party advertising SDK, tracking library or analytics framework. Your reading activity will never be tracked or shared.</p>
+
+    <h2 data-i18n="privacy.s3h">3. Data Security</h2>
+    <p data-i18n="privacy.s3p">All your reading data stays on your device or encrypted private iCloud space, protected by the built-in security mechanisms of Apple iOS. We transmit none of your personal content to remote servers.</p>
+
+    <h2 data-i18n="privacy.s4h">4. Children's Privacy</h2>
+    <p data-i18n="privacy.s4p">Our Application is not intended for users under 13 years of age. We do not knowingly collect personal data from minors.</p>
+
+    <h2 data-i18n="privacy.s5h">5. Updates to This Privacy Policy</h2>
+    <p data-i18n="privacy.s5p">We reserve the right to revise this Privacy Policy. Any updates will be published on this webpage.</p>
+
+    <h2 data-i18n="privacy.s6h">6. Contact</h2>
+    <p data-i18n="privacy.s6p">For inquiries regarding this policy or accessibility features of LucidRead, please email us: <a href="mailto:support@wildgrassx.com">support@wildgrassx.com</a></p>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <!-- TODO: your name -->
+      <p>© <span id="year"></span> Alin Zhu. <a href="index.html" data-i18n="footer.home">Back to home</a> · <a href="terms.html" data-i18n="footer.terms">Terms of Service</a> · <a href="support.html" data-i18n="footer.support">Support</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

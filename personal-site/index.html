@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title data-i18n="meta.title">WildGrassX Studio — Accessible iOS Apps & Full-Stack Products</title>
+  <meta name="description" data-i18n="meta.desc" content="WildGrassX Studio builds accessible iOS apps, web products, and LucidRead, an ad-free VoiceOver reader for blind and low-vision readers." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="keywords" content="WildGrassX Studio, accessible iOS app developer, LucidRead, VoiceOver reader, ad-free reading app, full-stack product studio, SwiftUI accessibility" />
+  <link rel="canonical" href="https://wildgrassx.com/" />
+  <meta property="og:title" content="WildGrassX Studio — Accessible iOS Apps & Full-Stack Products" />
+  <meta property="og:description" content="Independent studio building accessible iOS apps, web products, and LucidRead, an ad-free VoiceOver reader." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wildgrassx.com/" />
+  <meta property="og:site_name" content="WildGrassX Studio" />
+  <meta property="og:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="WildGrassX Studio — Accessible iOS Apps & Full-Stack Products" />
+  <meta name="twitter:description" content="Accessible iOS apps, full-stack products, and LucidRead, an ad-free VoiceOver reading app." />
+  <meta name="twitter:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"WildGrassX Studio","url":"https://wildgrassx.com/","email":"contact@wildgrassx.com","sameAs":["https://github.com/swindcn/simplereader"],"makesOffer":[{"@type":"Offer","itemOffered":{"@type":"SoftwareApplication","name":"LucidRead","applicationCategory":"BookApplication","operatingSystem":"iOS"}}]}</script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header" id="top">
+    <div class="container nav">
+      <!-- TODO: Your name / logo -->
+      <a class="brand" href="#top">Alin<span class="accent">Zhu</span></a>
+
+      <nav class="nav-links" id="nav-links" aria-label="Primary">
+        <a href="#work" data-i18n="nav.work">Work</a>
+        <a href="#about" data-i18n="nav.about">About</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== Hero ===================== -->
+    <section class="hero container">
+      <p class="eyebrow" data-i18n="hero.eyebrow">Full-Stack Developer · Independent</p>
+      <h1 data-i18n="hero.title">Hi, I'm <span class="accent">Alin Zhu</span>.<br />I build for the web and mobile.</h1>
+      <!-- TODO: 1–2 sentences about what you actually do -->
+      <p class="lead" data-i18n="hero.lead">
+        I'm an independent full-stack developer who designs and ships web and mobile products end-to-end —
+        from the first sketch to production. I care about fast interfaces, clean code, and shipping.
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#work" data-i18n="hero.work">View my work</a>
+        <a class="btn btn-ghost" href="#contact" data-i18n="hero.contact">Get in touch</a>
+      </div>
+
+      <!-- TODO: Replace with your real numbers (or delete the block) -->
+      <ul class="stats">
+        <li><strong>6+</strong><span data-i18n="stats.years">Years building</span></li>
+        <li><strong>40+</strong><span data-i18n="stats.projects">Projects shipped</span></li>
+        <li><strong>∞</strong><span data-i18n="stats.coffee">Cups of coffee</span></li>
+      </ul>
+    </section>
+
+    <!-- ===================== Work ===================== -->
+    <section class="section container" id="work">
+      <div class="section-head">
+        <h2 data-i18n="work.title">Selected Work</h2>
+        <p data-i18n="work.sub">A few products and projects I've designed, built, and shipped.</p>
+      </div>
+
+      <div class="grid">
+        <!-- Project card 0 (featured) -->
+        <article class="card">
+          <img class="card-media" src="images/lucidread-hero.jpg" alt="LucidRead app screenshot: high-contrast reader on iPhone with VoiceOver support" />
+          <div class="card-body">
+            <h3 data-i18n="proj0.title">LucidRead</h3>
+            <p data-i18n="proj0.desc">Accessible ad-free reader with full VoiceOver support, local TTS &amp; offline EPUB/TXT reading.</p>
+            <ul class="tags"><li>iOS</li><li>Swift</li><li>SwiftUI</li><li>VoiceOver</li></ul>
+            <div class="card-links">
+              <a href="lucidread.html" target="_blank" rel="noopener" data-i18n="link.page">Page ↗</a>
+              <a href="https://apps.apple.com/us/app/lucidread/id6793768789" target="_blank" rel="noopener" data-i18n="link.appstore">App Store ↗</a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===================== About ===================== -->
+    <section class="section container" id="about">
+      <div class="section-head">
+        <h2 data-i18n="about.title">About</h2>
+      </div>
+
+      <div class="about">
+        <div class="about-text">
+          <!-- TODO: Write in your own voice -->
+          <p data-i18n="about.p1">
+            I'm a full-stack developer who likes owning a problem from start to finish. Over the last
+            few years I've built internal tools, client products, and my own side projects — usually
+            wearing every hat from design to deploy.
+          </p>
+          <p data-i18n="about.p2">
+            I'm comfortable across the stack: typed front-ends, pragmatic back-ends, and the cloud
+            plumbing that ties them together. Lately I've been exploring AI-assisted workflows and
+            shipping faster than ever.
+          </p>
+        </div>
+
+        <aside class="about-side">
+          <h3 data-i18n="about.skills">Stack &amp; Skills</h3>
+          <!-- TODO: your real toolset -->
+          <ul class="tags">
+            <li>TypeScript</li><li>React</li><li>Next.js</li><li>Node.js</li>
+            <li>Python</li><li>PostgreSQL</li><li>Docker</li><li>AWS</li>
+          </ul>
+
+          <h3 data-i18n="about.currentlyH">Currently</h3>
+          <!-- TODO: what you're working on / learning -->
+          <p data-i18n="about.currently">Building my own SaaS and writing about the indie dev journey.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================== Contact ===================== -->
+    <section class="section container" id="contact">
+      <div class="section-head">
+        <h2 data-i18n="contact.title">Let's talk</h2>
+      </div>
+      <!-- TODO: edit the copy + email -->
+      <p class="lead" data-i18n="contact.lead">
+        Have a project, a role, or just an idea? My inbox is open — I reply to everything.
+      </p>
+      <a class="btn btn-primary" href="mailto:contact@wildgrassx.com">contact@wildgrassx.com</a>
+    </section>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <!-- TODO: your name -->
+      <p>© <span id="year"></span> Alin Zhu. <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a> · <a href="terms.html" data-i18n="footer.terms">Terms of Service</a> · <a href="support.html" data-i18n="footer.support">Support</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

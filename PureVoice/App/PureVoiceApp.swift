@@ -88,6 +88,8 @@ private struct AppBootstrapView: View {
     @Environment(\.appStrings) private var strings
     @State private var dependencies: AppDependencies?
     @State private var startupError: Error?
+    @State private var pendingExternalDocumentURL: URL?
+    @State private var externalImportError: UserFacingError?
 
     var body: some View {
         Group {
@@ -96,27 +98,67 @@ private struct AppBootstrapView: View {
                     repository: dependencies.repository,
                     importCoordinator: dependencies.importCoordinator,
                     webTransferViewModel: dependencies.webTransferViewModel,
+                    transferIdentityStore: dependencies.transferIdentityStore,
+                    serverGrantEntitlementProvider: dependencies.serverGrantEntitlementProvider,
                     libraryRefresh: dependencies.libraryRefresh,
                     appStateRestorer: dependencies.appStateRestorer
                 )
             } else if let startupError {
                 FatalStartupView(error: startupError)
             } else {
-                ProgressView(strings.language == .chinese ? "正在启动 PureVoice" : "Starting PureVoice")
+                ProgressView(strings.language == .chinese ? "正在启动 LucidRead" : "Starting LucidRead")
             }
+        }
+        .onOpenURL { url in
+            Task { await openExternalDocument(url) }
+        }
+        .alert(externalImportError?.title ?? strings.cannotOpenBook, isPresented: externalImportErrorPresented) {
+            Button(strings.ok, role: .cancel) { externalImportError = nil }
+        } message: {
+            Text(externalImportErrorMessage)
         }
         .task {
             guard dependencies == nil, startupError == nil else { return }
             if let debugDependencies = PureVoiceApp.makeDebugDependenciesIfRequested() {
                 dependencies = debugDependencies
+                await openPendingExternalDocumentIfNeeded()
                 return
             }
             do {
                 dependencies = try await AppDependencies.makeProduction()
+                await openPendingExternalDocumentIfNeeded()
             } catch {
                 startupError = error
             }
         }
+    }
+
+    private var externalImportErrorPresented: Binding<Bool> {
+        Binding(
+            get: { externalImportError != nil },
+            set: { if !$0 { externalImportError = nil } }
+        )
+    }
+
+    private var externalImportErrorMessage: String {
+        guard let externalImportError else { return strings.unknownError }
+        return "\(externalImportError.message)\n\(externalImportError.recoveryAction)"
+    }
+
+    private func openPendingExternalDocumentIfNeeded() async {
+        guard let url = pendingExternalDocumentURL else { return }
+        pendingExternalDocumentURL = nil
+        await openExternalDocument(url)
+    }
+
+    private func openExternalDocument(_ url: URL) async {
+        guard let dependencies else {
+            pendingExternalDocumentURL = url
+            return
+        }
+        let importer = ExternalDocumentImporter(importCoordinator: dependencies.importCoordinator)
+        await importer.open(url)
+        externalImportError = importer.error
     }
 }
 
@@ -130,7 +172,7 @@ private struct FatalStartupView: View {
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
                 .accessibilityHidden(true)
-            Text(strings.language == .chinese ? "无法启动 PureVoice" : "Unable to Start PureVoice")
+            Text(strings.language == .chinese ? "无法启动 LucidRead" : "Unable to Start LucidRead")
                 .font(.title3.bold())
             Text(strings.language == .chinese ? "本地书库初始化失败，请稍后重试。" : "The local library could not be initialized. Please try again later.")
                 .multilineTextAlignment(.center)

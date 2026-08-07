@@ -6,11 +6,17 @@ struct RootTabView: View {
     @State private var readerBook: Book?
     @State private var hasRestoredLaunchState = false
     @State private var restorationNotice: UserFacingError?
+    @State private var isPaywallPresented = false
+    @State private var hasPresentedLaunchPaywall = false
     @StateObject private var preferencesStore: PreferencesStore
     @StateObject private var speechSession: SpeechSessionCoordinator
+    @StateObject private var purchaseAccessStore: PurchaseAccessStore
+    @StateObject private var purchaseManager: StoreKitPurchaseManager
     private let repository: any BookRepository
     private let importCoordinator: ImportCoordinator?
     private let webTransferViewModel: WebTransferViewModel?
+    private let transferIdentityStore: (any TransferIdentityStoring)?
+    private let serverGrantEntitlementProvider: (any ServerGrantEntitlementProviding)?
     private let libraryRefresh: LibraryRefreshSignal
     private let appStateRestorer: AppStateRestorer?
 
@@ -18,12 +24,16 @@ struct RootTabView: View {
         repository: any BookRepository = InMemoryBookRepository(),
         importCoordinator: ImportCoordinator? = nil,
         webTransferViewModel: WebTransferViewModel? = nil,
+        transferIdentityStore: (any TransferIdentityStoring)? = nil,
+        serverGrantEntitlementProvider: (any ServerGrantEntitlementProviding)? = nil,
         libraryRefresh: LibraryRefreshSignal = LibraryRefreshSignal(),
         appStateRestorer: AppStateRestorer? = nil
     ) {
         self.repository = repository
         self.importCoordinator = importCoordinator
         self.webTransferViewModel = webTransferViewModel
+        self.transferIdentityStore = transferIdentityStore
+        self.serverGrantEntitlementProvider = serverGrantEntitlementProvider
         self.libraryRefresh = libraryRefresh
         self.appStateRestorer = appStateRestorer
         let preferencesStore = PreferencesStore(defaults: Self.preferencesDefaults())
@@ -36,6 +46,9 @@ struct RootTabView: View {
                 libraryRefresh.refresh()
             }
         ))
+        let purchaseAccessStore = PurchaseAccessStore()
+        _purchaseAccessStore = StateObject(wrappedValue: purchaseAccessStore)
+        _purchaseManager = StateObject(wrappedValue: StoreKitPurchaseManager(accessStore: purchaseAccessStore))
     }
 
     private static func preferencesDefaults() -> UserDefaults {
@@ -67,8 +80,19 @@ struct RootTabView: View {
                 repository: repository,
                 speechSession: speechSession,
                 preferencesStore: preferencesStore,
-                appStateRestorer: appStateRestorer
+                appStateRestorer: appStateRestorer,
+                requiresPurchase: purchaseAccessStore.requiresPurchase,
+                onPurchaseRequired: { isPaywallPresented = true }
             )
+        }
+        .fullScreenCover(isPresented: $isPaywallPresented) {
+            PaywallView(
+                accessStore: purchaseAccessStore,
+                purchaseManager: purchaseManager,
+                onClose: { isPaywallPresented = false }
+            )
+            .appFontSize(preferencesStore.global.appFontSize)
+            .appLanguage(appLanguage)
         }
         .fullScreenCover(isPresented: rootListeningPresented) {
             if let viewModel = speechSession.viewModel {
@@ -77,6 +101,8 @@ struct RootTabView: View {
                         _ = await viewModel.flushProgress()
                         speechSession.dismissListening(flushesProgress: false)
                     }
+                } onEscapeToLibrary: {
+                    _ = speechSession.endSession()
                 }
                 .appFontSize(preferencesStore.global.appFontSize)
                 .appLanguage(appLanguage)
@@ -88,7 +114,8 @@ struct RootTabView: View {
                readerBook == nil {
                 MiniPlayerView(
                     viewModel: viewModel,
-                    onOpen: speechSession.presentListening,
+                    onOpen: { requestPaidAccess { speechSession.presentListening() } },
+                    onTogglePlayback: { requestPaidAccess { viewModel.togglePlayback() } },
                     onClose: { _ = speechSession.endSession() },
                     reservesTabBarSpace: true
                 )
@@ -115,6 +142,10 @@ struct RootTabView: View {
         }
         .task {
             await restoreLaunchStateIfNeeded()
+            await purchaseManager.loadProducts()
+            await purchaseManager.refreshEntitlements()
+            await refreshServerGrantEntitlement()
+            presentLaunchPaywallIfNeeded()
         }
 #if DEBUG
         .task {
@@ -134,6 +165,11 @@ struct RootTabView: View {
         AppStrings(language: appLanguage)
     }
 
+    private var isRootMiniPlayerVisible: Bool {
+        guard let viewModel = speechSession.viewModel else { return false }
+        return viewModel.isMiniPlayerVisible && !speechSession.isListeningPresented && readerBook == nil
+    }
+
     @ViewBuilder
     private func tabContent(for tab: AppTab) -> some View {
         switch tab {
@@ -142,7 +178,13 @@ struct RootTabView: View {
                 repository: repository,
                 libraryRefresh: libraryRefresh,
                 webTransferViewModel: webTransferViewModel,
-                onOpenBook: { readerBook = $0 }
+                reservesMiniPlayerSpace: isRootMiniPlayerVisible,
+                onOpenBook: { book in requestPaidAccess { readerBook = book } },
+                onMagicTapListen: { book in
+                    requestPaidAccess {
+                        Task { await speechSession.begin(book: book, presentsListening: true, startsPlayback: true) }
+                    }
+                }
             )
             .appFontSize(preferencesStore.global.appFontSize)
             .appLanguage(appLanguage)
@@ -161,7 +203,11 @@ struct RootTabView: View {
             }
         case .settings:
             NavigationView {
-                SettingsView(store: preferencesStore)
+                SettingsView(
+                    store: preferencesStore,
+                    subscriptionStatus: purchaseManager.subscriptionStatus,
+                    onSubscriptionTapped: { isPaywallPresented = true }
+                )
                     .appFontSize(preferencesStore.global.appFontSize)
                     .appLanguage(appLanguage)
             }
@@ -195,6 +241,32 @@ struct RootTabView: View {
         return "\(restorationNotice.message)\n\(restorationNotice.recoveryAction)"
     }
 
+    private func requestPaidAccess(_ action: @escaping () -> Void) {
+        guard purchaseAccessStore.requiresPurchase else {
+            action()
+            return
+        }
+        AccessibilityFeedback.notification(.warning)
+        isPaywallPresented = true
+    }
+
+    private func presentLaunchPaywallIfNeeded() {
+        guard !hasPresentedLaunchPaywall, purchaseAccessStore.requiresPurchase else { return }
+        hasPresentedLaunchPaywall = true
+        isPaywallPresented = true
+    }
+
+    private func refreshServerGrantEntitlement() async {
+        guard let transferIdentityStore, let serverGrantEntitlementProvider else { return }
+        do {
+            let identity = try transferIdentityStore.identity()
+            let entitlement = try await serverGrantEntitlementProvider.entitlement(for: identity)
+            purchaseAccessStore.updateServerGrantEntitlement(entitlement)
+        } catch {
+            // Keep the cached entitlement when the server is temporarily unreachable.
+        }
+    }
+
     private func restoreLaunchStateIfNeeded() async {
         guard !hasRestoredLaunchState else { return }
         hasRestoredLaunchState = true
@@ -219,12 +291,15 @@ struct RootTabView: View {
 }
 
 private struct ReaderListeningHost: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var listeningReturnLocator: Locator?
     let book: Book
     let repository: any BookRepository
     @ObservedObject var speechSession: SpeechSessionCoordinator
     @ObservedObject var preferencesStore: PreferencesStore
     let appStateRestorer: AppStateRestorer?
+    let requiresPurchase: Bool
+    let onPurchaseRequired: () -> Void
 
     var body: some View {
         ReaderView(
@@ -233,10 +308,29 @@ private struct ReaderListeningHost: View {
             preferencesStore: preferencesStore,
             appStateRestorer: appStateRestorer,
             onListen: { publication, locator in
-                speechSession.begin(book: book, publication: publication, locator: locator)
+                requestPaidAccess {
+                    speechSession.begin(book: book, publication: publication, locator: locator)
+                }
+            },
+            onMagicTap: { publication, locator in
+                requestPaidAccess {
+                    if isListeningCurrentBook, let viewModel = speechSession.viewModel {
+                        viewModel.togglePlayback()
+                    } else {
+                        speechSession.begin(book: book, publication: publication, locator: locator, startsPlayback: true)
+                    }
+                }
+            },
+            onEscape: {
+                if isListeningCurrentBook {
+                    _ = speechSession.endSession()
+                } else {
+                    Task { await speechSession.flushProgress() }
+                }
             },
             listeningReturnLocator: listeningReturnLocator,
-            activeListeningLocator: speechSession.viewModel == nil ? nil : speechSession.currentLocator
+            activeListeningLocator: isListeningCurrentBook ? speechSession.currentLocator : nil,
+            isListeningActive: isListeningCurrentBook && speechSession.viewModel != nil
         )
         .appFontSize(preferencesStore.global.appFontSize)
         .appLanguage(appLanguage)
@@ -245,9 +339,14 @@ private struct ReaderListeningHost: View {
                !speechSession.isListeningPresented {
                 MiniPlayerView(
                     viewModel: viewModel,
-                    onOpen: speechSession.presentListening,
+                    onOpen: { requestPaidAccess { speechSession.presentListening() } },
+                    onTogglePlayback: { requestPaidAccess { viewModel.togglePlayback() } },
                     onClose: {
-                        listeningReturnLocator = speechSession.endSession()
+                        let shouldReturnToReader = isListeningCurrentBook
+                        let returnLocator = speechSession.endSession()
+                        if shouldReturnToReader {
+                            listeningReturnLocator = returnLocator
+                        }
                     }
                 )
                 .appFontSize(preferencesStore.global.appFontSize)
@@ -260,9 +359,14 @@ private struct ReaderListeningHost: View {
                     Task {
                         let returnLocator = viewModel.currentLocator
                         _ = await viewModel.flushProgress()
-                        listeningReturnLocator = returnLocator
+                        if isListeningCurrentBook {
+                            listeningReturnLocator = returnLocator
+                        }
                         speechSession.dismissListening(flushesProgress: false)
                     }
+                } onEscapeToLibrary: {
+                    _ = speechSession.endSession()
+                    dismiss()
                 }
                 .appFontSize(preferencesStore.global.appFontSize)
                 .appLanguage(appLanguage)
@@ -286,10 +390,23 @@ private struct ReaderListeningHost: View {
         AppStrings(language: appLanguage)
     }
 
+    private var isListeningCurrentBook: Bool {
+        speechSession.currentBookID == book.id
+    }
+
     private var sessionErrorPresented: Binding<Bool> {
         Binding(
             get: { speechSession.errorMessage != nil },
             set: { if !$0 { speechSession.dismissError() } }
         )
+    }
+
+    private func requestPaidAccess(_ action: @escaping () -> Void) {
+        guard requiresPurchase else {
+            action()
+            return
+        }
+        AccessibilityFeedback.notification(.warning)
+        onPurchaseRequired()
     }
 }

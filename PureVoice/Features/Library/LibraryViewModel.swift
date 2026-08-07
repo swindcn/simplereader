@@ -8,6 +8,10 @@ final class LibraryViewModel: ObservableObject {
     @Published private(set) var recentBooks: [Book] = []
     @Published private(set) var shelfBooks: [Book] = []
 
+    var accessibilityMagicTapBook: Book? {
+        continueReadingBook ?? shelfBooks.first
+    }
+
     private let repository: any BookRepository
     private let now: () -> Date
     private let onOpenBook: (Book) -> Void

@@ -164,6 +164,28 @@ final class ImportCoordinatorTests: XCTestCase {
         XCTAssertEqual(states, [.failed(.interrupted)])
     }
 
+    func testExternalDocumentImporterImportsSupportedFilesAndExposesUnsupportedFailure() async throws {
+        let supported = try write(Data("text".utf8), named: "shared.txt")
+        let unsupported = try write(Data("pdf".utf8), named: "shared.pdf")
+        let repository = RecordingRepository()
+        let coordinator = ImportCoordinator(
+            fileStore: fileStore,
+            detector: BookFormatDetector(),
+            converter: RecordingConverter(),
+            publicationOpener: RecordingPublicationOpener(),
+            repository: repository,
+            announce: { _ in }
+        )
+        let importer = ExternalDocumentImporter(importCoordinator: coordinator)
+
+        await importer.open(supported)
+        await importer.open(unsupported)
+
+        let saveCount = await repository.count()
+        XCTAssertEqual(saveCount, 1)
+        XCTAssertEqual(importer.error, UserFacingError(importFailure: .unsupported))
+    }
+
     func testConversionFailurePreservesOriginalCleansCanonicalAndDoesNotSave() async throws {
         let source = try write(Data("text".utf8), named: "source.txt")
         let repository = RecordingRepository()

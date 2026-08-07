@@ -25,11 +25,11 @@ struct AppStateRestorer: @unchecked Sendable {
     }
 
     func recordReading(bookID: UUID, position: ReadingPosition) {
-        save(.reading(bookID: bookID, position: position))
+        clearIfReadingOrListeningSnapshot()
     }
 
     func recordListening(bookID: UUID, position: ReadingPosition, wasPlaying: Bool) {
-        save(.listening(bookID: bookID, position: position, wasPlaying: wasPlaying))
+        clearIfReadingOrListeningSnapshot()
     }
 
     func restoreLaunchState() -> AppLaunchRestorationPlan? {
@@ -42,10 +42,12 @@ struct AppStateRestorer: @unchecked Sendable {
                 originalFileURL: originalFileURL,
                 error: .importInterrupted
             )
-        case let .reading(bookID, position):
-            return .reopenReader(bookID: bookID, position: position)
-        case let .listening(bookID, position, _):
-            return .reopenListening(bookID: bookID, position: position, shouldAutoplay: false)
+        case .reading:
+            clear()
+            return nil
+        case .listening:
+            clear()
+            return nil
         }
     }
 
@@ -61,6 +63,15 @@ struct AppStateRestorer: @unchecked Sendable {
     private func load() -> Snapshot? {
         guard let data = defaults.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(Snapshot.self, from: data)
+    }
+
+    private func clearIfReadingOrListeningSnapshot() {
+        switch load() {
+        case .reading, .listening:
+            clear()
+        case .importing, .none:
+            break
+        }
     }
 
     private enum Snapshot: Codable {
