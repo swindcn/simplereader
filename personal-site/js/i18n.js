@@ -436,6 +436,12 @@ window.I18N = {
   }
 };
 
+if (window.SITE_I18N) {
+  for (var language in window.SITE_I18N) {
+    Object.assign(window.I18N[language], window.SITE_I18N[language]);
+  }
+}
+
 (function () {
   "use strict";
   var dict = window.I18N;

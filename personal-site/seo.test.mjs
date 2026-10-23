@@ -14,6 +14,11 @@ const pages = [
   "privacy.html",
   "terms.html",
   "cookie.html",
+  "arrow-dash-saga.html",
+  "arrow-dash-saga/privacy.html",
+  "arrow-dash-saga/terms.html",
+  "arrow-dash-saga/support.html",
+  "arrow-dash-saga/data-choices.html",
 ];
 
 for (const page of pages) {

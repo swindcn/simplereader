@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://wildgrassx.com/arrow-dash-saga</loc><priority>0.9</priority></url>
+  <url><loc>https://wildgrassx.com/arrow-dash-saga/privacy</loc><priority>0.4</priority></url>
+  <url><loc>https://wildgrassx.com/arrow-dash-saga/terms</loc><priority>0.4</priority></url>
+  <url><loc>https://wildgrassx.com/arrow-dash-saga/support</loc><priority>0.8</priority></url>
+  <url><loc>https://wildgrassx.com/arrow-dash-saga/data-choices</loc><priority>0.4</priority></url>
   <url>
     <loc>https://wildgrassx.com/</loc>
     <priority>1.0</priority>

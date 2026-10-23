@@ -3,3 +3,5 @@
 .worktrees/
 supabase/.temp/
 build/
+.playwright-cli/
+output/playwright/
