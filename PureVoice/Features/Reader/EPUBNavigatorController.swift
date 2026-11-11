@@ -260,7 +260,7 @@ extension ReaderPreferences {
         case .sans: .sansSerif
         }
         let readiumTheme: Theme = switch theme {
-        case .system: usesDarkSystemTheme ? .dark : .light
+        case .system: usesDarkSystemTheme ? .dark : .sepia
         case .light: .light
         case .sepia: .sepia
         case .dark: .dark

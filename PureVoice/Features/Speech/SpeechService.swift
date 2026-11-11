@@ -79,11 +79,22 @@ protocol SpeechService: AnyObject {
 
 @MainActor
 protocol AudioSessionActivating: AnyObject {
+    func prepareForBackgroundSpeech() throws
     func activate() async throws
 }
 
 @MainActor
 final class SystemAudioSessionActivator: AudioSessionActivating {
+    static let spokenPlaybackOptions: AVAudioSession.CategoryOptions = []
+
+    func prepareForBackgroundSpeech() throws {
+        try AVAudioSession.sharedInstance().setCategory(
+            .playback,
+            mode: .spokenAudio,
+            options: Self.spokenPlaybackOptions
+        )
+    }
+
     func activate() async throws {
         try AVAudioSession.sharedInstance().setActive(true)
     }

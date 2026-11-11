@@ -151,8 +151,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
             startPlayback(from: pendingLocator ?? currentLocator, announces: announces)
             return
         }
-        service.resume()
-        if announces { announce("继续播放") }
+        resumePlayback(announces: announces)
     }
 
     func togglePlayback(announces: Bool = true) {
@@ -186,11 +185,21 @@ final class ListeningViewModel: NSObject, ObservableObject {
     }
 
     func previousSentence(announces: Bool = true) {
+        if publication != nil {
+            let outcome = navigateChapterForAccessibility(.previous)
+            if announces { announceChapterNavigation(outcome, direction: .previous) }
+            return
+        }
         service.previous()
         if announces { announce("上一句") }
     }
 
     func nextSentence(announces: Bool = true) {
+        if publication != nil {
+            let outcome = navigateChapterForAccessibility(.next)
+            if announces { announceChapterNavigation(outcome, direction: .next) }
+            return
+        }
         service.next()
         if announces { announce("下一句") }
     }
@@ -207,6 +216,91 @@ final class ListeningViewModel: NSObject, ObservableObject {
         }
         apply(preferencesStore.resolved(for: bookID))
         if announces { announce("语速 \(Self.rateLabel(clamped))") }
+    }
+
+    func increaseRateForAccessibility() {
+        setRate(Self.steppedRate(rate + 0.1))
+    }
+
+    func decreaseRateForAccessibility() {
+        setRate(Self.steppedRate(rate - 0.1))
+    }
+
+    func navigateChapterForAccessibility(_ direction: ReaderChapterDirection) -> ReaderChapterNavigationOutcome {
+        guard let publication else {
+            return .unavailable(message: "没有可用章节")
+        }
+        let chapters = PublicationReadingFilter.readableTopLevelChapters(
+            in: ReaderViewModel.flatten(publication.tableOfContents)
+        )
+        guard !chapters.isEmpty else {
+            return .unavailable(message: "没有可用章节")
+        }
+
+        let currentResource = currentLocator?.href.string.resourceHREF
+        let boundaryMessage: String
+
+        switch direction {
+        case .previous:
+            boundaryMessage = "已经是第一章"
+        case .next:
+            boundaryMessage = "已经是最后一章"
+        }
+
+        guard let targetIndex = PublicationReadingFilter.targetChapterIndex(
+            for: direction,
+            currentResource: currentResource,
+            in: chapters
+        ) else {
+            return .boundary(message: boundaryMessage)
+        }
+        guard chapters.indices.contains(targetIndex) else {
+            return .boundary(message: boundaryMessage)
+        }
+
+        let entry = chapters[targetIndex]
+        guard let locator = chapterLocator(for: entry, in: publication) else {
+            return .unavailable(message: "无法定位章节")
+        }
+        lastKnownLocator = locator
+        pendingLocator = locator
+        if hasStarted {
+            service.stop()
+            hasStarted = false
+        }
+        startPlayback(from: locator, announces: false)
+        return .moved(title: entry.title)
+    }
+
+    private func announceChapterNavigation(
+        _ outcome: ReaderChapterNavigationOutcome,
+        direction: ReaderChapterDirection
+    ) {
+        switch outcome {
+        case let .moved(title):
+            switch direction {
+            case .previous:
+                announce("上一章，\(title)")
+            case .next:
+                announce("下一章，\(title)")
+            }
+        case let .boundary(message), let .unavailable(message):
+            announce(message)
+        }
+    }
+
+    private func chapterLocator(for entry: ReaderTOCEntry, in publication: OpenedPublication) -> Locator? {
+        let matchingLink = publication.readiumPublication.readingOrder.first { link in
+            PublicationReadingFilter.resourceHREFsMatch(link.href, entry.href)
+        }
+        let resolvedHREF = matchingLink?.href ?? entry.href.resourceHREF
+        guard let href = AnyURL(string: resolvedHREF) else { return nil }
+        return Locator(
+            href: href,
+            mediaType: matchingLink?.mediaType ?? .xhtml,
+            title: entry.title,
+            locations: .init(progression: 0)
+        )
     }
 
     func selectVoice(identifier: String?, announces: Bool = true) {
@@ -257,6 +351,7 @@ final class ListeningViewModel: NSObject, ObservableObject {
             return
         }
         do {
+            try audioSession.prepareForBackgroundSpeech()
             try await audioSession.activate()
         } catch {
             guard canCompleteInterruptionRecovery(generation: generation) else { return }
@@ -358,8 +453,44 @@ final class ListeningViewModel: NSObject, ObservableObject {
         hasStarted = true
         isRestoredPausedSession = false
         state = .loading
+        do {
+            try audioSession.prepareForBackgroundSpeech()
+        } catch {
+            hasStarted = false
+            state = .failed(UserFacingError.audioInterruptionRecoveryFailed.message)
+            errorMessage = UserFacingError.audioInterruptionRecoveryFailed.message
+            onNowPlayingChange?()
+            return
+        }
         service.start(from: locator)
         if announces { announce("开始播放") }
+        Task { [weak self] in
+            await self?.activateAudioSessionReportingFailure()
+        }
+    }
+
+    private func resumePlayback(announces: Bool) {
+        do {
+            try audioSession.prepareForBackgroundSpeech()
+        } catch {
+            errorMessage = UserFacingError.audioInterruptionRecoveryFailed.message
+            onNowPlayingChange?()
+            return
+        }
+        service.resume()
+        if announces { announce("继续播放") }
+        Task { [weak self] in
+            await self?.activateAudioSessionReportingFailure()
+        }
+    }
+
+    private func activateAudioSessionReportingFailure() async {
+        do {
+            try await audioSession.activate()
+        } catch {
+            errorMessage = UserFacingError.audioInterruptionRecoveryFailed.message
+            onNowPlayingChange?()
+        }
     }
 
     private func readingPosition(from locator: Locator) throws -> ReadingPosition {
@@ -375,6 +506,10 @@ final class ListeningViewModel: NSObject, ObservableObject {
     private static func clampedRate(_ rate: Double) -> Double {
         guard rate.isFinite else { return 1 }
         return min(max(rate, 0.5), 2)
+    }
+
+    private static func steppedRate(_ rate: Double) -> Double {
+        (clampedRate(rate) * 10).rounded() / 10
     }
 
     private func apply(_ preferences: ReaderPreferences) {

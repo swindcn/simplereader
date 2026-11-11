@@ -124,6 +124,10 @@ Deno.test("routeName maps transfer endpoints", () => {
     throw new Error("inbox");
   }
   if (
+    routeName(new URL("http://local/transfer/entitlement"), "GET") !==
+      "entitlement"
+  ) throw new Error("entitlement");
+  if (
     routeName(
       new URL("http://local/transfer/uploads/abc/download-url"),
       "POST",

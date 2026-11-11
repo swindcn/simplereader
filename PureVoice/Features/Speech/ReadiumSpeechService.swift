@@ -28,6 +28,8 @@ final class ReadiumSpeechService: SpeechService {
 
     private let synthesizer: PublicationSpeechSynthesizer
     private let rateDelegate: RateApplyingAVDelegate
+    private let firstReadableLocator: Locator?
+    private let navigationResourceHREFs: Set<String>
 
     init?(publication openedPublication: OpenedPublication) {
         let publication = openedPublication.readiumPublication
@@ -38,6 +40,7 @@ final class ReadiumSpeechService: SpeechService {
             ?? "zh-CN"
         let defaultLanguage = Language(code: .bcp47(languageCode))
         let rateDelegate = RateApplyingAVDelegate()
+        let engineFactory = Self.makeSpeechEngineFactory(delegate: rateDelegate)
         guard let synthesizer = PublicationSpeechSynthesizer(
             publication: publication,
             config: .init(defaultLanguage: defaultLanguage),
@@ -47,19 +50,42 @@ final class ReadiumSpeechService: SpeechService {
                 routeSharingPolicy: .longFormAudio,
                 options: [.allowAirPlay, .allowBluetoothA2DP]
             ),
-            engineFactory: { AVTTSEngine(delegate: rateDelegate) }
+            engineFactory: engineFactory
         ) else { return nil }
 
         self.synthesizer = synthesizer
         self.rateDelegate = rateDelegate
-        voices = Self.orderedVoices(
-            synthesizer.availableVoices.map(SpeechVoice.init(ttsVoice:)),
-            preferredLanguage: languageCode
+        let navigationResources = PublicationReadingFilter.navigationResourceHREFs(
+            in: ReaderViewModel.flatten(openedPublication.tableOfContents)
         )
+        navigationResourceHREFs = navigationResources
+        firstReadableLocator = publication.readingOrder.first { link in
+            !PublicationReadingFilter.isLikelyNavigationEntry(title: link.title, href: link.href)
+                && !navigationResources.containsResource(matching: link.href)
+        }.flatMap { link in
+            AnyURL(string: link.href).map { href in
+                Locator(
+                    href: href,
+                    mediaType: .xhtml,
+                    title: link.title,
+                    locations: .init(progression: 0)
+                )
+            }
+        }
+        voices = Self.deviceVoices(preferredLanguage: languageCode)
         synthesizer.delegate = self
     }
 
-    func start(from locator: Locator?) { synthesizer.start(from: locator) }
+    func start(from locator: Locator?) {
+        let startLocator = locator.flatMap { locator in
+            let resource = locator.href.string.resourceHREF
+            return PublicationReadingFilter.isLikelyNavigationResource(resource)
+                || navigationResourceHREFs.containsResource(matching: resource)
+                ? firstReadableLocator
+                : locator
+        } ?? firstReadableLocator
+        synthesizer.start(from: startLocator)
+    }
     func pause() { synthesizer.pause() }
     func resume() { synthesizer.resume() }
     func stop() { synthesizer.stop() }
@@ -72,6 +98,12 @@ final class ReadiumSpeechService: SpeechService {
         let normal = Double(AVSpeechUtteranceDefaultSpeechRate)
         let maximum = Double(AVSpeechUtteranceMaximumSpeechRate)
         return min(max(normal * multiplier, minimum), maximum)
+    }
+
+    nonisolated static func makeSpeechEngineFactory(
+        delegate: RateApplyingAVDelegate
+    ) -> @Sendable () -> AVTTSEngine {
+        { AVTTSEngine(delegate: delegate) }
     }
 
     static func orderedVoices(
@@ -95,6 +127,13 @@ final class ReadiumSpeechService: SpeechService {
             if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
             return lhs.identifier < rhs.identifier
         }
+    }
+
+    static func deviceVoices(preferredLanguage: String?) -> [SpeechVoice] {
+        orderedVoices(
+            AVSpeechSynthesisVoice.speechVoices().map(SpeechVoice.init(systemVoice:)),
+            preferredLanguage: preferredLanguage
+        )
     }
 
     static func resolvedVoiceIdentifier(
@@ -132,6 +171,12 @@ final class ReadiumSpeechService: SpeechService {
     }
 }
 
+private extension Set where Element == String {
+    func containsResource(matching href: String) -> Bool {
+        contains { PublicationReadingFilter.resourceHREFsMatch($0, href) }
+    }
+}
+
 extension ReadiumSpeechService: PublicationSpeechSynthesizerDelegate {
     func publicationSpeechSynthesizer(
         _ synthesizer: PublicationSpeechSynthesizer,
@@ -162,18 +207,41 @@ extension ReadiumSpeechService: PublicationSpeechSynthesizerDelegate {
     }
 }
 
-@MainActor
-private final class RateApplyingAVDelegate: NSObject {
-    var rateMultiplier: Double = 1
+final class RateApplyingAVDelegate: NSObject, @unchecked Sendable {
+    private let lock = NSLock()
+    private var protectedRateMultiplier: Double = 1
+
+    var rateMultiplier: Double {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return protectedRateMultiplier
+        }
+        set {
+            lock.lock()
+            protectedRateMultiplier = newValue
+            lock.unlock()
+        }
+    }
 }
 
-extension RateApplyingAVDelegate: @MainActor AVTTSEngineDelegate {
+extension RateApplyingAVDelegate: AVTTSEngineDelegate {
     func avTTSEngine(_ engine: AVTTSEngine, didCreateUtterance utterance: AVSpeechUtterance) {
         utterance.rate = Float(ReadiumSpeechService.avSpeechRate(for: rateMultiplier))
     }
 }
 
 private extension SpeechVoice {
+    init(systemVoice voice: AVSpeechSynthesisVoice) {
+        self.init(
+            identifier: voice.identifier,
+            name: voice.name,
+            language: voice.language,
+            gender: .init(systemGender: voice.gender),
+            quality: .init(systemQuality: voice.quality)
+        )
+    }
+
     init(ttsVoice voice: TTSVoice) {
         self.init(
             identifier: voice.identifier,
@@ -186,6 +254,19 @@ private extension SpeechVoice {
 }
 
 private extension SpeechVoice.Gender {
+    init(systemGender: AVSpeechSynthesisVoiceGender) {
+        switch systemGender {
+        case .female:
+            self = .female
+        case .male:
+            self = .male
+        case .unspecified:
+            self = .unspecified
+        @unknown default:
+            self = .unspecified
+        }
+    }
+
     init(ttsGender: TTSVoice.Gender) {
         switch ttsGender {
         case .female: self = .female
@@ -196,6 +277,17 @@ private extension SpeechVoice.Gender {
 }
 
 private extension SpeechVoice.Quality {
+    init(systemQuality: AVSpeechSynthesisVoiceQuality) {
+        switch systemQuality.rawValue {
+        case 0:
+            self = .medium
+        case 1:
+            self = .high
+        default:
+            self = .higher
+        }
+    }
+
     init(ttsQuality: TTSVoice.Quality) {
         switch ttsQuality {
         case .lower: self = .lower

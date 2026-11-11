@@ -20,6 +20,21 @@ final class PreferencesStoreTests: XCTestCase {
         super.tearDown()
     }
 
+    func testLegalDocumentsUseWildGrassXLinksAndLocalizedTitles() {
+        XCTAssertEqual(LegalDocument.privacy.url.absoluteString, "https://www.wildgrassx.com/privacy")
+        XCTAssertEqual(LegalDocument.terms.url.absoluteString, "https://www.wildgrassx.com/terms")
+        XCTAssertEqual(LegalDocument.privacy.title(in: AppStrings(language: .english)), "Privacy Policy")
+        XCTAssertEqual(LegalDocument.terms.title(in: AppStrings(language: .chinese)), "服务条款")
+    }
+
+    func testAppVersionInfoUsesCurrentVersionAndAppStoreUpdateURL() {
+        let version = AppVersionInfo(shortVersion: "1.0.0", buildNumber: "2026072901")
+
+        XCTAssertEqual(version.displayText(in: AppStrings(language: .english)), "Version 1.0.0")
+        XCTAssertEqual(version.displayText(in: AppStrings(language: .chinese)), "版本 1.0.0")
+        XCTAssertEqual(version.updateURL.absoluteString, "itms-apps://apps.apple.com/app/id6793768789")
+    }
+
     func testAppFontSizesUseBoundedDynamicTypeValues() {
         XCTAssertEqual(AppFontSize.small.dynamicTypeSize, .medium)
         XCTAssertEqual(AppFontSize.medium.dynamicTypeSize, .large)
@@ -36,7 +51,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(store.global.lineHeight, 1.5)
         XCTAssertEqual(store.global.theme, .sepia)
         XCTAssertEqual(store.global.layout, .paginated)
-        XCTAssertEqual(store.global.appFontSize, .extraLarge)
+        XCTAssertEqual(store.global.appFontSize, .medium)
         XCTAssertEqual(store.global.appLanguage, .system)
         XCTAssertEqual(store.global.speechRate, 1)
         XCTAssertNil(store.global.voiceIdentifier)
@@ -223,6 +238,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(ReaderTheme.sepia.readerAppearance(usesDarkSystemTheme: false).chromeBackgroundColor, .pureVoiceSepiaChrome)
         XCTAssertEqual(ReaderTheme.dark.readerAppearance(usesDarkSystemTheme: false).backgroundColor, .black)
         XCTAssertEqual(ReaderTheme.system.readerAppearance(usesDarkSystemTheme: true).backgroundColor, .black)
+        XCTAssertEqual(ReaderTheme.system.readerAppearance(usesDarkSystemTheme: false).backgroundColor, .pureVoiceSepiaBackground)
     }
 
     func testLegacySpeechKeysMigrateOnceIntoUnifiedPayload() {

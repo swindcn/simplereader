@@ -28,11 +28,39 @@ final class AppDependenciesTests: XCTestCase {
         )
 
         await MainActor.run {
-            XCTAssertTrue(dependencies.repository is CoreDataBookRepository)
+            XCTAssertTrue(dependencies.repository is PathRelocatingBookRepository)
             XCTAssertNotNil(dependencies.importCoordinator)
             XCTAssertNotNil(dependencies.webTransferViewModel)
             XCTAssertEqual(dependencies.libraryRefresh.generation, 0)
         }
+    }
+
+    func testProductionRepositoryRelocatesBookFilesToCurrentApplicationSupportRoot() async throws {
+        let persistence = try await PersistenceController(storeDescription: Self.inMemoryStoreDescription())
+        let oldRoot = temporaryDirectory.appendingPathComponent("OldContainer", isDirectory: true)
+        let newRoot = temporaryDirectory.appendingPathComponent("NewContainer", isDirectory: true)
+        let oldStore = try BookFileStore(applicationSupportRoot: oldRoot)
+        let newStore = try BookFileStore(applicationSupportRoot: newRoot)
+        let bookID = UUID()
+        let oldBook = Book.fixture(
+            id: bookID,
+            format: .txt,
+            originalFileURL: oldStore.originalURL(for: bookID, format: .txt),
+            canonicalFileURL: oldStore.canonicalURL(for: bookID),
+            coverFileURL: oldStore.coverURL(for: bookID)
+        )
+        let baseRepository = CoreDataBookRepository(container: persistence.container)
+        try await baseRepository.save(oldBook)
+        let dependencies = await AppDependencies.production(
+            persistence: persistence,
+            fileStore: newStore
+        )
+
+        let relocated = try await dependencies.repository.book(id: bookID)
+
+        XCTAssertEqual(relocated?.originalFileURL, newStore.originalURL(for: bookID, format: .txt))
+        XCTAssertEqual(relocated?.canonicalFileURL, newStore.canonicalURL(for: bookID))
+        XCTAssertEqual(relocated?.coverFileURL, newStore.coverURL(for: bookID))
     }
 
     func testSuccessfulImportTriggersLibraryRefreshSignal() async throws {
@@ -53,6 +81,55 @@ final class AppDependenciesTests: XCTestCase {
         XCTAssertEqual(generation, 1)
         let saveCount = await repository.count()
         XCTAssertEqual(saveCount, 1)
+    }
+
+    @MainActor
+    func testBundledReviewBookInstallsOnceForEmptyLibrary() async throws {
+        let suiteName = "BundledReviewBook-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let source = temporaryDirectory.appendingPathComponent("review.epub")
+        try Data("epub".utf8).write(to: source)
+        let repository = RecordingAppRepository()
+        let installer = BundledBookInstaller(
+            repository: repository,
+            defaults: defaults,
+            sourceURL: { source },
+            importBook: { url in
+                XCTAssertEqual(url, source)
+                await repository.save(.fixture(title: "审核样书", author: "Project Gutenberg"))
+            }
+        )
+
+        try await installer.installIfNeeded()
+        try await installer.installIfNeeded()
+
+        let saveCount = await repository.count()
+        XCTAssertEqual(saveCount, 1)
+        XCTAssertTrue(defaults.bool(forKey: BundledBookInstaller.installedDefaultsKey))
+    }
+
+    @MainActor
+    func testBundledReviewBookDoesNotInstallForExistingLibraryAndDoesNotReappearLater() async throws {
+        let suiteName = "BundledReviewBook-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let existing = Book.fixture(title: "用户已有书")
+        let repository = RecordingAppRepository(books: [existing])
+        var importCount = 0
+        let installer = BundledBookInstaller(
+            repository: repository,
+            defaults: defaults,
+            sourceURL: { self.temporaryDirectory.appendingPathComponent("review.epub") },
+            importBook: { _ in importCount += 1 }
+        )
+
+        try await installer.installIfNeeded()
+        await repository.delete(id: existing.id)
+        try await installer.installIfNeeded()
+
+        XCTAssertEqual(importCount, 0)
+        XCTAssertTrue(defaults.bool(forKey: BundledBookInstaller.installedDefaultsKey))
     }
 
     func testImportDependenciesPersistAndClearRestorableImportState() async throws {
@@ -98,6 +175,11 @@ final class AppDependenciesTests: XCTestCase {
 private actor RecordingAppRepository: BookRepository {
     private(set) var saveCount = 0
     private var books: [UUID: Book] = [:]
+
+    init(books: [Book] = []) {
+        self.books = Dictionary(uniqueKeysWithValues: books.map { ($0.id, $0) })
+        saveCount = books.count
+    }
 
     func allBooks() -> [Book] { Array(books.values) }
     func recentBooks(limit: Int) -> [Book] { Array(books.values.prefix(limit)) }

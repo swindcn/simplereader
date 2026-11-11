@@ -1,0 +1,10 @@
+{
+  "name": "wildgrassx-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-arrow-site.mjs",
+    "test": "node seo.test.mjs && node js/i18n.test.mjs && node privacy-policy.test.mjs && node arrow-site.test.mjs"
+  },
+  "devDependencies": { "marked": "15.0.12" }
+}

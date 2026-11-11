@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <!-- TODO: Replace with your own name / studio -->
+  <title data-i18n="terms.metaTitle">LucidRead Terms of Service — Accessible iOS Reader App</title>
+  <meta name="description" data-i18n="terms.metaDesc" content="LucidRead Terms of Service for using the accessible iOS reader, local TTS listening, EPUB/TXT imports, web transfer, subscriptions, and user content." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="keywords" content="LucidRead terms of service, accessible iOS reader terms, EPUB TXT reader app terms, local TTS app terms, VoiceOver reader subscription terms" />
+  <link rel="canonical" href="https://wildgrassx.com/terms" />
+  <meta property="og:title" content="LucidRead Terms of Service — Accessible iOS Reader App" />
+  <meta property="og:description" content="Terms for LucidRead, including EPUB/TXT imports, local TTS listening, web transfer, subscriptions and user content." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wildgrassx.com/terms" />
+  <meta property="og:site_name" content="WildGrassX Studio" />
+  <meta property="og:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LucidRead Terms of Service — Accessible iOS Reader App" />
+  <meta name="twitter:description" content="Terms for LucidRead EPUB/TXT reading, local TTS listening, web transfer and subscriptions." />
+  <meta name="twitter:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"LucidRead Terms of Service","url":"https://wildgrassx.com/terms","description":"Terms of Service for LucidRead, an accessible iOS reader for VoiceOver users, local TTS listening, EPUB and TXT imports, web transfer and subscriptions.","publisher":{"@type":"Organization","name":"WildGrassX Studio","url":"https://wildgrassx.com/"}}</script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header">
+    <div class="container nav">
+      <!-- TODO: Your name / logo -->
+      <a class="brand" href="index.html">Alin<span class="accent">Zhu</span></a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.home">Home</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===================== Terms content ===================== -->
+  <main class="prose">
+    <h1 data-i18n="terms.h1">Terms of Service</h1>
+    <p class="last-updated" data-i18n="terms.updated">Last Updated: July 2026</p>
+
+    <p data-i18n="terms.intro">By downloading or using <strong>LucidRead</strong> (the "Application"), provided by <strong>WildGrassX Studio</strong>, these terms will automatically apply to you.</p>
+
+    <h2 data-i18n="terms.s1h">1. Use of the Application &amp; User Content</h2>
+    <p data-i18n="terms.s1p">You are solely responsible for any digital books, documents, or files (TXT, EPUB) you import into the Application. You agree not to import or parse any content that violates intellectual property laws or copyright regulations.</p>
+
+    <h2 data-i18n="terms.s2h">2. In-App Subscriptions &amp; Purchases</h2>
+    <p data-i18n="terms.s2p">The Application offers optional Pro Subscription / Lifetime Purchase options:</p>
+    <ul>
+      <li data-i18n="terms.s2li1"><strong>Payment:</strong> Payment will be charged to your Apple ID Account at confirmation of purchase.</li>
+      <li data-i18n="terms.s2li2"><strong>Auto-Renewal:</strong> Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current billing period.</li>
+      <li data-i18n="terms.s2li3"><strong>Management &amp; Refunds:</strong> You can manage or cancel your subscription at any time in your Apple ID Account Settings. Refunds are processed exclusively through Apple's official refund mechanisms.</li>
+      <li data-i18n="terms.s2li4"><strong>Restoration:</strong> Purchases can be restored on any compatible iOS device logged into the same Apple ID via the "Restore Purchases" button in the Application.</li>
+    </ul>
+
+    <h2 data-i18n="terms.s3h">3. Disclaimer of Warranties</h2>
+    <p data-i18n="terms.s3p">The Application is provided "AS IS" and "AS AVAILABLE" without warranties of any kind. While we strive to ensure seamless VoiceOver accessibility and Text-to-Speech performance, we do not guarantee uninterrupted or error-free operation.</p>
+
+    <h2 data-i18n="terms.s4h">4. Limitation of Liability</h2>
+    <p data-i18n="terms.s4p">In no event shall <strong>WildGrassX Studio</strong> be liable for any indirect, incidental, or consequential damages resulting from your use or inability to use the Application.</p>
+
+    <h2 data-i18n="terms.s5h">5. Contact Us</h2>
+    <p data-i18n="terms.s5p">For support, feedback, or legal inquiries, please contact us at: <strong>support@wildgrassx.com</strong>.</p>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <!-- TODO: your name -->
+      <p>© <span id="year"></span> Alin Zhu. <a href="index.html" data-i18n="footer.home">Back to home</a> · <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a> · <a href="support.html" data-i18n="footer.support">Support</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

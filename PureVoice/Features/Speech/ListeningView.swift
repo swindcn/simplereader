@@ -1,10 +1,22 @@
 import SwiftUI
+import UIKit
 
 struct ListeningView: View {
     @Environment(\.appStrings) private var strings
     @ObservedObject var viewModel: ListeningViewModel
     let onBack: () -> Void
+    let onEscapeToLibrary: () -> Void
     @State private var isSelectingVoice = false
+
+    init(
+        viewModel: ListeningViewModel,
+        onBack: @escaping () -> Void,
+        onEscapeToLibrary: @escaping () -> Void = {}
+    ) {
+        self.viewModel = viewModel
+        self.onBack = onBack
+        self.onEscapeToLibrary = onEscapeToLibrary
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +34,7 @@ struct ListeningView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .background(DesignTokens.background.ignoresSafeArea())
         .onAppear { viewModel.ensureStarted() }
         .onDisappear { Task { await viewModel.flushProgress() } }
         .confirmationDialog(strings.chooseVoice, isPresented: $isSelectingVoice, titleVisibility: .visible) {
@@ -45,6 +57,29 @@ struct ListeningView: View {
         } message: {
             Text(viewModel.errorMessage ?? strings.unknownError)
         }
+        .accessibilityAction(.magicTap) {
+            AccessibilityFeedback.doubleLightPulse()
+            viewModel.togglePlayback()
+        }
+        .accessibilityAction(.escape) {
+            AccessibilityFeedback.impact(.medium)
+            AccessibilityFeedback.announce(strings.savedAndReturnedToLibrary)
+            onEscapeToLibrary()
+        }
+        .accessibilityScrollAction { edge in
+            switch edge {
+            case .leading:
+                handleChapterNavigation(.next)
+            case .trailing:
+                handleChapterNavigation(.previous)
+            case .top:
+                AccessibilityFeedback.impact(.light)
+                viewModel.increaseRateForAccessibility()
+            case .bottom:
+                AccessibilityFeedback.impact(.light)
+                viewModel.decreaseRateForAccessibility()
+            }
+        }
     }
 
     private var header: some View {
@@ -65,7 +100,7 @@ struct ListeningView: View {
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 12)
-        .background(.regularMaterial)
+        .background(DesignTokens.surfaceElevated.opacity(0.94))
     }
 
     private var bookIdentity: some View {
@@ -78,7 +113,7 @@ struct ListeningView: View {
                 .multilineTextAlignment(.center)
             Text(viewModel.author)
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.onSurfaceVariant)
                 .multilineTextAlignment(.center)
         }
         .accessibilityElement(children: .combine)
@@ -95,10 +130,10 @@ struct ListeningView: View {
                 .cornerRadius(6)
         } else {
             ZStack {
-                Color(uiColor: .secondarySystemBackground)
+                DesignTokens.surfaceElevated
                 Image(systemName: "book.closed.fill")
                     .font(.system(size: 46))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.onSurfaceVariant)
             }
             .cornerRadius(6)
         }
@@ -110,7 +145,11 @@ struct ListeningView: View {
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 88)
             .padding(16)
-            .background(Color(uiColor: .secondarySystemBackground))
+            .background(DesignTokens.surfaceElevated)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(DesignTokens.outline.opacity(0.65), lineWidth: 1)
+            )
             .cornerRadius(8)
             .accessibilityLabel(strings.currentSentenceAccessibility(viewModel.currentSentence))
             .accessibilityIdentifier("listening.currentSentence")
@@ -120,9 +159,9 @@ struct ListeningView: View {
         HStack(alignment: .top, spacing: 8) {
             controlButton(
                 systemName: "backward.end.fill",
-                label: strings.previousSentence,
-                identifier: "listening.previous",
-                action: { viewModel.previousSentence() }
+                label: strings.previousChapterControl,
+                identifier: "listening.previousChapter",
+                action: { handleChapterNavigation(.previous) }
             )
             controlButton(
                 systemName: viewModel.state.isPlaying ? "pause.fill" : "play.fill",
@@ -132,9 +171,9 @@ struct ListeningView: View {
             )
             controlButton(
                 systemName: "forward.end.fill",
-                label: strings.nextSentence,
-                identifier: "listening.next",
-                action: { viewModel.nextSentence() }
+                label: strings.nextChapterControl,
+                identifier: "listening.nextChapter",
+                action: { handleChapterNavigation(.next) }
             )
         }
         .frame(maxWidth: .infinity)
@@ -171,7 +210,7 @@ struct ListeningView: View {
                     Text(strings.speechRate)
                     Spacer()
                     Text(ListeningViewModel.rateLabel(viewModel.rate))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.onSurfaceVariant)
                 }
                 Slider(
                     value: Binding(
@@ -195,11 +234,11 @@ struct ListeningView: View {
                             .foregroundStyle(DesignTokens.onSurface)
                         Spacer()
                         Text(selectedVoiceName)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.onSurfaceVariant)
                             .lineLimit(1)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.onSurfaceVariant)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -222,6 +261,23 @@ struct ListeningView: View {
         Binding(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.dismissError() } }
-        )
+            )
+    }
+
+    private func handleChapterNavigation(_ direction: ReaderChapterDirection) {
+        let outcome = viewModel.navigateChapterForAccessibility(direction)
+        switch outcome {
+        case let .moved(title):
+            AccessibilityFeedback.impact(.heavy)
+            switch direction {
+            case .previous:
+                AccessibilityFeedback.announce(strings.previousChapterAnnouncement(title))
+            case .next:
+                AccessibilityFeedback.announce(strings.nextChapterAnnouncement(title))
+            }
+        case let .boundary(message), let .unavailable(message):
+            AccessibilityFeedback.notification(.warning)
+            AccessibilityFeedback.announce(message)
+        }
     }
 }

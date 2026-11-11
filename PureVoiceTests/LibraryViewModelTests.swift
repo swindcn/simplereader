@@ -45,6 +45,26 @@ final class LibraryViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.shelfBooks.map(\.id), [newImport.id, olderOpened.id])
     }
 
+    func testAccessibilityMagicTapUsesContinueBookBeforeShelfBooks() async throws {
+        let books = Self.books
+        let repository = InMemoryBookRepository(books: books)
+        let viewModel = LibraryViewModel(repository: repository)
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.accessibilityMagicTapBook?.id, books[0].id)
+    }
+
+    func testAccessibilityMagicTapFallsBackToFirstShelfBook() async throws {
+        let book = Book.fixture(lastOpenedAt: nil, createdAt: Date(timeIntervalSince1970: 100))
+        let repository = InMemoryBookRepository(books: [book])
+        let viewModel = LibraryViewModel(repository: repository)
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.accessibilityMagicTapBook?.id, book.id)
+    }
+
     func testOpenPersistsLastOpenedDateAndDelegatesToReader() async throws {
         let book = Self.books[3]
         let repository = InMemoryBookRepository(books: [book])
@@ -195,6 +215,19 @@ final class LibraryViewModelTests: XCTestCase {
             BookRow.accessibilityLabel(for: .fixture(position: .init(href: "100", progression: 1))),
             "活着，余华，已读百分之一百"
         )
+    }
+
+    func testLibraryBottomReserveOnlyAppearsWithMiniPlayer() {
+        XCTAssertEqual(LibraryBottomInsetPolicy.reservedHeight(isMiniPlayerVisible: false), 0)
+        XCTAssertEqual(
+            LibraryBottomInsetPolicy.reservedHeight(isMiniPlayerVisible: true),
+            DesignTokens.minimumTouchTarget + DesignTokens.stackGap
+        )
+    }
+
+    func testBookAccessibilityOperationsRouteDirectlyToExpectedPresentation() {
+        XCTAssertEqual(LibraryBookAccessibilityOperation.rename.presentation, .renameEditor)
+        XCTAssertEqual(LibraryBookAccessibilityOperation.delete.presentation, .deleteConfirmation)
     }
 
     func testStaleOpenFailureDoesNotOverwriteNewerLoad() async {

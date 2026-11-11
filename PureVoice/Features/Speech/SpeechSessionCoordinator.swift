@@ -8,6 +8,8 @@ final class SpeechSessionCoordinator: ObservableObject {
     @Published var isListeningPresented = false
     @Published var errorMessage: String?
 
+    var currentBookID: UUID? { viewModel?.bookID }
+
     private let repository: any BookRepository
     private let preferencesStore: PreferencesStore
     private let appStateRestorer: AppStateRestorer?
@@ -41,13 +43,21 @@ final class SpeechSessionCoordinator: ObservableObject {
         }
     }
 
-    func begin(book: Book, publication: OpenedPublication, locator: Locator?) {
+    func begin(
+        book: Book,
+        publication: OpenedPublication,
+        locator: Locator?,
+        startsPlayback: Bool = false
+    ) {
         if let viewModel, Self.shouldReuseSession(
             bookID: book.id,
             existingBookID: viewModel.bookID,
             state: viewModel.state
         ) {
             isListeningPresented = true
+            if startsPlayback {
+                viewModel.togglePlayback()
+            }
             return
         }
         endSession()
@@ -71,6 +81,45 @@ final class SpeechSessionCoordinator: ObservableObject {
         )
         install(viewModel)
         isListeningPresented = true
+        if startsPlayback {
+            viewModel.togglePlayback()
+        }
+    }
+
+    func begin(book: Book, presentsListening: Bool = true, startsPlayback: Bool = false) async {
+        endSession()
+
+        do {
+            let publication = try await publicationService.open(at: book.canonicalFileURL)
+            guard let service = serviceFactory(publication) else {
+                errorMessage = "这本书暂不支持听书。"
+                return
+            }
+            let locator: Locator?
+            if let position = book.position {
+                locator = try await publication.locator(from: position)
+            } else {
+                locator = nil
+            }
+            let viewModel = ListeningViewModel(
+                book: book,
+                publication: publication,
+                initialLocator: locator,
+                repository: repository,
+                service: service,
+                preferencesStore: preferencesStore,
+                appStateRestorer: appStateRestorer,
+                audioSession: audioSessionFactory(),
+                onProgressSaved: onProgressSaved
+            )
+            install(viewModel)
+            isListeningPresented = presentsListening
+            if startsPlayback {
+                viewModel.togglePlayback()
+            }
+        } catch {
+            errorMessage = UserFacingError.readerOpenFailure(error).message
+        }
     }
 
     func restorePausedSession(book: Book, position: ReadingPosition, presentsListening: Bool = true) async {

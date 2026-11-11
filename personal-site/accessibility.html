@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("theme");
+        if (t === "dark" || (!t && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title data-i18n="accessibility.metaTitle">LucidRead Accessibility Statement — VoiceOver Reader for Everyone</title>
+  <meta name="description" data-i18n="accessibility.metaDesc" content="LucidRead's accessibility statement explains VoiceOver support, high-contrast reading, screen-reader labels, no ads, and inclusive iOS reading design." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="keywords" content="LucidRead accessibility statement, VoiceOver reader accessibility, blind iOS reader, low vision reading app, screen reader compatible reader, accessible audiobook app" />
+  <link rel="canonical" href="https://wildgrassx.com/accessibility" />
+  <meta property="og:title" content="LucidRead Accessibility Statement — VoiceOver Reader for Everyone" />
+  <meta property="og:description" content="Accessibility statement for LucidRead: VoiceOver support, high contrast, screen-reader labels, and ad-free reading." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wildgrassx.com/accessibility" />
+  <meta property="og:site_name" content="WildGrassX Studio" />
+  <meta property="og:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LucidRead Accessibility Statement — VoiceOver Reader for Everyone" />
+  <meta name="twitter:description" content="VoiceOver-first reading, high contrast, screen-reader labels, and inclusive iOS reader design." />
+  <meta name="twitter:image" content="https://wildgrassx.com/images/lucidread-hero.jpg" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"LucidRead Accessibility Statement","url":"https://wildgrassx.com/accessibility","description":"Accessibility statement for LucidRead, an iOS reader designed for VoiceOver users, blind readers, low-vision readers, high-contrast reading and distraction-free listening.","about":{"@type":"SoftwareApplication","name":"LucidRead","accessibilityFeature":["screenReaderCompatible","highContrastDisplay","readingOrder"]}}</script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ===================== Header / Nav ===================== -->
+  <header class="site-header" id="top">
+    <div class="container nav">
+      <a class="brand" href="lucidread.html">LucidRead<span class="accent">.</span></a>
+      <nav class="nav-links" id="nav-links" aria-label="Primary">
+        <a href="lucidread.html" data-i18n="nav.home">Home</a>
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Switch language">中文</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle light / dark theme">
+          <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+        </button>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== Accessibility Statement ===================== -->
+  <main class="prose">
+    <h1 data-i18n="accessibility.h1">Accessibility Statement</h1>
+    <p class="last-updated" data-i18n="accessibility.updated">Last Updated: July 2026</p>
+
+    <p data-i18n="accessibility.intro">LucidRead (简声) is built by WildGrassX Studio as an accessibility-first, no-login reading app. We believe reading should be available to everyone — including blind, low-vision, and distraction-sensitive readers.</p>
+
+    <h2 data-i18n="accessibility.s1h">1. Our Commitment</h2>
+    <p data-i18n="accessibility.s1p">Accessibility is not a feature we add later; it is the foundation of the product. From the first line of code, LucidRead was designed to be used entirely by ear, without ever needing to look at the screen.</p>
+
+    <h2 data-i18n="accessibility.s2h">2. VoiceOver &amp; Gesture Support</h2>
+    <p data-i18n="accessibility.s2p">The app offers full VoiceOver integration with clear, predictable gesture controls — Magic Tap to play or pause, three-finger swipe to change chapters, and a Z-shape scrub to exit and save. All controls are labeled and announced for screen-reader users.</p>
+
+    <h2 data-i18n="accessibility.s3h">3. Contrast &amp; Readability</h2>
+    <p data-i18n="accessibility.s3p">Our interface targets WCAG AAA contrast ratios, with oversized, crisp typography, generous spacing, and a distraction-free layout. Readers can adjust text size and speech rate to their own comfort.</p>
+
+    <h2 data-i18n="accessibility.s4h">4. Privacy &amp; Focus</h2>
+    <p data-i18n="accessibility.s4p">LucidRead contains no third-party advertising, no tracking SDKs, and no analytics that follow you. Your library stays on your device or your private iCloud — a calm space built for focus.</p>
+
+    <h2 data-i18n="accessibility.s5h">5. Feedback</h2>
+    <p data-i18n="accessibility.s5p">We continuously improve with input from the blindness and low-vision community. If you encounter a barrier or have a suggestion, please reach out — we read every message.</p>
+
+    <h2 data-i18n="accessibility.s6h">6. Contact</h2>
+    <p data-i18n="accessibility.s6p">For accessibility feedback or support, contact us at: <strong>support@wildgrassx.com</strong>.</p>
+  </main>
+
+  <!-- ===================== Footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© <span id="year"></span> WildGrassX Studio. <a href="lucidread.html" data-i18n="footer.home">Back to home</a> · <a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a> · <a href="terms.html" data-i18n="footer.terms">Terms of Service</a> · <a href="cookie.html" data-i18n="footer.cookie">Cookie Policy</a></p>
+      <a href="#top" data-i18n="footer.top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

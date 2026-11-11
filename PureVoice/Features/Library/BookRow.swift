@@ -12,24 +12,24 @@ struct BookRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        Button(action: onOpen) {
-            HStack(alignment: .top, spacing: DesignTokens.stackGap) {
-                cover
-                details
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(DesignTokens.surface)
-            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
-            .shadow(color: DesignTokens.onSurface.opacity(0.09), radius: 8, x: 0, y: 3)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Self.accessibilityLabel(for: book, strings: strings))
-            .accessibilityIdentifier(accessibilityIdentifier)
+        HStack(alignment: .top, spacing: DesignTokens.stackGap) {
+            cover
+            details
         }
-        .buttonStyle(.plain)
-            .accessibilityHint(strings.doubleTapContinueHint)
-            .accessibilityAction(named: Text(strings.rename), onRename)
-            .accessibilityAction(named: Text(strings.delete), onDelete)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(DesignTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cardRadius, style: .continuous))
+        .shadow(color: DesignTokens.onSurface.opacity(0.09), radius: 8, x: 0, y: 3)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(Self.accessibilityLabel(for: book, strings: strings))
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityHint(strings.doubleTapContinueHint)
+        .accessibilityAction(named: Text(strings.rename), onRename)
+        .accessibilityAction(named: Text(strings.delete), onDelete)
         .highPriorityGesture(LongPressGesture(minimumDuration: 0.55).onEnded { _ in onDelete() })
     }
 
@@ -69,7 +69,7 @@ struct BookRow: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text(book.author)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.onSurfaceVariant)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
@@ -107,7 +107,7 @@ struct BookRow: View {
     private var progressPercentage: some View {
         Text("\(percentage)%")
             .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
+            .foregroundStyle(DesignTokens.onSurfaceVariant)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
     }

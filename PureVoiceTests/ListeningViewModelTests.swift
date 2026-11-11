@@ -1,6 +1,7 @@
-import AVFoundation
 import ReadiumShared
 import XCTest
+import AVFoundation
+@preconcurrency import ReadiumNavigator
 @testable import PureVoice
 
 @MainActor
@@ -19,6 +20,50 @@ final class ListeningViewModelTests: XCTestCase {
         defaults = nil
         suiteName = nil
         super.tearDown()
+    }
+
+    func testListeningPrimaryChapterControlLabelsAreLocalized() {
+        XCTAssertEqual(AppStrings(language: .chinese).previousChapterControl, "上一章")
+        XCTAssertEqual(AppStrings(language: .chinese).nextChapterControl, "下一章")
+        XCTAssertEqual(AppStrings(language: .english).previousChapterControl, "Previous Chapter")
+        XCTAssertEqual(AppStrings(language: .english).nextChapterControl, "Next Chapter")
+    }
+
+    func testSpeechAudioSessionDoesNotMixOrDuckOtherAudio() {
+        let options = SystemAudioSessionActivator.spokenPlaybackOptions
+
+        XCTAssertFalse(options.contains(.duckOthers))
+        XCTAssertFalse(options.contains(.mixWithOthers))
+    }
+
+    func testRateDelegateCanApplyRateOutsideMainActor() async {
+        let delegate = RateApplyingAVDelegate()
+        delegate.rateMultiplier = 1.5
+        let expectedRate = Float(ReadiumSpeechService.avSpeechRate(for: 1.5))
+
+        let appliedRate = await Task.detached { @Sendable () -> Float in
+            let utterance = AVSpeechUtterance(string: "hello")
+            let engine = AVTTSEngine(delegate: delegate)
+            delegate.avTTSEngine(engine, didCreateUtterance: utterance)
+            return utterance.rate
+        }.value
+
+        XCTAssertEqual(
+            appliedRate,
+            expectedRate,
+            accuracy: 0.001
+        )
+    }
+
+    func testEngineFactoryCreatedOnMainActorCanRunOutsideMainActor() async {
+        let delegate = RateApplyingAVDelegate()
+        let factory = ReadiumSpeechService.makeSpeechEngineFactory(delegate: delegate)
+
+        let engineType = await Task.detached { @Sendable () -> String in
+            String(describing: type(of: factory()))
+        }.value
+
+        XCTAssertEqual(engineType, "AVTTSEngine")
     }
 
     func testStartsFromReaderLocatorAndFollowsServiceState() {
@@ -123,6 +168,66 @@ final class ListeningViewModelTests: XCTestCase {
         let restored = makeViewModel(service: restoredService)
         XCTAssertEqual(restored.rate, 1.25)
         XCTAssertEqual(restoredService.rate, 1.25)
+    }
+
+    func testAccessibilityRateStepsMoveByOneTenthAndAnnounce() {
+        let service = FakeSpeechService()
+        var announcements: [String] = []
+        let viewModel = makeViewModel(service: service, announcements: { announcements.append($0) })
+
+        viewModel.increaseRateForAccessibility()
+        viewModel.decreaseRateForAccessibility()
+
+        XCTAssertEqual(viewModel.rate, 1, accuracy: 0.001)
+        XCTAssertEqual(service.rate, 1, accuracy: 0.001)
+        XCTAssertEqual(announcements, [
+            "语速 \(ListeningViewModel.rateLabel(1.1))",
+            "语速 \(ListeningViewModel.rateLabel(1.0))"
+        ])
+    }
+
+    func testAccessibilityChapterNavigationRestartsSpeechAtAdjacentChapter() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let publication = try await PublicationService().open(at: fixture)
+        let service = FakeSpeechService()
+        let firstChapter = Locator(
+            href: AnyURL(string: "EPUB/chapter-1.xhtml")!,
+            mediaType: .xhtml,
+            locations: .init(progression: 0)
+        )
+        let viewModel = makeViewModel(
+            service: service,
+            locator: firstChapter,
+            publication: publication
+        )
+
+        let outcome = viewModel.navigateChapterForAccessibility(.next)
+
+        XCTAssertEqual(outcome, .moved(title: "第二章 继续"))
+        XCTAssertEqual(service.startedLocators.last??.href.string, "EPUB/chapter-2.xhtml")
+        XCTAssertEqual(viewModel.currentLocator?.href.string, "EPUB/chapter-2.xhtml")
+    }
+
+    func testRemotePreviousControlUsesReadableChapterNavigationInsteadOfSpeechPrevious() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let publication = try await PublicationService().open(at: fixture)
+        let service = FakeSpeechService()
+        let secondChapter = Locator(
+            href: AnyURL(string: "EPUB/chapter-2.xhtml")!,
+            mediaType: .xhtml,
+            locations: .init(progression: 0)
+        )
+        let viewModel = makeViewModel(
+            service: service,
+            locator: secondChapter,
+            publication: publication
+        )
+
+        viewModel.previousSentence(announces: false)
+
+        XCTAssertEqual(service.previousCount, 0)
+        XCTAssertEqual(service.startedLocators.last??.href.string, "EPUB/chapter-1.xhtml")
+        XCTAssertEqual(viewModel.currentLocator?.href.string, "EPUB/chapter-1.xhtml")
     }
 
     func testVoiceIdentifierPersistsAndUnavailableVoiceFallsBackWithoutInventingGender() {
@@ -463,7 +568,7 @@ final class ListeningViewModelTests: XCTestCase {
         XCTAssertEqual(refreshCount, 1)
     }
 
-    func testSuccessfulProgressFlushRecordsRestorableListeningPositionWithoutAutoplay() async throws {
+    func testSuccessfulProgressFlushDoesNotAutoRestoreListeningOnNextLaunch() async throws {
         let repository = RecordingPositionRepository()
         let locator = makeLocator(progression: 0.63)
         let service = FakeSpeechService()
@@ -480,13 +585,7 @@ final class ListeningViewModelTests: XCTestCase {
         let didFlush = await viewModel.flushProgress()
         XCTAssertTrue(didFlush)
 
-        guard case let .reopenListening(bookID, position, shouldAutoplay) = restorer.restoreLaunchState() else {
-            return XCTFail("Expected restorable listening state")
-        }
-        XCTAssertEqual(bookID, book.id)
-        XCTAssertEqual(position.href, locator.href.string)
-        XCTAssertEqual(position.progression, 0.63)
-        XCTAssertFalse(shouldAutoplay)
+        XCTAssertNil(restorer.restoreLaunchState())
     }
 
     func testSavedLocatorRemainsAvailableForReaderAfterStoppedOrFailed() async {
@@ -623,6 +722,14 @@ final class ListeningViewModelTests: XCTestCase {
         )
     }
 
+    func testReadiumDeviceVoicesAreBackedBySystemSpeechVoices() {
+        let systemVoiceIdentifiers = Set(AVSpeechSynthesisVoice.speechVoices().map(\.identifier))
+        let deviceVoices = ReadiumSpeechService.deviceVoices(preferredLanguage: "zh-CN")
+
+        XCTAssertFalse(deviceVoices.isEmpty)
+        XCTAssertTrue(deviceVoices.allSatisfy { systemVoiceIdentifiers.contains($0.identifier) })
+    }
+
     func testNativeAdjustableSettingBindingsDoNotPostCustomAnnouncements() {
         let voices = [SpeechVoice(identifier: "voice", name: "Mei", language: "zh-CN", gender: .female, quality: .high)]
         let service = FakeSpeechService(voices: voices)
@@ -662,6 +769,7 @@ final class ListeningViewModelTests: XCTestCase {
         service: FakeSpeechService,
         book: Book = .fixture(title: "测试书", author: "测试作者"),
         locator: Locator? = nil,
+        publication: OpenedPublication? = nil,
         repository: any BookRepository = InMemoryBookRepository(),
         announcements: @escaping (String) -> Void = { _ in },
         persistenceDelay: TimeInterval = 60,
@@ -672,7 +780,7 @@ final class ListeningViewModelTests: XCTestCase {
     ) -> ListeningViewModel {
         ListeningViewModel(
             book: book,
-            publication: nil,
+            publication: publication,
             initialLocator: locator,
             repository: repository,
             service: service,
@@ -747,6 +855,7 @@ private final class FakeSpeechService: SpeechService {
 
 @MainActor
 private final class FakeAudioSessionActivator: AudioSessionActivating {
+    private(set) var prepareForBackgroundSpeechCount = 0
     private(set) var activationCount = 0
     private let shouldFail: Bool
     private let onActivate: () -> Void
@@ -754,6 +863,10 @@ private final class FakeAudioSessionActivator: AudioSessionActivating {
     init(shouldFail: Bool = false, onActivate: @escaping () -> Void = {}) {
         self.shouldFail = shouldFail
         self.onActivate = onActivate
+    }
+
+    func prepareForBackgroundSpeech() throws {
+        prepareForBackgroundSpeechCount += 1
     }
 
     func activate() async throws {
@@ -769,7 +882,12 @@ private final class FakeAudioSessionActivator: AudioSessionActivating {
 private final class ControlledAudioSessionActivator: AudioSessionActivating {
     private var activationContinuation: CheckedContinuation<Void, Error>?
     private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private(set) var prepareForBackgroundSpeechCount = 0
     private(set) var activationCount = 0
+
+    func prepareForBackgroundSpeech() throws {
+        prepareForBackgroundSpeechCount += 1
+    }
 
     func activate() async throws {
         activationCount += 1

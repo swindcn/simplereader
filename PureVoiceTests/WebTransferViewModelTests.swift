@@ -3,6 +3,29 @@ import XCTest
 
 @MainActor
 final class WebTransferViewModelTests: XCTestCase {
+    func testDefaultTransferPageURLUsesProductionWebsite() {
+        let viewModel = WebTransferViewModel(
+            identityStore: InMemoryTransferIdentityStore(),
+            client: RecordingWebTransferClient(),
+            importCoordinator: nil,
+            pairingCodeDefaults: isolatedDefaults()
+        )
+
+        XCTAssertEqual(viewModel.webTransferPageURL.absoluteString, "https://www.wildgrassx.com/transfer")
+    }
+
+    func testWebTransferImportHeadingUsesDirectSendBooksCopy() {
+        XCTAssertEqual(AppStrings(language: .english).webTransferSubtitle, "Send books from the Web")
+        XCTAssertEqual(AppStrings(language: .chinese).webTransferSubtitle, "从网站发送书籍")
+    }
+
+    func testImportPageUsesAccurateFormatAndTransferInstructions() {
+        XCTAssertEqual(AppStrings(language: .english).supportedImportHint, "Supports EPUB and TXT")
+        XCTAssertEqual(AppStrings(language: .chinese).supportedImportHint, "支持 EPUB 和 TXT")
+        XCTAssertEqual(AppStrings(language: .english).transferCodeInstruction, "Enter this code on the transfer website")
+        XCTAssertEqual(AppStrings(language: .chinese).transferCodeInstruction, "在传书网站输入这个代码")
+    }
+
     func testGenerateCodeRegistersDeviceAndPublishesCode() async throws {
         let client = RecordingWebTransferClient()
         let identity = TransferIdentity(deviceID: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!, deviceSecret: "secret")
@@ -10,7 +33,7 @@ final class WebTransferViewModelTests: XCTestCase {
             identityStore: InMemoryTransferIdentityStore(stored: identity),
             client: client,
             importCoordinator: nil,
-            webTransferPageURL: URL(string: "https://swindcn.github.io/simplereader/")!,
+            webTransferPageURL: URL(string: "https://example.com/transfer")!,
             pairingCodeDefaults: isolatedDefaults()
         )
 
@@ -18,7 +41,7 @@ final class WebTransferViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.pairingCode?.code, "12345678")
         XCTAssertEqual(viewModel.deviceTransferID, "11111111-2222-3333-4444-555555555555")
-        XCTAssertEqual(viewModel.webTransferPageURL.absoluteString, "https://swindcn.github.io/simplereader/")
+        XCTAssertEqual(viewModel.webTransferPageURL.absoluteString, "https://example.com/transfer")
         let counts = await client.counts()
         XCTAssertEqual(counts.register, 1)
         XCTAssertEqual(counts.createCode, 1)

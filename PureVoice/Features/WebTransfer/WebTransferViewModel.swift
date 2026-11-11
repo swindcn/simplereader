@@ -40,7 +40,7 @@ final class WebTransferViewModel: ObservableObject {
         identityStore: any TransferIdentityStoring,
         client: any WebTransferClient,
         importCoordinator: (any TransferImporting)?,
-        webTransferPageURL: URL = URL(string: "https://swindcn.github.io/simplereader/")!,
+        webTransferPageURL: URL = URL(string: "https://www.wildgrassx.com/transfer")!,
         pairingCodeDefaults: UserDefaults = .standard
     ) {
         self.identityStore = identityStore

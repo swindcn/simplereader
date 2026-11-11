@@ -69,6 +69,27 @@ final class SpeechSessionCoordinatorTests: XCTestCase {
     }
 
     @MainActor
+    func testStartingPlaybackConfiguresAudioSessionForBackgroundSpeech() async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
+        let publication = try await PublicationService().open(at: fixture)
+        let service = CoordinatorSpeechService()
+        let audioSession = CoordinatorControlledAudioSessionActivator(waitsForManualCompletion: false)
+        let coordinator = SpeechSessionCoordinator(
+            repository: InMemoryBookRepository(),
+            serviceFactory: { _ in service },
+            audioSessionFactory: { audioSession }
+        )
+        coordinator.begin(book: .fixture(), publication: publication, locator: nil)
+
+        coordinator.viewModel?.togglePlayback(announces: false)
+        await drainMainActorTasks()
+
+        XCTAssertEqual(audioSession.prepareForBackgroundSpeechCount, 1)
+        XCTAssertEqual(audioSession.activateCount, 1)
+        XCTAssertEqual(service.startCount, 1)
+    }
+
+    @MainActor
     func testRestorePausedSessionRecreatesListeningWithoutAutoplay() async throws {
         let fixture = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "minimal", withExtension: "epub"))
         let book = Book.fixture(canonicalFileURL: fixture)
@@ -107,6 +128,7 @@ final class SpeechSessionCoordinatorTests: XCTestCase {
             audioSessionFactory: { CoordinatorControlledAudioSessionActivator() }
         )
         coordinator.begin(book: .fixture(), publication: publication, locator: nil)
+        XCTAssertEqual(coordinator.currentBookID, coordinator.viewModel?.bookID)
 
         XCTAssertNil(coordinator.currentLocator)
         service.send(.playing(service.utterance))
@@ -132,6 +154,11 @@ final class SpeechSessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(locator, service.utterance.locator)
         XCTAssertEqual(coordinator.currentLocator, service.utterance.locator)
     }
+}
+
+@MainActor
+private func drainMainActorTasks() async {
+    for _ in 0..<20 { await Task.yield() }
 }
 
 @MainActor
@@ -172,15 +199,28 @@ private final class CoordinatorSpeechService: SpeechService {
 
 @MainActor
 private final class CoordinatorControlledAudioSessionActivator: AudioSessionActivating {
+    private let waitsForManualCompletion: Bool
     private var activationContinuation: CheckedContinuation<Void, Error>?
     private var startWaiters: [CheckedContinuation<Void, Never>] = []
     private var hasStarted = false
+    private(set) var prepareForBackgroundSpeechCount = 0
+    private(set) var activateCount = 0
+
+    init(waitsForManualCompletion: Bool = true) {
+        self.waitsForManualCompletion = waitsForManualCompletion
+    }
+
+    func prepareForBackgroundSpeech() throws {
+        prepareForBackgroundSpeechCount += 1
+    }
 
     func activate() async throws {
+        activateCount += 1
         hasStarted = true
         let waiters = startWaiters
         startWaiters.removeAll()
         waiters.forEach { $0.resume() }
+        guard waitsForManualCompletion else { return }
         try await withCheckedThrowingContinuation { continuation in
             activationContinuation = continuation
         }

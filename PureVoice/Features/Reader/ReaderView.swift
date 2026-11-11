@@ -17,9 +17,12 @@ struct ReaderView: View {
     @AccessibilityFocusState private var isChromeFocused: Bool
 
     private let onListen: (OpenedPublication, Locator?) -> Void
+    private let onMagicTap: (OpenedPublication, Locator?) -> Void
+    private let onEscape: () -> Void
     private let onSettings: () -> Void
     private let listeningReturnLocator: Locator?
     private let activeListeningLocator: Locator?
+    private let isListeningActive: Bool
 
     init(
         book: Book,
@@ -27,9 +30,12 @@ struct ReaderView: View {
         preferencesStore: PreferencesStore? = nil,
         appStateRestorer: AppStateRestorer? = nil,
         onListen: @escaping (OpenedPublication, Locator?) -> Void = { _, _ in },
+        onMagicTap: @escaping (OpenedPublication, Locator?) -> Void = { _, _ in },
+        onEscape: @escaping () -> Void = {},
         onSettings: @escaping () -> Void = {},
         listeningReturnLocator: Locator? = nil,
-        activeListeningLocator: Locator? = nil
+        activeListeningLocator: Locator? = nil,
+        isListeningActive: Bool = false
     ) {
         _viewModel = StateObject(wrappedValue: ReaderViewModel(
             book: book,
@@ -38,9 +44,12 @@ struct ReaderView: View {
         ))
         self.preferencesStore = preferencesStore ?? PreferencesStore()
         self.onListen = onListen
+        self.onMagicTap = onMagicTap
+        self.onEscape = onEscape
         self.onSettings = onSettings
         self.listeningReturnLocator = listeningReturnLocator
         self.activeListeningLocator = activeListeningLocator
+        self.isListeningActive = isListeningActive
     }
 
     var body: some View {
@@ -116,6 +125,7 @@ struct ReaderView: View {
                     onError: viewModel.reportNavigatorError
                 )
                 .accessibilityLabel(strings.readingContent)
+                .accessibilityHidden(isListeningActive)
             } else {
                 EPUBNavigatorController(
                     publication: publication,
@@ -133,6 +143,7 @@ struct ReaderView: View {
                 )
                 .id(currentPreferences.layout)
                 .accessibilityLabel(strings.readingContent)
+                .accessibilityHidden(isListeningActive)
             }
 
             GeometryReader { proxy in
@@ -146,6 +157,7 @@ struct ReaderView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityLabel(isChromeVisible ? strings.hideReaderControls : strings.showReaderControls)
                         .accessibilityIdentifier(isChromeVisible ? "reader.chromeDismissArea" : "reader.contentTapArea")
+                        .accessibilityHidden(isChromeVisible)
                     Spacer(minLength: 0)
                 }
             }
@@ -172,6 +184,7 @@ struct ReaderView: View {
                     .background(Color(uiColor: readerAppearance.chromeBackgroundColor))
                     .accessibilityElement(children: .contain)
                     .accessibilityFocused($isChromeFocused)
+                    .accessibilitySortPriority(10)
                     .accessibilityIdentifier("reader.chrome")
                     .transition(.move(edge: .top).combined(with: .opacity))
 
@@ -188,6 +201,7 @@ struct ReaderView: View {
                     .background(Color(uiColor: readerAppearance.chromeBackgroundColor))
                     .accessibilityElement(children: .contain)
                     .accessibilityFocused($isChromeFocused)
+                    .accessibilitySortPriority(10)
                     .accessibilityIdentifier("reader.bottomToolbar")
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -206,6 +220,43 @@ struct ReaderView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: isChromeVisible)
         .onAppear { scheduleChromeAutoHide() }
+        .accessibilityAction(.magicTap) {
+            AccessibilityFeedback.doubleLightPulse()
+            onMagicTap(publication, viewModel.currentLocator)
+        }
+        .accessibilityAction(.escape) {
+            AccessibilityFeedback.impact(.medium)
+            AccessibilityFeedback.announce(strings.savedAndReturnedToLibrary)
+            closeReader()
+            onEscape()
+        }
+        .accessibilityScrollAction { edge in
+            switch edge {
+            case .trailing:
+                handleChapterNavigation(.previous)
+            case .leading:
+                handleChapterNavigation(.next)
+            default:
+                break
+            }
+        }
+    }
+
+    private func handleChapterNavigation(_ direction: ReaderChapterDirection) {
+        let outcome = viewModel.navigateAdjacentChapter(direction)
+        switch outcome {
+        case let .moved(title):
+            AccessibilityFeedback.impact(.heavy)
+            switch direction {
+            case .next:
+                AccessibilityFeedback.announce(strings.nextChapterAnnouncement(title))
+            case .previous:
+                AccessibilityFeedback.announce(strings.previousChapterAnnouncement(title))
+            }
+        case let .boundary(message), let .unavailable(message):
+            AccessibilityFeedback.notification(.warning)
+            AccessibilityFeedback.announce(message)
+        }
     }
 
     private var tableOfContents: some View {
@@ -607,6 +658,7 @@ private struct AccessibilityChapterHeading: UIViewRepresentable {
 }
 
 enum ChapterHeadingLabelStyle {
+    @MainActor
     static func apply(to label: UILabel) {
         label.font = .preferredFont(forTextStyle: .headline)
         label.adjustsFontForContentSizeCategory = true

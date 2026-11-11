@@ -21,6 +21,97 @@ struct ReaderNavigationRequest: Equatable, Identifiable {
     }
 }
 
+enum ReaderChapterDirection: Equatable {
+    case previous
+    case next
+}
+
+enum ReaderChapterNavigationOutcome: Equatable {
+    case moved(title: String)
+    case boundary(message: String)
+    case unavailable(message: String)
+}
+
+enum PublicationReadingFilter {
+    static func readableTopLevelChapters(in entries: [ReaderTOCEntry]) -> [ReaderTOCEntry] {
+        entries.filter { $0.level == 0 && !isLikelyNavigationEntry(title: $0.title, href: $0.href) }
+    }
+
+    static func navigationResourceHREFs(in entries: [ReaderTOCEntry]) -> Set<String> {
+        Set(
+            entries
+                .filter { isLikelyNavigationEntry(title: $0.title, href: $0.href) }
+                .map { $0.href.resourceHREF }
+        )
+    }
+
+    static func targetChapterIndex(
+        for direction: ReaderChapterDirection,
+        currentResource: String?,
+        in chapters: [ReaderTOCEntry]
+    ) -> Int? {
+        guard !chapters.isEmpty else { return nil }
+        let currentResource = currentResource?.resourceHREF
+
+        if let currentResource, isLikelyNavigationResource(currentResource) {
+            return direction == .next ? chapters.startIndex : nil
+        }
+
+        guard let currentIndex = currentResource.flatMap({ resource in
+            chapters.lastIndex { resourceHREFsMatch($0.href, resource) }
+        }) else {
+            return direction == .next ? chapters.startIndex : nil
+        }
+
+        switch direction {
+        case .previous:
+            return currentIndex - 1
+        case .next:
+            return currentIndex + 1
+        }
+    }
+
+    static func isLikelyNavigationResource(_ href: String) -> Bool {
+        let resource = href.resourceHREF
+            .removingPercentEncoding?
+            .lowercased()
+            ?? href.resourceHREF.lowercased()
+        let filename = resource.split(separator: "/").last.map(String.init) ?? resource
+        let basename = filename.split(separator: ".").first.map(String.init) ?? filename
+        return ["nav", "toc", "contents", "table-of-contents"].contains(basename)
+    }
+
+    static func isLikelyNavigationEntry(title: String?, href: String) -> Bool {
+        isLikelyNavigationResource(href) || isLikelyNavigationTitle(title)
+    }
+
+    static func resourceHREFsMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let lhs = normalizedResourceHREF(lhs)
+        let rhs = normalizedResourceHREF(rhs)
+        guard !lhs.isEmpty, !rhs.isEmpty else { return false }
+        return lhs == rhs
+            || lhs.hasSuffix("/\(rhs)")
+            || rhs.hasSuffix("/\(lhs)")
+    }
+
+    private static func isLikelyNavigationTitle(_ title: String?) -> Bool {
+        guard let title else { return false }
+        let normalized = title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .filter { !$0.isWhitespace && $0 != "-" && $0 != "_" }
+
+        return ["目录", "目錄", "toc", "contents", "tableofcontents"].contains(normalized)
+    }
+
+    private static func normalizedResourceHREF(_ href: String) -> String {
+        let decoded = href.resourceHREF.removingPercentEncoding ?? href.resourceHREF
+        return decoded
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
+    }
+}
+
 @MainActor
 final class ReaderViewModel: ObservableObject {
     @Published private(set) var isLoading = false
@@ -132,7 +223,7 @@ final class ReaderViewModel: ObservableObject {
 
     func followListening(at locator: Locator) {
         guard openedPublication?.readiumPublication.linkWithHREF(locator.href) != nil else {
-            errorMessage = "无法跟随当前听书位置。"
+            clearSpeechHighlight()
             return
         }
         currentLocator = locator
@@ -147,6 +238,45 @@ final class ReaderViewModel: ObservableObject {
 
     func clearSpeechHighlight() {
         speechHighlightLocator = nil
+    }
+
+    func navigateAdjacentChapter(_ direction: ReaderChapterDirection) -> ReaderChapterNavigationOutcome {
+        let chapters = PublicationReadingFilter.readableTopLevelChapters(in: tableOfContents)
+        guard !chapters.isEmpty else {
+            return .unavailable(message: "没有可用章节")
+        }
+
+        let currentResource = (currentLocator?.href.string ?? initialLocator?.href.string)?.resourceHREF
+        let boundaryMessage: String
+
+        switch direction {
+        case .previous:
+            boundaryMessage = "已经是第一章"
+        case .next:
+            boundaryMessage = "已经是最后一章"
+        }
+
+        guard let targetIndex = PublicationReadingFilter.targetChapterIndex(
+            for: direction,
+            currentResource: currentResource,
+            in: chapters
+        ) else {
+            return .boundary(message: boundaryMessage)
+        }
+        guard chapters.indices.contains(targetIndex) else {
+            return .boundary(message: boundaryMessage)
+        }
+
+        let entry = chapters[targetIndex]
+        navigationRequest = ReaderNavigationRequest(href: entry.href)
+        currentLocator = Locator(
+            href: AnyURL(string: entry.href)!,
+            mediaType: .xhtml,
+            title: entry.title,
+            locations: .init(progression: 0)
+        )
+        updateChapter(for: entry.href)
+        return .moved(title: entry.title)
     }
 
     func reportNavigationFailure() {

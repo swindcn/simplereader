@@ -5,21 +5,53 @@ struct SettingsView: View {
     @ObservedObject var store: PreferencesStore
     let bookID: UUID?
     let showsCloseButton: Bool
+    let subscriptionStatus: PurchaseSubscriptionStatus
+    let appVersionInfo: AppVersionInfo
+    let onSubscriptionTapped: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appStrings) private var strings
     @Environment(\.appLanguage) private var language
+    @Environment(\.openURL) private var openURL
     @State private var confirmsReset = false
 
-    init(store: PreferencesStore, bookID: UUID? = nil, showsCloseButton: Bool = false) {
+    init(
+        store: PreferencesStore,
+        bookID: UUID? = nil,
+        showsCloseButton: Bool = false,
+        subscriptionStatus: PurchaseSubscriptionStatus = .notSubscribed,
+        appVersionInfo: AppVersionInfo = .current(),
+        onSubscriptionTapped: @escaping () -> Void = {}
+    ) {
         self.store = store
         self.bookID = bookID
         self.showsCloseButton = showsCloseButton
+        self.subscriptionStatus = subscriptionStatus
+        self.appVersionInfo = appVersionInfo
+        self.onSubscriptionTapped = onSubscriptionTapped
     }
 
     var body: some View {
         Form {
             if bookID == nil {
+                Section {
+                    Button(action: onSubscriptionTapped) {
+                        HStack(spacing: 12) {
+                            Text(strings.subscription)
+                                .foregroundStyle(DesignTokens.onSurface)
+                            Spacer(minLength: 16)
+                            Text(subscriptionStatus.displayText(in: strings))
+                                .foregroundStyle(DesignTokens.onSurfaceVariant)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(strings.subscription)
+                    .accessibilityValue(subscriptionStatus.accessibilityText(in: strings))
+                    .accessibilityHint(subscriptionStatus.isSubscribed ? "" : strings.purchaseNotice)
+                    .accessibilityIdentifier("settings.subscription")
+                }
+
                 Section(strings.displaySection) {
                     Picker(strings.appLanguage, selection: appLanguageBinding) {
                         ForEach(AppLanguage.allCases, id: \.self) { languagePreference in
@@ -120,8 +152,18 @@ struct SettingsView: View {
                     Button(strings.resetDefaults, role: .destructive) { confirmsReset = true }
                         .accessibilityIdentifier("settings.reset")
                 }
+
+                Section {
+                    legalDocumentButton(.terms)
+                    legalDocumentButton(.privacy)
+                    appVersionButton
+                }
             }
         }
+        .hidingScrollContentBackgroundIfAvailable()
+        .background(DesignTokens.background.ignoresSafeArea())
+        .listRowBackground(DesignTokens.surfaceElevated)
+        .foregroundStyle(DesignTokens.onSurface)
         .navigationTitle(bookID == nil ? strings.settingsTab : strings.bookSettingsTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -140,6 +182,43 @@ struct SettingsView: View {
     }
 
     private var resolved: ReaderPreferences { store.resolved(for: bookID) }
+
+    private var appVersionButton: some View {
+        Button {
+            openURL(appVersionInfo.updateURL)
+        } label: {
+            HStack {
+                Text(strings.appVersion)
+                    .foregroundStyle(DesignTokens.onSurface)
+                Spacer(minLength: 16)
+                Text(appVersionInfo.shortVersion)
+                    .foregroundStyle(DesignTokens.onSurfaceVariant)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(appVersionInfo.displayText(in: strings))
+        .accessibilityHint(strings.checkForUpdatesHint)
+        .accessibilityIdentifier("settings.appVersion")
+    }
+
+    private func legalDocumentButton(_ document: LegalDocument) -> some View {
+        Button {
+            openURL(document.url)
+        } label: {
+            HStack {
+                Text(document.title(in: strings))
+                    .foregroundStyle(DesignTokens.onSurface)
+                Spacer(minLength: 16)
+                Image(systemName: "arrow.up.right")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(DesignTokens.onSurfaceVariant)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityLabel(document.title(in: strings))
+        .accessibilityHint(document.url.absoluteString)
+        .accessibilityIdentifier("settings.legal.\(document.identifier)")
+    }
 
     private var appLanguageBinding: Binding<AppLanguage> {
         Binding(

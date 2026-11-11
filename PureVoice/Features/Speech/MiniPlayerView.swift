@@ -4,6 +4,7 @@ struct MiniPlayerView: View {
     @Environment(\.appStrings) private var strings
     @ObservedObject var viewModel: ListeningViewModel
     let onOpen: () -> Void
+    var onTogglePlayback: (() -> Void)?
     let onClose: () -> Void
     var reservesTabBarSpace = false
 
@@ -17,7 +18,7 @@ struct MiniPlayerView: View {
                             .lineLimit(1)
                         Text(viewModel.currentSentence)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.onSurfaceVariant)
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -26,7 +27,13 @@ struct MiniPlayerView: View {
                 .accessibilityLabel(strings.returnToListeningAccessibility(viewModel.title))
                 .accessibilityIdentifier("miniPlayer.open")
 
-                Button(action: { viewModel.togglePlayback() }) {
+                Button {
+                    if let onTogglePlayback {
+                        onTogglePlayback()
+                    } else {
+                        viewModel.togglePlayback()
+                    }
+                } label: {
                     Image(systemName: viewModel.state.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .frame(width: 44, height: 44)
@@ -44,7 +51,7 @@ struct MiniPlayerView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
-            .background(.regularMaterial)
+            .background(DesignTokens.surfaceElevated.opacity(0.94))
             .overlay(alignment: .top) { Divider() }
             .padding(.bottom, reservesTabBarSpace ? DesignTokens.minimumTouchTarget : 0)
             .accessibilityElement(children: .contain)

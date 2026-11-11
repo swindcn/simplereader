@@ -53,7 +53,7 @@ final class AppStateRestorerTests: XCTestCase {
         XCTAssertNil(AppStateRestorer(defaults: defaults).restoreLaunchState())
     }
 
-    func testReadingAndListeningPositionsRestoreSafeWorkWithoutAutoplay() throws {
+    func testReadingAndListeningPositionsDoNotAutoOpenOnNextLaunch() throws {
         let restorer = AppStateRestorer(defaults: defaults)
         let readingBookID = UUID()
         let listeningBookID = UUID()
@@ -61,15 +61,9 @@ final class AppStateRestorerTests: XCTestCase {
         let listeningPosition = ReadingPosition(href: "chapter-2.xhtml", progression: 0.72)
 
         restorer.recordReading(bookID: readingBookID, position: readingPosition)
-        XCTAssertEqual(
-            AppStateRestorer(defaults: defaults).restoreLaunchState(),
-            .reopenReader(bookID: readingBookID, position: readingPosition)
-        )
+        XCTAssertNil(AppStateRestorer(defaults: defaults).restoreLaunchState())
 
         restorer.recordListening(bookID: listeningBookID, position: listeningPosition, wasPlaying: true)
-        XCTAssertEqual(
-            AppStateRestorer(defaults: defaults).restoreLaunchState(),
-            .reopenListening(bookID: listeningBookID, position: listeningPosition, shouldAutoplay: false)
-        )
+        XCTAssertNil(AppStateRestorer(defaults: defaults).restoreLaunchState())
     }
 }
