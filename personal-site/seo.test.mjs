@@ -43,7 +43,7 @@ for (const asset of ["robots.txt", "sitemap.xml", "app-ads.txt"]) {
 }
 
 const appAds = fs.readFileSync(new URL("app-ads.txt", siteDir), "utf8").trim();
-assert.equal(appAds, "google.com, pub-7825846382833047, DIRECT, f08c47fec0942fa0", "app-ads.txt should contain the AdMob publisher authorization line");
+assert.equal(appAds, "google.com, pub-6511421145497710, DIRECT, f08c47fec0942fa0", "app-ads.txt should contain the AdMob publisher authorization line");
 
 const sitemap = fs.readFileSync(new URL("sitemap.xml", siteDir), "utf8");
 for (const page of pages) {
