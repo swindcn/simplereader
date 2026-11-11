@@ -37,10 +37,13 @@ for (const page of pages) {
   assert.doesNotThrow(() => JSON.parse(jsonLd[1]), `${page} JSON-LD should be valid JSON`);
 }
 
-for (const asset of ["robots.txt", "sitemap.xml"]) {
+for (const asset of ["robots.txt", "sitemap.xml", "app-ads.txt"]) {
   const assetPath = path.join(sitePath, asset);
   assert.equal(fs.existsSync(assetPath), true, `${asset} should exist`);
 }
+
+const appAds = fs.readFileSync(new URL("app-ads.txt", siteDir), "utf8").trim();
+assert.equal(appAds, "google.com, pub-7825846382833047, DIRECT, f08c47fec0942fa0", "app-ads.txt should contain the AdMob publisher authorization line");
 
 const sitemap = fs.readFileSync(new URL("sitemap.xml", siteDir), "utf8");
 for (const page of pages) {
